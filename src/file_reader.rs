@@ -5,7 +5,7 @@ use std::io::{self, BufRead};
 use std::path::Path;
 
 pub fn read(strategies: HashMap<String, Vec<String>>) {
-    match read_lines("clear_text_dump.sql") {
+    match read_lines("clear_text_dump_big.sql") {
         Ok(lines) => {
             for line in lines {
                 if let Ok(ip) = line {
