@@ -1,8 +1,7 @@
-pub fn parse(line : String) {
-    if line.starts_with("COPY "){
+pub fn parse(line: String) {
+    if line.starts_with("COPY ") {
         crate::parsers::copy_row::parse(line);
     } else if line.starts_with("\\.") {
-
     }
 }
 
@@ -15,4 +14,3 @@ mod tests {
         parse("ooh".to_string())
     }
 }
-
