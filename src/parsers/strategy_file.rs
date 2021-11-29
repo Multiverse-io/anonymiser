@@ -15,24 +15,31 @@ struct StrategyInFile {
     columns: Vec<ColumnInFile>,
 }
 
-pub fn parse(file_name: &str) -> HashMap<String, Vec<String>> {
+pub fn parse(file_name: &str) -> HashMap<String, HashMap<String, String>> {
     match read_file(file_name) {
         Ok(strategies) => transform_file_strategies(strategies),
         Err(error) => panic!("Unable to read strategy file: {:?}", error),
     }
 }
 
-fn transform_file_strategies(strategies: Vec<StrategyInFile>) -> HashMap<String, Vec<String>> {
-    let mut map = HashMap::new();
+fn transform_file_strategies(
+    strategies: Vec<StrategyInFile>,
+) -> HashMap<String, HashMap<String, String>> {
+    let mut transformed_strategies = HashMap::new();
+    //TODO MAKE THE TRANSFORMS AN OPTION?
     for strategy in strategies {
         let columns = strategy
             .columns
             .into_iter()
-            .map(|column| column.transformer)
+            .map(|column| (column.name, column.transformer))
             .collect();
-        map.insert(strategy.table_name, columns);
+
+        transformed_strategies.insert(
+            format!("{}.{}", strategy.schema, strategy.table_name),
+            columns,
+        );
     }
-    return map;
+    return transformed_strategies;
 }
 
 fn read_file(file_name: &str) -> Result<Vec<StrategyInFile>> {
