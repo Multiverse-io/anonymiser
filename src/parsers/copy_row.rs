@@ -39,7 +39,10 @@ fn get_current_table_information(
     strategies: &HashMap<String, HashMap<String, String>>,
 ) -> CurrentTable {
     let table_name = table.replace("\"", "");
-    let column_list: Vec<String> = unsplit_columns.split(", ").map(|s| s.to_string()).collect();
+    let column_list: Vec<String> = unsplit_columns
+        .split(", ")
+        .map(|s| s.replace("\"", "").to_string())
+        .collect();
     let transforms = transforms_from_strategy(strategies, &table_name, &column_list);
 
     if column_list.len() != transforms.len() {
@@ -129,6 +132,18 @@ mod tests {
         let parsed_copy_row = parse("COPY public.\"references\" (id) FROM stdin;\n", &strategies);
 
         assert_eq!("public.references", parsed_copy_row.table_name);
+    }
+
+    #[test]
+    fn removes_quotes_around_column_names() {
+        let strategies = HashMap::from([(
+            "public.users".to_string(),
+            HashMap::from([("from".to_string(), "None".to_string())]),
+        )]);
+
+        let _parsed_copy_row = parse("COPY public.users (\"from\") FROM stdin;\n", &strategies);
+
+        assert!(true, "we didn't panic!");
     }
     #[test]
     #[should_panic(expected = "Invalid Copy row format")]

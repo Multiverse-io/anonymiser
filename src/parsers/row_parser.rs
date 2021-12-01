@@ -13,11 +13,11 @@ pub fn initial_state() -> RowParsingState {
     }
 }
 
-pub fn parse<'a>(
-    line: String,
-    state: &'a mut RowParsingState,
-    strategies: &'a HashMap<String, HashMap<String, String>>,
-) -> String {
+pub fn parse<'a, 'b>(
+    line: &'a str,
+    state: &'b mut RowParsingState,
+    strategies: &'b HashMap<String, HashMap<String, String>>,
+) -> &'a str {
     if line.starts_with("COPY ") {
         let current_table = crate::parsers::copy_row::parse(&line, strategies);
         state.in_copy = true;
@@ -26,6 +26,10 @@ pub fn parse<'a>(
     } else if line.starts_with("\\.") {
         state.in_copy = false;
         state.current_table = None;
+        return line;
+    } else if state.in_copy {
+        print!("{:?}", state.current_table.as_ref().unwrap());
+
         return line;
     } else {
         return line;
@@ -51,7 +55,7 @@ mod tests {
         let strategies = HashMap::from([("public.users".to_string(), transforms.clone())]);
 
         let mut state = initial_state();
-        let processed_row = parse(copy_row.to_string(), &mut state, &strategies);
+        let processed_row = parse(copy_row, &mut state, &strategies);
         assert!(state.in_copy == true);
         assert_eq!(copy_row, processed_row);
 
@@ -82,12 +86,35 @@ mod tests {
         let strategies = HashMap::from([("public.users".to_string(), transforms.clone())]);
 
         let mut state = initial_state();
-        let processed_row = parse(end_copy_row.to_string(), &mut state, &strategies);
+        let processed_row = parse(end_copy_row, &mut state, &strategies);
         assert!(state.in_copy == false);
         assert_eq!(end_copy_row, processed_row);
-        match &state.current_table {
-            None => assert!(true),
-            Some(_) => assert!(false, "end row should unset the current table"),
-        };
+        assert!(state.current_table.is_none());
+    }
+
+    #[test]
+    fn non_table_data_passes_through() {
+        let non_table_data_row = "--this is a SQL comment";
+        let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
+
+        let mut state = initial_state();
+        let processed_row = parse(non_table_data_row, &mut state, &strategies);
+        assert!(state.in_copy == false);
+        assert!(state.current_table.is_none());
+        assert_eq!(non_table_data_row, processed_row);
+    }
+
+    #[test]
+    fn table_data_is_transformed() {
+        //TODO Write this!
+        let non_table_data_row = "--this is a SQL comment";
+        let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
+
+        let mut state = initial_state();
+        let processed_row = parse(non_table_data_row, &mut state, &strategies);
+        assert!(state.in_copy == false);
+        assert!(state.current_table.is_none());
+        assert_eq!(non_table_data_row, processed_row);
+        assert!(false, "FAIL");
     }
 }

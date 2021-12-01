@@ -57,6 +57,7 @@ fn read_file(file_name: &str) -> Result<Vec<StrategyInFile>> {
 mod tests {
     use super::*;
 
+    //TODO proper tests here
     #[test]
     fn it_works() {
         let x = parse("new_mappings.json");
