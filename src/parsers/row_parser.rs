@@ -1,4 +1,5 @@
 use crate::parsers::copy_row::CurrentTable;
+use itertools::join;
 use std::collections::HashMap;
 
 pub struct RowParsingState {
@@ -13,11 +14,11 @@ pub fn initial_state() -> RowParsingState {
     }
 }
 
-pub fn parse<'a, 'b>(
-    line: &'a str,
-    state: &'b mut RowParsingState,
-    strategies: &'b HashMap<String, HashMap<String, String>>,
-) -> &'a str {
+pub fn parse<'line, 'state>(
+    line: &'line str,
+    state: &'state mut RowParsingState,
+    strategies: &'state HashMap<String, HashMap<String, String>>,
+) -> &'line str {
     if line.starts_with("COPY ") {
         let current_table = crate::parsers::copy_row::parse(&line, strategies);
         state.in_copy = true;
@@ -28,12 +29,44 @@ pub fn parse<'a, 'b>(
         state.current_table = None;
         return line;
     } else if state.in_copy {
-        print!("{:?}", state.current_table.as_ref().unwrap());
-
-        return line;
+        return transform_row(line, &state.current_table);
     } else {
         return line;
     }
+}
+
+fn transform_column_value<'line, 'state>(value: &'line str, transform: &'state str) -> &'line str {
+    match transform {
+        "None" => value,
+        "TestData" => "TestData",
+        _ => panic!("unhandled transform: {:?}", transform),
+    }
+}
+
+fn transform_row<'line, 'state>(
+    line: &'line str,
+    maybe_current_table: &'state Option<CurrentTable>,
+) -> &'line str {
+    let current_table = maybe_current_table
+        .as_ref()
+        .expect("Something bad happened, we're inside a copy block but we haven't realised!");
+
+    match &current_table.transforms {
+        Some(transforms) => {
+            let column_values = split_row(line);
+            let transformed = column_values
+                .enumerate()
+                .map(|(i, value)| return transform_column_value(value, &transforms[i]));
+
+            let joined = join(transformed, "\t");
+            return &joined;
+        }
+        None => line,
+    }
+}
+
+fn split_row<'line>(line: &'line str) -> std::str::Split<&str> {
+    return line.split("\t");
 }
 
 #[cfg(test)]
@@ -107,14 +140,21 @@ mod tests {
     #[test]
     fn table_data_is_transformed() {
         //TODO Write this!
-        let non_table_data_row = "--this is a SQL comment";
+        let table_data_row = "123\tPeter\tPuckleberry";
         let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
 
-        let mut state = initial_state();
-        let processed_row = parse(non_table_data_row, &mut state, &strategies);
-        assert!(state.in_copy == false);
-        assert!(state.current_table.is_none());
-        assert_eq!(non_table_data_row, processed_row);
-        assert!(false, "FAIL");
+        let mut state = RowParsingState {
+            in_copy: true,
+            current_table: Some(CurrentTable {
+                table_name: "public.users".to_string(),
+                transforms: Some(vec![
+                    "TestData".to_string(),
+                    "TestData".to_string(),
+                    "TestData".to_string(),
+                ]),
+            }),
+        };
+        let processed_row = parse(table_data_row, &mut state, &strategies);
+        assert_eq!(table_data_row, processed_row);
     }
 }

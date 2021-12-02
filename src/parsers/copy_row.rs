@@ -3,7 +3,7 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CurrentTable {
     pub table_name: String,
     pub transforms: Option<Vec<String>>,
