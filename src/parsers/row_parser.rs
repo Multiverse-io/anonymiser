@@ -18,20 +18,20 @@ pub fn parse<'line, 'state>(
     line: &'line str,
     state: &'state mut RowParsingState,
     strategies: &'state HashMap<String, HashMap<String, String>>,
-) -> &'line str {
+) -> String {
     if line.starts_with("COPY ") {
         let current_table = crate::parsers::copy_row::parse(&line, strategies);
         state.in_copy = true;
         state.current_table = Some(current_table);
-        return line;
+        return line.to_string();
     } else if line.starts_with("\\.") {
         state.in_copy = false;
         state.current_table = None;
-        return line;
+        return line.to_string();
     } else if state.in_copy {
         return transform_row(line, &state.current_table);
     } else {
-        return line;
+        return line.to_string();
     }
 }
 
@@ -46,7 +46,7 @@ fn transform_column_value<'line, 'state>(value: &'line str, transform: &'state s
 fn transform_row<'line, 'state>(
     line: &'line str,
     maybe_current_table: &'state Option<CurrentTable>,
-) -> &'line str {
+) -> String {
     let current_table = maybe_current_table
         .as_ref()
         .expect("Something bad happened, we're inside a copy block but we haven't realised!");
@@ -59,9 +59,9 @@ fn transform_row<'line, 'state>(
                 .map(|(i, value)| return transform_column_value(value, &transforms[i]));
 
             let joined = join(transformed, "\t");
-            return &joined;
+            return joined;
         }
-        None => line,
+        None => line.to_string(),
     }
 }
 
