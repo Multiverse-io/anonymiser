@@ -155,6 +155,6 @@ mod tests {
             }),
         };
         let processed_row = parse(table_data_row, &mut state, &strategies);
-        assert_eq!(table_data_row, processed_row);
+        assert_eq!("TestData\tTestData\tTestData", processed_row);
     }
 }
