@@ -3,10 +3,23 @@ use serde_json::Result;
 use std::collections::HashMap;
 use std::fs;
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum TransformerType {
+    Identity,
+    FakeFirstName,
+    FakeLastName,
+    Test,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Transformer {
+    pub name: TransformerType,
+    pub args: Option<Vec<String>>,
+}
 #[derive(Serialize, Deserialize)]
 struct ColumnInFile {
     name: String,
-    transformer: String,
+    transformer: Transformer,
 }
 #[derive(Serialize, Deserialize)]
 struct StrategyInFile {
@@ -15,7 +28,7 @@ struct StrategyInFile {
     columns: Vec<ColumnInFile>,
 }
 
-pub fn parse(file_name: &str) -> HashMap<String, HashMap<String, String>> {
+pub fn parse(file_name: &str) -> HashMap<String, HashMap<String, Transformer>> {
     match read_file(file_name) {
         Ok(strategies) => transform_file_strategies(strategies),
         Err(error) => panic!("Unable to read strategy file: {:?}", error),
@@ -24,8 +37,8 @@ pub fn parse(file_name: &str) -> HashMap<String, HashMap<String, String>> {
 
 fn transform_file_strategies(
     strategies: Vec<StrategyInFile>,
-) -> HashMap<String, HashMap<String, String>> {
-    let mut transformed_strategies = HashMap::new();
+) -> HashMap<String, HashMap<String, Transformer>> {
+    let mut transformed_strategies: HashMap<String, HashMap<String, Transformer>> = HashMap::new();
     //TODO MAKE THE TRANSFORMS AN OPTION?
     for strategy in strategies {
         let columns = strategy

@@ -1,4 +1,8 @@
+use crate::parsers::copy_row;
 use crate::parsers::copy_row::CurrentTable;
+use crate::parsers::transformer;
+use crate::strategy_file::Transformer;
+use crate::strategy_file::TransformerType;
 use itertools::join;
 use std::collections::HashMap;
 
@@ -17,10 +21,10 @@ pub fn initial_state() -> RowParsingState {
 pub fn parse<'line, 'state>(
     line: &'line str,
     state: &'state mut RowParsingState,
-    strategies: &'state HashMap<String, HashMap<String, String>>,
+    strategies: &'state HashMap<String, HashMap<String, Transformer>>,
 ) -> String {
     if line.starts_with("COPY ") {
-        let current_table = crate::parsers::copy_row::parse(&line, strategies);
+        let current_table = copy_row::parse(&line, strategies);
         state.in_copy = true;
         state.current_table = Some(current_table);
         return line.to_string();
@@ -32,14 +36,6 @@ pub fn parse<'line, 'state>(
         return transform_row(line, &state.current_table);
     } else {
         return line.to_string();
-    }
-}
-
-fn transform_column_value<'line, 'state>(value: &'line str, transform: &'state str) -> &'line str {
-    match transform {
-        "None" => value,
-        "TestData" => "TestData",
-        _ => panic!("unhandled transform: {:?}", transform),
     }
 }
 
@@ -56,7 +52,7 @@ fn transform_row<'line, 'state>(
             let column_values = split_row(line);
             let transformed = column_values
                 .enumerate()
-                .map(|(i, value)| return transform_column_value(value, &transforms[i]));
+                .map(|(i, value)| return transformer::transform(value, &transforms[i]));
 
             let joined = join(transformed, "\t");
             return joined;
@@ -78,14 +74,29 @@ mod tests {
     ) {
         let copy_row = "COPY public.users (id, first_name, last_name) FROM stdin;\n";
         let transforms = HashMap::from([
-            ("id".to_string(), "None".to_string()),
+            (
+                "id".to_string(),
+                Transformer {
+                    name: TransformerType::Identity,
+                    args: None,
+                },
+            ),
             (
                 "first_name".to_string(),
-                "first_name_transformer".to_string(),
+                Transformer {
+                    name: TransformerType::FakeFirstName,
+                    args: None,
+                },
             ),
-            ("last_name".to_string(), "last_name_transformer".to_string()),
+            (
+                "last_name".to_string(),
+                Transformer {
+                    name: TransformerType::FakeLastName,
+                    args: None,
+                },
+            ),
         ]);
-        let strategies = HashMap::from([("public.users".to_string(), transforms.clone())]);
+        let strategies = HashMap::from([("public.users".to_string(), transforms)]);
 
         let mut state = initial_state();
         let processed_row = parse(copy_row, &mut state, &strategies);
@@ -95,9 +106,18 @@ mod tests {
         match &state.current_table {
             Some(current_table) => assert_eq!(
                 Some(vec!(
-                    "None".to_string(),
-                    "first_name_transformer".to_string(),
-                    "last_name_transformer".to_string()
+                    Transformer {
+                        name: TransformerType::Identity,
+                        args: None,
+                    },
+                    Transformer {
+                        name: TransformerType::Identity,
+                        args: None,
+                    },
+                    Transformer {
+                        name: TransformerType::Identity,
+                        args: None,
+                    },
                 )),
                 current_table.transforms
             ),
@@ -109,14 +129,29 @@ mod tests {
     fn end_copy_row_sets_status_to_being_in_copy_and_adds_transforms() {
         let end_copy_row = "\\.";
         let transforms = HashMap::from([
-            ("id".to_string(), "None".to_string()),
+            (
+                "id".to_string(),
+                Transformer {
+                    name: TransformerType::Identity,
+                    args: None,
+                },
+            ),
             (
                 "first_name".to_string(),
-                "first_name_transformer".to_string(),
+                Transformer {
+                    name: TransformerType::FakeFirstName,
+                    args: None,
+                },
             ),
-            ("last_name".to_string(), "last_name_transformer".to_string()),
+            (
+                "last_name".to_string(),
+                Transformer {
+                    name: TransformerType::FakeLastName,
+                    args: None,
+                },
+            ),
         ]);
-        let strategies = HashMap::from([("public.users".to_string(), transforms.clone())]);
+        let strategies = HashMap::from([("public.users".to_string(), transforms)]);
 
         let mut state = initial_state();
         let processed_row = parse(end_copy_row, &mut state, &strategies);
@@ -148,9 +183,18 @@ mod tests {
             current_table: Some(CurrentTable {
                 table_name: "public.users".to_string(),
                 transforms: Some(vec![
-                    "TestData".to_string(),
-                    "TestData".to_string(),
-                    "TestData".to_string(),
+                    Transformer {
+                        name: TransformerType::Test,
+                        args: None,
+                    },
+                    Transformer {
+                        name: TransformerType::Test,
+                        args: None,
+                    },
+                    Transformer {
+                        name: TransformerType::Test,
+                        args: None,
+                    },
                 ]),
             }),
         };
