@@ -27,7 +27,7 @@ pub fn read(
 
                 let transformed_row = row_parser::parse(&line, &mut row_parser_state, strategies);
                 let to_write = [transformed_row.as_bytes(), "\n".as_bytes()].concat();
-                file_writer.write_all(&to_write);
+                file_writer.write_all(&to_write)?;
                 line.clear();
             }
             Err(err) => {

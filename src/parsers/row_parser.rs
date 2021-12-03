@@ -2,7 +2,6 @@ use crate::parsers::copy_row;
 use crate::parsers::copy_row::CurrentTable;
 use crate::parsers::transformer;
 use crate::strategy_file::Transformer;
-use crate::strategy_file::TransformerType;
 use itertools::join;
 use std::collections::HashMap;
 

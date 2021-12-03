@@ -1,5 +1,4 @@
 use crate::strategy_file::Transformer;
-use crate::strategy_file::TransformerType;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
