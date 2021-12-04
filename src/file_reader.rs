@@ -12,7 +12,7 @@ pub fn read(
     let output_file = File::create("poem.sql").unwrap();
     let mut file_writer = BufWriter::new(output_file);
 
-    let file_reader = File::open("clear_text_dump_big.sql")?;
+    let file_reader = File::open("clear_text_dump.sql")?;
     let mut reader = BufReader::new(file_reader);
     let mut line = String::new();
 
@@ -26,8 +26,7 @@ pub fn read(
                 }
 
                 let transformed_row = row_parser::parse(&line, &mut row_parser_state, strategies);
-                let to_write = [transformed_row.as_bytes(), "\n".as_bytes()].concat();
-                file_writer.write_all(&to_write)?;
+                file_writer.write_all(transformed_row.as_bytes())?;
                 line.clear();
             }
             Err(err) => {

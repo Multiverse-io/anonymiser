@@ -5,16 +5,32 @@ use std::fs;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TransformerType {
-    Identity,
+    EmptyJson,
+    Error,
+    FakeCity,
+    FakeCompanyName,
+    FakeEmail,
     FakeFirstName,
+    FakeFullAddress,
+    FakeFullName,
+    FakeIPv4,
     FakeLastName,
+    FakePostCode,
+    FakeState,
+    FakeStreetAddress,
+    FakeUUID,
+    Fixed,
+    Identity,
+    ObfuscateDay,
+    Redact,
+    Scramble,
     Test,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Transformer {
     pub name: TransformerType,
-    pub args: Option<Vec<String>>,
+    pub args: Option<HashMap<String, String>>,
 }
 #[derive(Serialize, Deserialize)]
 struct ColumnInFile {
@@ -39,7 +55,7 @@ fn transform_file_strategies(
     strategies: Vec<StrategyInFile>,
 ) -> HashMap<String, HashMap<String, Transformer>> {
     let mut transformed_strategies: HashMap<String, HashMap<String, Transformer>> = HashMap::new();
-    //TODO MAKE THE TRANSFORMS AN OPTION?
+    //TODO If all columns are none, lets not do any transforming?
     for strategy in strategies {
         let columns = strategy
             .columns

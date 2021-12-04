@@ -53,20 +53,25 @@ fn transform_row<'line, 'state>(
                 .enumerate()
                 .map(|(i, value)| return transformer::transform(value, &transforms[i]));
 
-            let joined = join(transformed, "\t");
+            let mut joined = join(transformed, "\t");
+            joined.push('\n');
             return joined;
         }
-        None => line.to_string(),
+        None => {
+            //TODO test carriage returns etc. here
+            return line.to_string();
+        }
     }
 }
 
 fn split_row<'line>(line: &'line str) -> std::str::Split<&str> {
-    return line.split("\t");
+    return line.strip_suffix("\n").unwrap_or(line).split("\t");
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::strategy_file::TransformerType;
 
     #[test]
     fn copy_row_sets_status_to_being_in_copy_and_adds_transforms_in_the_correct_order_for_the_columns(
@@ -110,11 +115,11 @@ mod tests {
                         args: None,
                     },
                     Transformer {
-                        name: TransformerType::Identity,
+                        name: TransformerType::FakeFirstName,
                         args: None,
                     },
                     Transformer {
-                        name: TransformerType::Identity,
+                        name: TransformerType::FakeLastName,
                         args: None,
                     },
                 )),
@@ -174,7 +179,7 @@ mod tests {
     #[test]
     fn table_data_is_transformed() {
         //TODO Write this!
-        let table_data_row = "123\tPeter\tPuckleberry";
+        let table_data_row = "123\tPeter\tPuckleberry\n";
         let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
 
         let mut state = RowParsingState {
@@ -198,6 +203,6 @@ mod tests {
             }),
         };
         let processed_row = parse(table_data_row, &mut state, &strategies);
-        assert_eq!("TestData\tTestData\tTestData", processed_row);
+        assert_eq!("TestData\tTestData\tTestData\n", processed_row);
     }
 }

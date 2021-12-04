@@ -83,6 +83,7 @@ fn capture_to_item<'a, 'b>(capture: &'a regex::Captures, name: &'b str) -> Optio
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::strategy_file::TransformerType;
 
     #[test]
     fn returns_transforms_for_table() {
