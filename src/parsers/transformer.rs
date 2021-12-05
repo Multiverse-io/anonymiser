@@ -68,7 +68,7 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer) -> String {
         TransformerType::FakeFullName => fake_full_name(),
         TransformerType::FakeIPv4 => IPv4().fake(),
         TransformerType::FakeLastName => LastName().fake(),
-        TransformerType::FakeNationalIdentityNumber => fake_national_identity_number(value),
+        TransformerType::FakeNationalIdentityNumber => fake_national_identity_number(),
         TransformerType::FakePostCode => PostCode().fake(),
         TransformerType::FakePhoneNumber => fake_phone_number(value),
         TransformerType::FakeStreetAddress => fake_street_address(),
@@ -82,7 +82,6 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer) -> String {
         TransformerType::Scramble => scramble(value),
         TransformerType::Test => "TestData".to_string(),
     }
-    //TODO Fake uk phone ranges - https://www.ofcom.org.uk/phones-telecoms-and-internet/information-for-industry/numbering/numbers-for-drama
 }
 
 fn fake_email(optional_args: &Option<HashMap<String, String>>, unique: usize) -> String {
@@ -128,13 +127,11 @@ fn fake_full_name() -> String {
     return format!("{} {}", first, last);
 }
 
-fn fake_national_identity_number(current_value: &str) -> String {
-    if current_value.chars().next().unwrap().is_numeric() {
-        //TODO generate social sec number
-        return "US!".to_string();
-    } else {
-        return national_insurance_number::random();
-    }
+fn fake_national_identity_number() -> String {
+    //TODO currently we dont validate, this is free text so they can enter anything at all, so im
+    //not bothering with us vs uk, there dont seem to be any us social sec numbers in the DB
+    //currently
+    return national_insurance_number::random();
 }
 
 //https://www.ofcom.org.uk/phones-telecoms-and-internet/information-for-industry/numbering/numbers-for-drama
@@ -173,6 +170,18 @@ mod tests {
     use crate::parsers::national_insurance_number;
     use regex::Regex;
 
+    #[test]
+    fn nul_is_not_transformed() {
+        let null = "\\N";
+        let new_null = transform(
+            null,
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+        );
+        assert_eq!(new_null, null);
+    }
     #[test]
     fn identity() {
         let first_name = "any first name";
@@ -303,6 +312,7 @@ mod tests {
         assert!(national_insurance_number::NATIONAL_INSURANCE_NUMBERS
             .contains(&new_national_identity_number.as_ref()));
     }
+
     #[test]
     fn fake_phone_number_gb() {
         let phone_number = "+447822222222";
