@@ -51,7 +51,7 @@ pub struct Transformer {
     pub args: Option<HashMap<String, String>>,
 }
 
-pub fn transform<'line>(value: &'line str, transform: &Transformer) -> String {
+pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: &str) -> String {
     if value == "\\N" {
         return value.to_string();
     }
@@ -59,7 +59,9 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer) -> String {
     let unique = get_unique();
     match transform.name {
         TransformerType::EmptyJson => "{}".to_string(),
-        TransformerType::Error => panic!("Error transform still in place"),
+        TransformerType::Error => {
+            panic!("Error transform still in place for table: {}", table_name)
+        }
         TransformerType::FakeCity => CityName().fake(),
         TransformerType::FakeCompanyName => CompanyName().fake(),
         TransformerType::FakeEmail => fake_email(&transform.args, unique),
@@ -75,9 +77,9 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer) -> String {
         TransformerType::FakeState => StateName().fake(),
         //TODO not tested VV
         TransformerType::FakeUUID => Uuid::new_v4().to_string(),
-        TransformerType::Fixed => fixed(&transform.args),
+        TransformerType::Fixed => fixed(&transform.args, table_name),
         TransformerType::Identity => value.to_string(),
-        TransformerType::ObfuscateDay => obfuscate_day(value),
+        TransformerType::ObfuscateDay => obfuscate_day(value, table_name),
         TransformerType::Redact => format!("Redacted {}", '\u{1F910}'),
         TransformerType::Scramble => scramble(value),
         TransformerType::Test => "TestData".to_string(),
@@ -128,9 +130,9 @@ fn fake_full_name() -> String {
 }
 
 fn fake_national_identity_number() -> String {
-    //TODO currently we dont validate, this is free text so they can enter anything at all, so im
-    //not bothering with us vs uk, there dont seem to be any us social sec numbers in the DB
-    //currently
+    //TODO currently this is free text so they can enter anything at all,
+    //so im not bothering with us vs uk,
+    //there dont seem to be any us social sec numbers in the DB currently
     return national_insurance_number::random();
 }
 
@@ -149,17 +151,19 @@ fn fake_phone_number(current_value: &str) -> String {
     }
 }
 
-fn fixed(args: &Option<HashMap<String, String>>) -> String {
-    let value = args
-        .as_ref()
-        .and_then(|a| a.get("value"))
-        .expect("Value must be present in args for a fixed transformer");
+fn fixed(args: &Option<HashMap<String, String>>, table_name: &str) -> String {
+    let value = args.as_ref().and_then(|a| a.get("value")).expect(&format!(
+        "Value must be present in args for a fixed transformer in table: {}",
+        table_name,
+    ));
     return value.to_string();
 }
 
-fn obfuscate_day(value: &str) -> String {
-    let date = NaiveDate::parse_from_str(value, "%Y-%m-%d")
-        .expect(&format!("Invalid date found: {}", value));
+fn obfuscate_day(value: &str, table_name: &str) -> String {
+    let date = NaiveDate::parse_from_str(value, "%Y-%m-%d").expect(&format!(
+        "Invalid date found: \"{}\" in table: \"{}\"",
+        value, table_name
+    ));
     let new_date = date.with_day(1).unwrap();
     return new_date.to_string();
 }
@@ -170,6 +174,7 @@ mod tests {
     use crate::parsers::national_insurance_number;
     use regex::Regex;
 
+    const TABLE_NAME: &str = "gert_lush_table";
     #[test]
     fn nul_is_not_transformed() {
         let null = "\\N";
@@ -179,6 +184,7 @@ mod tests {
                 name: TransformerType::Scramble,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert_eq!(new_null, null);
     }
@@ -191,6 +197,7 @@ mod tests {
                 name: TransformerType::Identity,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_first_name == first_name);
     }
@@ -203,6 +210,7 @@ mod tests {
                 name: TransformerType::FakeCompanyName,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_company_name != company_name);
     }
@@ -216,6 +224,7 @@ mod tests {
                 name: TransformerType::FakeEmail,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_email != email);
 
@@ -236,6 +245,7 @@ mod tests {
                 name: TransformerType::FakeEmail,
                 args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
             },
+            TABLE_NAME,
         );
         assert!(new_email != email);
         let re = Regex::new(r"^[0-9]+-.*@.*\..*").unwrap();
@@ -255,6 +265,7 @@ mod tests {
                 name: TransformerType::FakeFirstName,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_first_name != first_name);
     }
@@ -268,6 +279,7 @@ mod tests {
                 name: TransformerType::FakeFullName,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_full_name != full_name);
     }
@@ -281,6 +293,7 @@ mod tests {
                 name: TransformerType::FakeLastName,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_last_name != last_name);
     }
@@ -294,6 +307,7 @@ mod tests {
                 name: TransformerType::FakeFullAddress,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_street_address != street_address);
     }
@@ -307,6 +321,7 @@ mod tests {
                 name: TransformerType::FakeNationalIdentityNumber,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_national_identity_number != national_identity_number);
         assert!(national_insurance_number::NATIONAL_INSURANCE_NUMBERS
@@ -322,6 +337,7 @@ mod tests {
                 name: TransformerType::FakePhoneNumber,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_phone_number != phone_number);
         assert!(new_phone_number.starts_with("+4477009"));
@@ -337,6 +353,7 @@ mod tests {
                 name: TransformerType::FakePhoneNumber,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_phone_number != phone_number);
         print!("{:?}", new_phone_number);
@@ -354,6 +371,7 @@ mod tests {
                 name: TransformerType::FakePostCode,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_postcode != postcode);
     }
@@ -371,6 +389,7 @@ mod tests {
                     fixed_url.to_string(),
                 )])),
             },
+            TABLE_NAME,
         );
         assert_eq!(new_url, fixed_url);
     }
@@ -384,6 +403,7 @@ mod tests {
                 name: TransformerType::Fixed,
                 args: None,
             },
+            TABLE_NAME,
         );
     }
 
@@ -396,12 +416,15 @@ mod tests {
                 name: TransformerType::ObfuscateDay,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert_eq!(obfuscated_date, "2020-12-01");
     }
 
     #[test]
-    #[should_panic(expected = "Invalid date found: 2020-OHMYGOSH-12")]
+    #[should_panic(
+        expected = "Invalid date found: \"2020-OHMYGOSH-12\" in table: \"gert_lush_table\""
+    )]
     fn obfuscate_day_panics_with_invalid_date() {
         let date = "2020-OHMYGOSH-12";
         transform(
@@ -410,6 +433,20 @@ mod tests {
                 name: TransformerType::ObfuscateDay,
                 args: None,
             },
+            TABLE_NAME,
+        );
+    }
+
+    #[test]
+    fn can_deal_with_dates_from_before_christ_because_obviously_we_should_have_to() {
+        let date = "0001-08-04 BC";
+        transform(
+            date,
+            &Transformer {
+                name: TransformerType::ObfuscateDay,
+                args: None,
+            },
+            TABLE_NAME,
         );
     }
 
@@ -422,6 +459,7 @@ mod tests {
                 name: TransformerType::Redact,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert_eq!(redacted_street_address, "Redacted 🤐");
     }
@@ -435,6 +473,7 @@ mod tests {
                 name: TransformerType::Scramble,
                 args: None,
             },
+            TABLE_NAME,
         );
         assert!(new_value != initial_value);
         assert_eq!(new_value.len(), initial_value.len());

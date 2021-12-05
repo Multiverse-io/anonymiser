@@ -49,9 +49,9 @@ fn transform_row<'line, 'state>(
     match &current_table.transforms {
         Some(transforms) => {
             let column_values = split_row(line);
-            let transformed = column_values
-                .enumerate()
-                .map(|(i, value)| return transformer::transform(value, &transforms[i]));
+            let transformed = column_values.enumerate().map(|(i, value)| {
+                return transformer::transform(value, &transforms[i], &current_table.table_name);
+            });
 
             let mut joined = join(transformed, "\t");
             joined.push('\n');
