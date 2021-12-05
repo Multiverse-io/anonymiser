@@ -1,6 +1,6 @@
-use crate::strategy_file::Transformer;
-use crate::strategy_file::TransformerType;
+use crate::parsers::national_insurance_number;
 use chrono::{Datelike, NaiveDate};
+use core::ops::Range;
 use fake::faker::address::en::*;
 use fake::faker::company::en::*;
 use fake::faker::internet::en::*;
@@ -8,6 +8,7 @@ use fake::faker::name::en::*;
 use fake::Fake;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
@@ -18,7 +19,43 @@ fn get_unique() -> usize {
     return UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst);
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum TransformerType {
+    EmptyJson,
+    Error,
+    FakeCity,
+    FakeCompanyName,
+    FakeEmail,
+    FakeFirstName,
+    FakeFullAddress,
+    FakeFullName,
+    FakeIPv4,
+    FakeLastName,
+    FakeNationalIdentityNumber,
+    FakePhoneNumber,
+    FakePostCode,
+    FakeState,
+    FakeStreetAddress,
+    FakeUUID,
+    Fixed,
+    Identity,
+    ObfuscateDay,
+    Redact,
+    Scramble,
+    Test,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Transformer {
+    pub name: TransformerType,
+    pub args: Option<HashMap<String, String>>,
+}
+
 pub fn transform<'line>(value: &'line str, transform: &Transformer) -> String {
+    if value == "\\N" {
+        return value.to_string();
+    }
+
     let unique = get_unique();
     match transform.name {
         TransformerType::EmptyJson => "{}".to_string(),
@@ -31,7 +68,9 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer) -> String {
         TransformerType::FakeFullName => fake_full_name(),
         TransformerType::FakeIPv4 => IPv4().fake(),
         TransformerType::FakeLastName => LastName().fake(),
+        TransformerType::FakeNationalIdentityNumber => fake_national_identity_number(value),
         TransformerType::FakePostCode => PostCode().fake(),
+        TransformerType::FakePhoneNumber => fake_phone_number(value),
         TransformerType::FakeStreetAddress => fake_street_address(),
         TransformerType::FakeState => StateName().fake(),
         //TODO not tested VV
@@ -89,6 +128,30 @@ fn fake_full_name() -> String {
     return format!("{} {}", first, last);
 }
 
+fn fake_national_identity_number(current_value: &str) -> String {
+    if current_value.chars().next().unwrap().is_numeric() {
+        //TODO generate social sec number
+        return "US!".to_string();
+    } else {
+        return national_insurance_number::random();
+    }
+}
+
+//https://www.ofcom.org.uk/phones-telecoms-and-internet/information-for-industry/numbering/numbers-for-drama
+static UK_FAKE_MOBILE_RANGE: Range<i32> = 900000..960999;
+
+fn fake_phone_number(current_value: &str) -> String {
+    let mut rng = rand::thread_rng();
+    if current_value.starts_with("+447") {
+        let random = rng.gen_range(UK_FAKE_MOBILE_RANGE.clone());
+        return format!("+447700{0}", random);
+    } else {
+        let area_code = rng.gen_range(200..999);
+        let rest = rng.gen_range(1000000..9999999);
+        return format!("+1{}{}", area_code, rest);
+    }
+}
+
 fn fixed(args: &Option<HashMap<String, String>>) -> String {
     let value = args
         .as_ref()
@@ -107,6 +170,7 @@ fn obfuscate_day(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parsers::national_insurance_number;
     use regex::Regex;
 
     #[test]
@@ -213,19 +277,6 @@ mod tests {
     }
 
     #[test]
-    fn fake_postcode() {
-        let postcode = "any postcode";
-        let new_postcode = transform(
-            postcode,
-            &Transformer {
-                name: TransformerType::FakePostCode,
-                args: None,
-            },
-        );
-        assert!(new_postcode != postcode);
-    }
-
-    #[test]
     fn fake_full_address() {
         let street_address = "any street_address";
         let new_street_address = transform(
@@ -236,6 +287,65 @@ mod tests {
             },
         );
         assert!(new_street_address != street_address);
+    }
+
+    #[test]
+    fn fake_national_identity_number() {
+        let national_identity_number = "JR 55 55 55 E";
+        let new_national_identity_number = transform(
+            national_identity_number,
+            &Transformer {
+                name: TransformerType::FakeNationalIdentityNumber,
+                args: None,
+            },
+        );
+        assert!(new_national_identity_number != national_identity_number);
+        assert!(national_insurance_number::NATIONAL_INSURANCE_NUMBERS
+            .contains(&new_national_identity_number.as_ref()));
+    }
+    #[test]
+    fn fake_phone_number_gb() {
+        let phone_number = "+447822222222";
+        let new_phone_number = transform(
+            phone_number,
+            &Transformer {
+                name: TransformerType::FakePhoneNumber,
+                args: None,
+            },
+        );
+        assert!(new_phone_number != phone_number);
+        assert!(new_phone_number.starts_with("+4477009"));
+        assert_eq!(new_phone_number.len(), 13);
+    }
+
+    #[test]
+    fn fake_phone_number_us() {
+        let phone_number = "+16505130514";
+        let new_phone_number = transform(
+            phone_number,
+            &Transformer {
+                name: TransformerType::FakePhoneNumber,
+                args: None,
+            },
+        );
+        assert!(new_phone_number != phone_number);
+        print!("{:?}", new_phone_number);
+        assert!(new_phone_number.starts_with("+1"));
+        assert_eq!(new_phone_number.len(), 12);
+    }
+
+    #[test]
+    fn fake_postcode() {
+        //TODO no idea what this is, some us thing? (e.g. "71746-3648")
+        let postcode = "any postcode";
+        let new_postcode = transform(
+            postcode,
+            &Transformer {
+                name: TransformerType::FakePostCode,
+                args: None,
+            },
+        );
+        assert!(new_postcode != postcode);
     }
 
     #[test]

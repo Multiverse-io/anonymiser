@@ -1,37 +1,9 @@
+use crate::parsers::transformer::Transformer;
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use std::collections::HashMap;
 use std::fs;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum TransformerType {
-    EmptyJson,
-    Error,
-    FakeCity,
-    FakeCompanyName,
-    FakeEmail,
-    FakeFirstName,
-    FakeFullAddress,
-    FakeFullName,
-    FakeIPv4,
-    FakeLastName,
-    FakePostCode,
-    FakeState,
-    FakeStreetAddress,
-    FakeUUID,
-    Fixed,
-    Identity,
-    ObfuscateDay,
-    Redact,
-    Scramble,
-    Test,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Transformer {
-    pub name: TransformerType,
-    pub args: Option<HashMap<String, String>>,
-}
 #[derive(Serialize, Deserialize)]
 struct ColumnInFile {
     name: String,

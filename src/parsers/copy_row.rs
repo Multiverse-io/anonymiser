@@ -1,4 +1,4 @@
-use crate::strategy_file::Transformer;
+use crate::parsers::transformer::Transformer;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
@@ -83,7 +83,7 @@ fn capture_to_item<'a, 'b>(capture: &'a regex::Captures, name: &'b str) -> Optio
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::strategy_file::TransformerType;
+    use crate::parsers::transformer::TransformerType;
 
     #[test]
     fn returns_transforms_for_table() {

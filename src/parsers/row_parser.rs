@@ -1,7 +1,7 @@
 use crate::parsers::copy_row;
 use crate::parsers::copy_row::CurrentTable;
 use crate::parsers::transformer;
-use crate::strategy_file::Transformer;
+use crate::parsers::transformer::Transformer;
 use itertools::join;
 use std::collections::HashMap;
 
@@ -71,7 +71,7 @@ fn split_row<'line>(line: &'line str) -> std::str::Split<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::strategy_file::TransformerType;
+    use crate::parsers::transformer::TransformerType;
 
     #[test]
     fn copy_row_sets_status_to_being_in_copy_and_adds_transforms_in_the_correct_order_for_the_columns(

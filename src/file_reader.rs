@@ -1,5 +1,5 @@
 use crate::parsers::row_parser;
-use crate::strategy_file::Transformer;
+use crate::parsers::transformer::Transformer;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
@@ -12,7 +12,7 @@ pub fn read(
     let output_file = File::create("poem.sql").unwrap();
     let mut file_writer = BufWriter::new(output_file);
 
-    let file_reader = File::open("clear_text_dump.sql")?;
+    let file_reader = File::open("clear_text_dump_big.sql")?;
     let mut reader = BufReader::new(file_reader);
     let mut line = String::new();
 
