@@ -9,10 +9,10 @@ use std::io::BufWriter;
 pub fn read(
     strategies: &HashMap<String, HashMap<String, Transformer>>,
 ) -> Result<(), std::io::Error> {
-    let output_file = File::create("poem.sql").unwrap();
+    let output_file = File::create("anonimised.sql").unwrap();
     let mut file_writer = BufWriter::new(output_file);
 
-    let file_reader = File::open("clear_text_dump_big.sql")?;
+    let file_reader = File::open("clear_text_dump.sql")?;
     let mut reader = BufReader::new(file_reader);
     let mut line = String::new();
 

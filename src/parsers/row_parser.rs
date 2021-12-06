@@ -178,7 +178,6 @@ mod tests {
 
     #[test]
     fn table_data_is_transformed() {
-        //TODO Write this!
         let table_data_row = "123\tPeter\tPuckleberry\n";
         let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
 
@@ -188,21 +187,21 @@ mod tests {
                 table_name: "public.users".to_string(),
                 transforms: Some(vec![
                     Transformer {
-                        name: TransformerType::Test,
-                        args: None,
+                        name: TransformerType::Fixed,
+                        args: Some(HashMap::from([("value".to_string(), "first".to_string())])),
                     },
                     Transformer {
-                        name: TransformerType::Test,
-                        args: None,
+                        name: TransformerType::Fixed,
+                        args: Some(HashMap::from([("value".to_string(), "second".to_string())])),
                     },
                     Transformer {
-                        name: TransformerType::Test,
-                        args: None,
+                        name: TransformerType::Fixed,
+                        args: Some(HashMap::from([("value".to_string(), "third".to_string())])),
                     },
                 ]),
             }),
         };
         let processed_row = parse(table_data_row, &mut state, &strategies);
-        assert_eq!("TestData\tTestData\tTestData\n", processed_row);
+        assert_eq!("first\tsecond\tthird\n", processed_row);
     }
 }

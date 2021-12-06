@@ -1,5 +1,5 @@
 use crate::parsers::national_insurance_number;
-use base16::encode_lower;
+use base16;
 use base32::Alphabet;
 use chrono::{Datelike, NaiveDate};
 use core::ops::Range;
@@ -27,11 +27,6 @@ fn get_unique() -> usize {
 //ERROR:  value too long for type character varying(255)
 //CONTEXT:  COPY timeline_items, line 116588, column title: "z0kHB986epbDuxe9bjDtsBjRKYTu78ayZIpf7SpAJHEIjHlvh0T1GBJhGUel3xCrcYmVJ6Jp8P7qBARBgasIhXaTflkf3zISTbEc..."
 
-//ERROR:  new row for relation "users_including_deactivated" violates check constraint "deactivated_users_cannot_have_real_passwords"
-
-//ERROR:  could not create unique index "auth_tokens_token_index"
-//DETAIL:  Key (token)=(Redacted 🤐) is duplicated.
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TransformerType {
     EmptyJson,
@@ -58,7 +53,6 @@ pub enum TransformerType {
     ObfuscateDay,
     Redact,
     Scramble,
-    Test,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -68,16 +62,16 @@ pub struct Transformer {
 }
 
 pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: &str) -> String {
-    if value == "\\N" {
+    if ["\\N", "deleted"].contains(&value) {
         return value.to_string();
     }
 
     let unique = get_unique();
     match transform.name {
-        TransformerType::EmptyJson => "{}".to_string(),
         TransformerType::Error => {
             panic!("Error transform still in place for table: {}", table_name)
         }
+        TransformerType::EmptyJson => "{}".to_string(),
         TransformerType::FakeBase16String => fake_base16_string(),
         TransformerType::FakeBase32String => fake_base32_string(),
         TransformerType::FakeCity => CityName().fake(),
@@ -101,7 +95,6 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: 
         TransformerType::ObfuscateDay => obfuscate_day(value, table_name),
         TransformerType::Redact => format!("Redacted {}", '\u{1F910}'),
         TransformerType::Scramble => scramble(value),
-        TransformerType::Test => "TestData".to_string(),
     }
 }
 
@@ -120,6 +113,7 @@ fn fake_email(optional_args: &Option<HashMap<String, String>>, unique: usize) ->
 }
 
 //TODO this is pretty naive, we probably want to at least keep the word count?
+//lets iterate through the letters replacing each one with random unless its space or punctuation?
 fn scramble(original_value: &str) -> String {
     let length = original_value.len();
     return thread_rng()
@@ -238,6 +232,20 @@ mod tests {
             TABLE_NAME,
         );
         assert_eq!(new_null, null);
+    }
+
+    #[test]
+    fn deleted_is_not_transformed() {
+        let deleted = "deleted";
+        let new_deleted = transform(
+            deleted,
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert_eq!(new_deleted, deleted);
     }
 
     #[test]
@@ -439,7 +447,6 @@ mod tests {
             TABLE_NAME,
         );
         assert!(new_phone_number != phone_number);
-        print!("{:?}", new_phone_number);
         assert!(new_phone_number.starts_with("+1"));
         assert_eq!(new_phone_number.len(), 12);
     }
