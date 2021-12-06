@@ -1,4 +1,6 @@
 use crate::parsers::national_insurance_number;
+use base16::encode_lower;
+use base32::Alphabet;
 use chrono::{Datelike, NaiveDate};
 use core::ops::Range;
 use fake::faker::address::en::*;
@@ -19,10 +21,23 @@ fn get_unique() -> usize {
     return UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst);
 }
 
+//TODO
+//Postcode too long (should be 8 max)
+
+//ERROR:  value too long for type character varying(255)
+//CONTEXT:  COPY timeline_items, line 116588, column title: "z0kHB986epbDuxe9bjDtsBjRKYTu78ayZIpf7SpAJHEIjHlvh0T1GBJhGUel3xCrcYmVJ6Jp8P7qBARBgasIhXaTflkf3zISTbEc..."
+
+//ERROR:  new row for relation "users_including_deactivated" violates check constraint "deactivated_users_cannot_have_real_passwords"
+
+//ERROR:  could not create unique index "auth_tokens_token_index"
+//DETAIL:  Key (token)=(Redacted 🤐) is duplicated.
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TransformerType {
     EmptyJson,
     Error,
+    FakeBase16String,
+    FakeBase32String,
     FakeCity,
     FakeCompanyName,
     FakeEmail,
@@ -36,6 +51,7 @@ pub enum TransformerType {
     FakePostCode,
     FakeState,
     FakeStreetAddress,
+    FakeUsername,
     FakeUUID,
     Fixed,
     Identity,
@@ -62,6 +78,8 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: 
         TransformerType::Error => {
             panic!("Error transform still in place for table: {}", table_name)
         }
+        TransformerType::FakeBase16String => fake_base16_string(),
+        TransformerType::FakeBase32String => fake_base32_string(),
         TransformerType::FakeCity => CityName().fake(),
         TransformerType::FakeCompanyName => CompanyName().fake(),
         TransformerType::FakeEmail => fake_email(&transform.args, unique),
@@ -75,6 +93,7 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: 
         TransformerType::FakePhoneNumber => fake_phone_number(value),
         TransformerType::FakeStreetAddress => fake_street_address(),
         TransformerType::FakeState => StateName().fake(),
+        TransformerType::FakeUsername => Username().fake(),
         //TODO not tested VV
         TransformerType::FakeUUID => Uuid::new_v4().to_string(),
         TransformerType::Fixed => fixed(&transform.args, table_name),
@@ -151,6 +170,16 @@ fn fake_phone_number(current_value: &str) -> String {
     }
 }
 
+fn fake_base16_string() -> String {
+    let random_bytes = rand::thread_rng().gen::<[u8; 16]>();
+    return base16::encode_lower(&random_bytes);
+}
+
+fn fake_base32_string() -> String {
+    let random_bytes = rand::thread_rng().gen::<[u8; 16]>();
+    return base32::encode(Alphabet::RFC4648 { padding: true }, &random_bytes);
+}
+
 fn fixed(args: &Option<HashMap<String, String>>, table_name: &str) -> String {
     let value = args.as_ref().and_then(|a| a.get("value")).expect(&format!(
         "Value must be present in args for a fixed transformer in table: {}",
@@ -160,12 +189,34 @@ fn fixed(args: &Option<HashMap<String, String>>, table_name: &str) -> String {
 }
 
 fn obfuscate_day(value: &str, table_name: &str) -> String {
-    let date = NaiveDate::parse_from_str(value, "%Y-%m-%d").expect(&format!(
-        "Invalid date found: \"{}\" in table: \"{}\"",
-        value, table_name
-    ));
-    let new_date = date.with_day(1).unwrap();
-    return new_date.to_string();
+    match NaiveDate::parse_from_str(value, "%Y-%m-%d") {
+        Ok(date) => {
+            let new_date = date.with_day(1).unwrap();
+            return new_date.to_string();
+        }
+        Err(err) => {
+            return value
+                .strip_suffix(" BC")
+                .and_then(|trimmed| {
+                    return NaiveDate::parse_from_str(trimmed, "%Y-%m-%d")
+                        .ok()
+                        .and_then(|re_parsed| {
+                            let bc_date_years = 0 - re_parsed.year();
+                            return re_parsed
+                                .with_year(bc_date_years)
+                                .and_then(|d| d.with_day(1));
+                        });
+                })
+                .expect(
+                    format!(
+                        "Invalid date found: \"{}\" in table: \"{}\". Error: \"{}\"",
+                        value, table_name, err
+                    )
+                    .as_ref(),
+                )
+                .to_string();
+        }
+    }
 }
 
 #[cfg(test)]
@@ -176,7 +227,7 @@ mod tests {
 
     const TABLE_NAME: &str = "gert_lush_table";
     #[test]
-    fn nul_is_not_transformed() {
+    fn null_is_not_transformed() {
         let null = "\\N";
         let new_null = transform(
             null,
@@ -188,6 +239,7 @@ mod tests {
         );
         assert_eq!(new_null, null);
     }
+
     #[test]
     fn identity() {
         let first_name = "any first name";
@@ -201,6 +253,37 @@ mod tests {
         );
         assert!(new_first_name == first_name);
     }
+
+    #[test]
+    fn fake_base16_string() {
+        let verification_key = "1702a4eddd53d6fa79ed4a677e64c002";
+        let new_verification_key = transform(
+            verification_key,
+            &Transformer {
+                name: TransformerType::FakeBase16String,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_verification_key != verification_key);
+        assert_eq!(new_verification_key.len(), 32);
+    }
+
+    #[test]
+    fn fake_base32_string() {
+        let verification_key = "EMVXWNTUKRVAODPQ7KIBBQQTWY======";
+        let new_verification_key = transform(
+            verification_key,
+            &Transformer {
+                name: TransformerType::FakeBase32String,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_verification_key != verification_key);
+        assert_eq!(new_verification_key.len(), 32);
+    }
+
     #[test]
     fn fake_company_name() {
         let company_name = "any company name";
@@ -377,6 +460,20 @@ mod tests {
     }
 
     #[test]
+    fn fake_user_name() {
+        let user_name = "any user_name";
+        let new_user_name = transform(
+            user_name,
+            &Transformer {
+                name: TransformerType::FakeUsername,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_user_name != user_name);
+    }
+
+    #[test]
     fn fixed() {
         let url = "any web address";
         let fixed_url = "a very fixed web address";
@@ -423,7 +520,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Invalid date found: \"2020-OHMYGOSH-12\" in table: \"gert_lush_table\""
+        expected = "Invalid date found: \"2020-OHMYGOSH-12\" in table: \"gert_lush_table\". Error: \"input contains invalid characters\""
     )]
     fn obfuscate_day_panics_with_invalid_date() {
         let date = "2020-OHMYGOSH-12";
