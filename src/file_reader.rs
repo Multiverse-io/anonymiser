@@ -9,7 +9,7 @@ use std::io::BufWriter;
 pub fn read(
     strategies: &HashMap<String, HashMap<String, Transformer>>,
 ) -> Result<(), std::io::Error> {
-    let output_file = File::create("anonimised.sql").unwrap();
+    let output_file = File::create("anonymised.sql").unwrap();
     let mut file_writer = BufWriter::new(output_file);
 
     let file_reader = File::open("clear_text_dump.sql")?;

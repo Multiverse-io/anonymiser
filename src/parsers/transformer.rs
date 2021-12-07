@@ -8,7 +8,6 @@ use fake::faker::company::en::*;
 use fake::faker::internet::en::*;
 use fake::faker::name::en::*;
 use fake::Fake;
-use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -20,12 +19,6 @@ static UNIQUE_INTEGER: AtomicUsize = AtomicUsize::new(0);
 fn get_unique() -> usize {
     return UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst);
 }
-
-//TODO
-//Postcode too long (should be 8 max)
-
-//ERROR:  value too long for type character varying(255)
-//CONTEXT:  COPY timeline_items, line 116588, column title: "z0kHB986epbDuxe9bjDtsBjRKYTu78ayZIpf7SpAJHEIjHlvh0T1GBJhGUel3xCrcYmVJ6Jp8P7qBARBgasIhXaTflkf3zISTbEc..."
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TransformerType {
@@ -75,7 +68,7 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: 
         TransformerType::FakeBase16String => fake_base16_string(),
         TransformerType::FakeBase32String => fake_base32_string(),
         TransformerType::FakeCity => CityName().fake(),
-        TransformerType::FakeCompanyName => CompanyName().fake(),
+        TransformerType::FakeCompanyName => fake_company_name(&transform.args, unique),
         TransformerType::FakeEmail => fake_email(&transform.args, unique),
         TransformerType::FakeFirstName => FirstName().fake(),
         TransformerType::FakeFullAddress => fake_full_address(),
@@ -83,11 +76,11 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: 
         TransformerType::FakeIPv4 => IPv4().fake(),
         TransformerType::FakeLastName => LastName().fake(),
         TransformerType::FakeNationalIdentityNumber => fake_national_identity_number(),
-        TransformerType::FakePostCode => PostCode().fake(),
+        TransformerType::FakePostCode => fake_postcode(value),
         TransformerType::FakePhoneNumber => fake_phone_number(value),
         TransformerType::FakeStreetAddress => fake_street_address(),
         TransformerType::FakeState => StateName().fake(),
-        TransformerType::FakeUsername => Username().fake(),
+        TransformerType::FakeUsername => fake_username(&transform.args, unique),
         //TODO not tested VV
         TransformerType::FakeUUID => Uuid::new_v4().to_string(),
         TransformerType::Fixed => fixed(&transform.args, table_name),
@@ -97,30 +90,40 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: 
         TransformerType::Scramble => scramble(value),
     }
 }
-
-fn fake_email(optional_args: &Option<HashMap<String, String>>, unique: usize) -> String {
-    let unique_value = optional_args
+fn prepend_unique_if_present(
+    new_value: String,
+    args: &Option<HashMap<String, String>>,
+    unique: usize,
+) -> String {
+    let unique_value = args
         .as_ref()
         .and_then(|a| a.get("unique"))
         .map_or_else(|| false, |u| u == "true");
 
     if unique_value {
-        let new_email: String = FreeEmail().fake();
-        return format!("{}-{}", unique, new_email);
+        return format!("{}-{}", unique, new_value);
     } else {
-        return FreeEmail().fake();
+        return new_value;
     }
 }
+fn fake_base16_string() -> String {
+    let random_bytes = rand::thread_rng().gen::<[u8; 16]>();
+    return base16::encode_lower(&random_bytes);
+}
 
-//TODO this is pretty naive, we probably want to at least keep the word count?
-//lets iterate through the letters replacing each one with random unless its space or punctuation?
-fn scramble(original_value: &str) -> String {
-    let length = original_value.len();
-    return thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(length)
-        .map(char::from)
-        .collect();
+fn fake_base32_string() -> String {
+    let random_bytes = rand::thread_rng().gen::<[u8; 16]>();
+    return base32::encode(Alphabet::RFC4648 { padding: true }, &random_bytes);
+}
+
+fn fake_company_name(args: &Option<HashMap<String, String>>, unique: usize) -> String {
+    let new_company_name = CompanyName().fake();
+    return prepend_unique_if_present(new_company_name, args, unique);
+}
+
+fn fake_email(optional_args: &Option<HashMap<String, String>>, unique: usize) -> String {
+    let new_email = FreeEmail().fake();
+    return prepend_unique_if_present(new_email, optional_args, unique);
 }
 
 fn fake_street_address() -> String {
@@ -164,14 +167,16 @@ fn fake_phone_number(current_value: &str) -> String {
     }
 }
 
-fn fake_base16_string() -> String {
-    let random_bytes = rand::thread_rng().gen::<[u8; 16]>();
-    return base16::encode_lower(&random_bytes);
+fn fake_postcode(current_value: &str) -> String {
+    //TODO not sure this is unicode safe...
+    let mut truncated_value = current_value.to_string();
+    truncated_value.truncate(3);
+    return truncated_value.to_string();
 }
 
-fn fake_base32_string() -> String {
-    let random_bytes = rand::thread_rng().gen::<[u8; 16]>();
-    return base32::encode(Alphabet::RFC4648 { padding: true }, &random_bytes);
+fn fake_username(args: &Option<HashMap<String, String>>, unique: usize) -> String {
+    let username = Username().fake();
+    return prepend_unique_if_present(username, args, unique);
 }
 
 fn fixed(args: &Option<HashMap<String, String>>, table_name: &str) -> String {
@@ -195,10 +200,7 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
                     return NaiveDate::parse_from_str(trimmed, "%Y-%m-%d")
                         .ok()
                         .and_then(|re_parsed| {
-                            let bc_date_years = 0 - re_parsed.year();
-                            return re_parsed
-                                .with_year(bc_date_years)
-                                .and_then(|d| d.with_day(1));
+                            return Some(format!("{} BC", re_parsed.with_day(1).unwrap()));
                         });
                 })
                 .expect(
@@ -211,6 +213,28 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
                 .to_string();
         }
     }
+}
+
+fn scramble(original_value: &str) -> String {
+    let mut output_string: String = "".to_string();
+    let chars = original_value.chars().collect::<Vec<char>>();
+    for i in 0..chars.len() {
+        let current_char = chars[i];
+        if current_char == '\\' {
+            //The string contains a control character like \t \r \n
+            output_string.push(chars[i]);
+        } else if current_char == ' ' {
+            output_string.push(current_char);
+        } else if i > 0 && chars[i - 1] == '\\' {
+            //The second bit of the control character! e.g. the 'n' bit of '\n'
+            output_string.push(current_char);
+        } else {
+            let new_char = thread_rng().gen_range(b'a'..=b'z') as char;
+            output_string.push(new_char);
+        }
+    }
+
+    return output_string;
 }
 
 #[cfg(test)]
@@ -300,6 +324,19 @@ mod tests {
             &Transformer {
                 name: TransformerType::FakeCompanyName,
                 args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_company_name != company_name);
+    }
+    #[test]
+    fn fake_company_name_with_unique_arg() {
+        let company_name = "any company name";
+        let new_company_name = transform(
+            company_name,
+            &Transformer {
+                name: TransformerType::FakeCompanyName,
+                args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
             },
             TABLE_NAME,
         );
@@ -454,7 +491,7 @@ mod tests {
     #[test]
     fn fake_postcode() {
         //TODO no idea what this is, some us thing? (e.g. "71746-3648")
-        let postcode = "any postcode";
+        let postcode = "NW5 3QQ";
         let new_postcode = transform(
             postcode,
             &Transformer {
@@ -463,7 +500,7 @@ mod tests {
             },
             TABLE_NAME,
         );
-        assert!(new_postcode != postcode);
+        assert_eq!(new_postcode, "NW5");
     }
 
     #[test]
@@ -478,6 +515,28 @@ mod tests {
             TABLE_NAME,
         );
         assert!(new_user_name != user_name);
+    }
+
+    #[test]
+    fn fake_user_name_supports_unique_arg() {
+        let user_name = "any user_name";
+        let new_user_name = transform(
+            user_name,
+            &Transformer {
+                name: TransformerType::FakeUsername,
+                args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
+            },
+            TABLE_NAME,
+        );
+
+        assert!(new_user_name != user_name);
+        let re = Regex::new(r"^[0-9]+-.*").unwrap();
+        print!("{}", new_user_name);
+        assert!(
+            re.is_match(&new_user_name),
+            "Username {:?} does not have the unique prefix",
+            new_user_name
+        );
     }
 
     #[test]
@@ -544,7 +603,7 @@ mod tests {
     #[test]
     fn can_deal_with_dates_from_before_christ_because_obviously_we_should_have_to() {
         let date = "0001-08-04 BC";
-        transform(
+        let result = transform(
             date,
             &Transformer {
                 name: TransformerType::ObfuscateDay,
@@ -552,6 +611,7 @@ mod tests {
             },
             TABLE_NAME,
         );
+        assert_eq!(result, "0001-08-01 BC");
     }
 
     #[test]
@@ -569,8 +629,70 @@ mod tests {
     }
 
     #[test]
-    fn scramble_returns_random_string_of_same_length() {
-        let initial_value = "This is a story all about how my life got flipped, turned upside down";
+    fn scramble_maintains_word_boundaries() {
+        let initial_value =
+            "Now this is a story all about how my life got flipped turned upside down";
+
+        let new_value = transform(
+            &initial_value,
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_value != initial_value);
+        assert_eq!(new_value.chars().count(), initial_value.chars().count());
+
+        let expected_spaces_count = initial_value.matches(" ").count();
+        let actual_spaces_count = new_value.matches(" ").count();
+        assert_eq!(actual_spaces_count, expected_spaces_count);
+    }
+
+    #[test]
+    fn scramble_ignores_punctuation() {
+        let initial_value = "ab.?";
+
+        let new_value = transform(
+            &initial_value,
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        let re = Regex::new(r"^[a-z][a-z]\\.\\?").unwrap();
+        assert!(
+            !re.is_match(&new_value),
+            "new value: \"{}\" does not contain same digit / alphabet structure as input",
+            new_value
+        );
+    }
+
+    #[test]
+    fn scramble_replaces_digits_with_digits() {
+        let initial_value = "ab 12 a1b2";
+
+        let new_value = transform(
+            &initial_value,
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        let re = Regex::new(r"^[a-z][a-z][a-z] [0-9][0-9][0-9] [a-z][0-9][a-z][0-9]").unwrap();
+        assert!(
+            !re.is_match(&new_value),
+            "new value: \"{}\" does not contain same digit / alphabet structure as input",
+            new_value
+        );
+    }
+
+    #[test]
+    fn scramble_calculates_unicode_length_correctly() {
+        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
+
         let new_value = transform(
             initial_value,
             &Transformer {
@@ -580,6 +702,22 @@ mod tests {
             TABLE_NAME,
         );
         assert!(new_value != initial_value);
-        assert_eq!(new_value.len(), initial_value.len());
+        assert_eq!(new_value.chars().count(), initial_value.chars().count());
+    }
+
+    #[test]
+    fn scramble_deals_with_tabs() {
+        let initial_value = "this is a tab\t and another \t.";
+
+        let new_value = transform(
+            &initial_value,
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_value != initial_value);
+        //TODO finish this test
     }
 }
