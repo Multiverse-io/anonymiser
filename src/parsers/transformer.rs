@@ -490,7 +490,6 @@ mod tests {
 
     #[test]
     fn fake_postcode() {
-        //TODO no idea what this is, some us thing? (e.g. "71746-3648")
         let postcode = "NW5 3QQ";
         let new_postcode = transform(
             postcode,
