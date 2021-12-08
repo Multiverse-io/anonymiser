@@ -15,8 +15,8 @@ jobs:
             mkdir -p test_results/unit_tests
             cargo install cargo-junit
             cargo fmt -- --check
-            cargo junit --name test_results/unit_tests/output.xml
+            cargo junit --name output.xml
       - slack/notify-on-failure:
           only_for_branches: main
       - store_test_results:
-          path: test_results
+          path: output.xml

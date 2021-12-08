@@ -340,7 +340,7 @@ mod tests {
             },
             TABLE_NAME,
         );
-        assert!(new_company_name != company_name);
+        assert!(new_company_name == company_name);
     }
 
     #[test]
