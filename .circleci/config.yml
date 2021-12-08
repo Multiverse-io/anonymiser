@@ -12,8 +12,8 @@ jobs:
       - checkout
       - run: cargo install cargo-junit
       - run: cargo fmt -- --check
-      - run: cargo junit --name output.xml
+      - run: cargo junit --name /tmp/output.xml
       - slack/notify-on-failure:
           only_for_branches: main
       - store_test_results:
-          path: output.xml
+          path: /tmp
