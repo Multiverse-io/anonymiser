@@ -40,6 +40,7 @@ fn transform_file_strategies(
             columns,
         );
     }
+
     return transformed_strategies;
 }
 
@@ -56,12 +57,6 @@ fn read_file(file_name: &str) -> Result<Vec<StrategyInFile>> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     //TODO proper tests here
-    #[test]
-    fn it_works() {
-        let x = parse("new_mappings.json");
-        print!("{:?}", x);
-    }
 }

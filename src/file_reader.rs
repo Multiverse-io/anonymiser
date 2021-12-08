@@ -7,12 +7,14 @@ use std::io::BufReader;
 use std::io::BufWriter;
 
 pub fn read(
+    input_file_path: String,
+    output_file_path: String,
     strategies: &HashMap<String, HashMap<String, Transformer>>,
 ) -> Result<(), std::io::Error> {
-    let output_file = File::create("anonymised.sql").unwrap();
+    let output_file = File::create(output_file_path).unwrap();
     let mut file_writer = BufWriter::new(output_file);
 
-    let file_reader = File::open("clear_text_dump.sql")?;
+    let file_reader = File::open(input_file_path)?;
     let mut reader = BufReader::new(file_reader);
     let mut line = String::new();
 
