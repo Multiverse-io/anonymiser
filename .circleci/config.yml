@@ -11,5 +11,7 @@ jobs:
     steps:
       - checkout
       - run: ./build
+      - slack/notify-on-failure:
+          only_for_branches: main
       - store_test_results:
           path: results.xml
