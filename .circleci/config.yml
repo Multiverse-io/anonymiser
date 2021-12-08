@@ -17,6 +17,6 @@ jobs:
           cargo fmt -- --check
           cargo junit --name test_results/unit_tests/output.xml
       - slack/notify-on-failure:
-        only_for_branches: main
+          only_for_branches: main
       - store_test_results:
-        path: test_results
+          path: test_results
