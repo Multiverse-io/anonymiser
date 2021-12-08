@@ -1,0 +1,4 @@
+#!/bin/bash
+cargo install cargo-junit
+cargo fmt -- --check
+cargo junit --name output.xml
