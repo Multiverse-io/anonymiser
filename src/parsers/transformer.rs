@@ -283,7 +283,7 @@ mod tests {
             },
             TABLE_NAME,
         );
-        assert!(new_first_name != first_name);
+        assert!(new_first_name == first_name);
     }
 
     #[test]
