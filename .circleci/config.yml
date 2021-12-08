@@ -12,7 +12,5 @@ jobs:
       - checkout
       - run: cargo fmt -- --check
       - run: cargo test
-      - store_test_results:
-          path: /tmp
       - slack/notify-on-failure:
           only_for_branches: main
