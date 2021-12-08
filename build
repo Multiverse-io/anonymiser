@@ -1,5 +1,6 @@
 #!/bin/bash
+set -e
 cargo install cargo2junit
 cargo fmt -- --check
 cargo test -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
-
+exit ${PIPESTATUS[0]}
