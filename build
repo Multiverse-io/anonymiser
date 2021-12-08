@@ -1,4 +1,5 @@
 #!/bin/bash
-cargo install cargo-junit
+cargo install cargo2junit
 cargo fmt -- --check
-cargo junit --name output.xml
+cargo test -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
+

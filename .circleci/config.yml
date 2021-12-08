@@ -12,4 +12,4 @@ jobs:
       - checkout
       - run: ./build
       - store_test_results:
-          path: output.xml
+          path: results.xml
