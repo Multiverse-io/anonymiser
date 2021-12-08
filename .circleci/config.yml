@@ -10,10 +10,13 @@ jobs:
       - image: cimg/rust:1.57.0
     steps:
       - checkout
-      - run: cargo install cargo-junit
-      - run: cargo fmt -- --check
-      - run: cargo junit --name /tmp/output.xml
+      - run:
+        command: |
+          mkdir -p test_results/unit_tests
+          cargo install cargo-junit
+          cargo fmt -- --check
+          cargo junit --name test_results/unit_tests/output.xml
       - slack/notify-on-failure:
-          only_for_branches: main
+        only_for_branches: main
       - store_test_results:
-          path: /tmp
+        path: test_results
