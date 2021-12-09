@@ -15,7 +15,7 @@ jobs:
           only_for_branches: main
       - store_test_results:
           path: results.xml
-  create_release:
+  create-release:
     environment:
       SLACK_WEBHOOK: https://hooks.slack.com/services/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
     docker:
