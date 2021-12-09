@@ -1,0 +1,11 @@
+#!/bin/bash
+
+docker build -t anonymiser-release-image -f - . << EOF
+ FROM rust:slim-buster
+ COPY . .
+ RUN cargo build --release && cp target/release/anonymiser ./anomymiser
+EOF
+docker run -td --name anonymiser-release-container anonymiser-release-image
+docker cp anonymiser-release-container:anonymiser anonymiser
+docker rm -f anonymiser-release-container
+docker image rm anonymiser-release-image
