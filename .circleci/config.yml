@@ -3,7 +3,7 @@ orbs:
   slack: circleci/slack@3.4.0
 
 jobs:
-  build:
+  test:
     environment:
       SLACK_WEBHOOK: https://hooks.slack.com/services/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
     docker:
@@ -15,3 +15,28 @@ jobs:
           only_for_branches: main
       - store_test_results:
           path: results.xml
+  create_release:
+    environment:
+      SLACK_WEBHOOK: https://hooks.slack.com/services/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
+    docker:
+      - image: cimg/rust:1.57.0
+    steps:
+      - checkout
+      - run: cargo build --release
+      - store_artifacts:
+          path: ./target/release/anonymiser
+          destination: anonymiser
+      - slack/notify-on-failure:
+          only_for_branches: main
+
+workflows:
+  version: 2.4
+  build:
+    jobs:
+      - test
+      - create-release:
+          requires:
+            - test
+          filters:
+            branches:
+              only: main
