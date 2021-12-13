@@ -1,6 +1,7 @@
 mod file_reader;
 mod parsers;
 use parsers::strategy_file;
+use postgres::{Client, NoTls};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -18,8 +19,16 @@ enum Anonymiser {
         input_file: String,
         #[structopt(short, long, default_value = "./output.sql")]
         output_file: String,
-        #[structopt(short, long, default_value = "./strategies.json")]
-        strategies_file: String,
+        #[structopt(short, long, default_value = "./strategy.json")]
+        strategy_file: String,
+    },
+
+    GenerateStrategies {
+        #[structopt(short, long, default_value = "./strategy.json")]
+        strategy_file: String,
+
+        #[structopt(short, long, env = "DATABASE_URL")]
+        db_url: String,
     },
 }
 
@@ -31,10 +40,22 @@ fn main() -> Result<(), std::io::Error> {
         Anonymiser::Anonymise {
             input_file,
             output_file,
-            strategies_file,
+            strategy_file,
         } => {
-            let strategies = strategy_file::parse(&strategies_file);
+            let strategies = strategy_file::parse(strategy_file);
             file_reader::read(input_file, output_file, &strategies)?;
+        }
+        Anonymiser::GenerateStrategies {
+            strategy_file,
+            db_url,
+        } => {
+            let strategies = strategy_file::parse(strategy_file);
+            let mut conn = Client::connect(
+                "postgresql://postgres:postgres@localhost:5432/postgres",
+                NoTls,
+            )
+            .expect("expected connection to succeed");
+            strategy_file::generate(strategies, &mut conn);
         }
     }
     return Ok(());
