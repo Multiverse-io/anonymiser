@@ -40,6 +40,8 @@ mod tests {
     use postgres::{Client, NoTls};
 
     #[test]
+    #[ignore]
+    //TODO enable on CI!!!
     fn can_read_db_columns() {
         run_test(|connection| {
             let result = parse(connection);
