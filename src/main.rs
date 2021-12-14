@@ -1,6 +1,6 @@
 mod file_reader;
 mod parsers;
-use parsers::strategy_file;
+use parsers::{db_schema, strategy_file, strategy_validator};
 use postgres::{Client, NoTls};
 use structopt::StructOpt;
 
@@ -21,6 +21,14 @@ enum Anonymiser {
         output_file: String,
         #[structopt(short, long, default_value = "./strategy.json")]
         strategy_file: String,
+    },
+
+    CheckStrategies {
+        #[structopt(short, long, default_value = "./strategy.json")]
+        strategy_file: String,
+
+        #[structopt(short, long, env = "DATABASE_URL")]
+        db_url: String,
     },
 
     GenerateStrategies {
@@ -45,13 +53,23 @@ fn main() -> Result<(), std::io::Error> {
             let strategies = strategy_file::parse(strategy_file);
             file_reader::read(input_file, output_file, &strategies)?;
         }
+        Anonymiser::CheckStrategies {
+            strategy_file,
+            db_url,
+        } => {
+            let strategies = strategy_file::parse(strategy_file);
+            let mut conn = Client::connect(&db_url, NoTls).expect("expected connection to succeed");
+            let db_colums = db_schema::parse(&mut conn);
+            let _result = strategy_validator::validate(strategies, db_colums);
+        }
         Anonymiser::GenerateStrategies {
             strategy_file,
             db_url,
         } => {
             let strategies = strategy_file::parse(strategy_file);
             let mut conn = Client::connect(&db_url, NoTls).expect("expected connection to succeed");
-            let _result = strategy_file::generate(strategies, &mut conn);
+            let db_colums = db_schema::parse(&mut conn);
+            let _result = strategy_validator::validate(strategies, db_colums);
         }
     }
     return Ok(());
