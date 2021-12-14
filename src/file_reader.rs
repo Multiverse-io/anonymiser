@@ -1,6 +1,5 @@
 use crate::parsers::row_parser;
-use crate::parsers::strategy_structs::Transformer;
-use std::collections::HashMap;
+use crate::parsers::strategy_structs::Strategies;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -9,7 +8,7 @@ use std::io::BufWriter;
 pub fn read(
     input_file_path: String,
     output_file_path: String,
-    strategies: &HashMap<String, HashMap<String, Transformer>>,
+    strategies: &Strategies,
 ) -> Result<(), std::io::Error> {
     let output_file = File::create(output_file_path).unwrap();
     let mut file_writer = BufWriter::new(output_file);

@@ -32,7 +32,7 @@ pub fn append_to_file(file_name: &str, missing_columns: Vec<SimpleColumn>) -> st
                 let existing_table = current_file_contents.get_mut(position).unwrap();
                 for column in missing_columns {
                     existing_table.columns.push(ColumnInFile {
-                        data_type: "Unknown".to_string(),
+                        data_type: DataType::Unknown,
                         description: "".to_string(),
                         name: column,
                         transformer: Transformer {
@@ -59,14 +59,22 @@ pub fn append_to_file(file_name: &str, missing_columns: Vec<SimpleColumn>) -> st
 
 fn transform_file_strategies(
     strategies: Vec<StrategyInFile>,
-) -> HashMap<String, HashMap<String, Transformer>> {
-    let mut transformed_strategies: HashMap<String, HashMap<String, Transformer>> = HashMap::new();
+) -> HashMap<String, HashMap<String, ColumnInfo>> {
+    let mut transformed_strategies: HashMap<String, HashMap<String, ColumnInfo>> = HashMap::new();
     //TODO If all columns are none, lets not do any transforming?
     for strategy in strategies {
         let columns = strategy
             .columns
             .into_iter()
-            .map(|column| (column.name, column.transformer))
+            .map(|column| {
+                (
+                    column.name,
+                    ColumnInfo {
+                        data_type: column.data_type,
+                        transformer: column.transformer,
+                    },
+                )
+            })
             .collect();
 
         transformed_strategies.insert(strategy.table_name, columns);

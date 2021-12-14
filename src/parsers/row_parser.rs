@@ -1,9 +1,8 @@
 use crate::parsers::copy_row;
 use crate::parsers::copy_row::CurrentTable;
-use crate::parsers::strategy_structs::Transformer;
+use crate::parsers::strategy_structs::Strategies;
 use crate::parsers::transformer;
 use itertools::join;
-use std::collections::HashMap;
 
 pub struct RowParsingState {
     in_copy: bool,
@@ -20,7 +19,7 @@ pub fn initial_state() -> RowParsingState {
 pub fn parse<'line, 'state>(
     line: &'line str,
     state: &'state mut RowParsingState,
-    strategies: &'state HashMap<String, HashMap<String, Transformer>>,
+    strategies: &'state Strategies,
 ) -> String {
     if line.starts_with("COPY ") {
         let current_table = copy_row::parse(&line, strategies);
@@ -71,36 +70,46 @@ fn split_row<'line>(line: &'line str) -> std::str::Split<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::strategy_structs::TransformerType;
+    use crate::parsers::strategy_structs::{ColumnInfo, DataType, Transformer, TransformerType};
+    use std::collections::HashMap;
 
     #[test]
     fn copy_row_sets_status_to_being_in_copy_and_adds_transforms_in_the_correct_order_for_the_columns(
     ) {
         let copy_row = "COPY public.users (id, first_name, last_name) FROM stdin;\n";
-        let transforms = HashMap::from([
+        let column_infos = HashMap::from([
             (
                 "id".to_string(),
-                Transformer {
-                    name: TransformerType::Identity,
-                    args: None,
+                ColumnInfo {
+                    data_type: DataType::General,
+                    transformer: Transformer {
+                        name: TransformerType::Identity,
+                        args: None,
+                    },
                 },
             ),
             (
                 "first_name".to_string(),
-                Transformer {
-                    name: TransformerType::FakeFirstName,
-                    args: None,
+                ColumnInfo {
+                    data_type: DataType::General,
+                    transformer: Transformer {
+                        name: TransformerType::FakeFirstName,
+                        args: None,
+                    },
                 },
             ),
             (
                 "last_name".to_string(),
-                Transformer {
-                    name: TransformerType::FakeLastName,
-                    args: None,
+                ColumnInfo {
+                    data_type: DataType::General,
+                    transformer: Transformer {
+                        name: TransformerType::FakeLastName,
+                        args: None,
+                    },
                 },
             ),
         ]);
-        let strategies = HashMap::from([("public.users".to_string(), transforms)]);
+        let strategies = HashMap::from([("public.users".to_string(), column_infos)]);
 
         let mut state = initial_state();
         let processed_row = parse(copy_row, &mut state, &strategies);
@@ -135,23 +144,32 @@ mod tests {
         let transforms = HashMap::from([
             (
                 "id".to_string(),
-                Transformer {
-                    name: TransformerType::Identity,
-                    args: None,
+                ColumnInfo {
+                    data_type: DataType::General,
+                    transformer: Transformer {
+                        name: TransformerType::Identity,
+                        args: None,
+                    },
                 },
             ),
             (
                 "first_name".to_string(),
-                Transformer {
-                    name: TransformerType::FakeFirstName,
-                    args: None,
+                ColumnInfo {
+                    data_type: DataType::General,
+                    transformer: Transformer {
+                        name: TransformerType::FakeFirstName,
+                        args: None,
+                    },
                 },
             ),
             (
                 "last_name".to_string(),
-                Transformer {
-                    name: TransformerType::FakeLastName,
-                    args: None,
+                ColumnInfo {
+                    data_type: DataType::General,
+                    transformer: Transformer {
+                        name: TransformerType::FakeLastName,
+                        args: None,
+                    },
                 },
             ),
         ]);

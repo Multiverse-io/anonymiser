@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Eq, Serialize, Deserialize)]
 pub struct ColumnInFile {
-    pub data_type: String,
+    pub data_type: DataType,
     pub description: String,
     pub name: String,
     pub transformer: Transformer,
@@ -65,7 +65,18 @@ pub struct SimpleColumn {
     pub column_name: String,
 }
 
-pub type Strategies = HashMap<String, HashMap<String, Transformer>>;
+pub struct ColumnInfo {
+    pub data_type: DataType,
+    pub transformer: Transformer,
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum DataType {
+    General,
+    Unknown,
+}
+
+pub type Strategies = HashMap<String, HashMap<String, ColumnInfo>>;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TransformerType {

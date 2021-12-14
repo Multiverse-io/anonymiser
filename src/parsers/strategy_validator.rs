@@ -46,7 +46,7 @@ pub fn validate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::strategy_structs::TransformerType;
+    use crate::parsers::strategy_structs::{ColumnInfo, Transformer, TransformerType};
     use std::collections::HashMap;
 
     #[test]
@@ -126,14 +126,17 @@ mod tests {
     fn create_strategy(
         table_name: &str,
         column_name: &str,
-    ) -> (String, HashMap<String, Transformer>) {
+    ) -> (String, HashMap<String, ColumnInfo>) {
         return (
             table_name.to_string(),
             HashMap::from([(
                 column_name.to_string(),
-                Transformer {
-                    name: TransformerType::Identity,
-                    args: None,
+                ColumnInfo {
+                    data_type: DataType::General,
+                    transformer: Transformer {
+                        name: TransformerType::Identity,
+                        args: None,
+                    },
                 },
             )]),
         );

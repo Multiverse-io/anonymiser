@@ -1,7 +1,6 @@
-use crate::parsers::strategy_structs::Transformer;
+use crate::parsers::strategy_structs::{Strategies, Transformer};
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct CurrentTable {
@@ -9,10 +8,7 @@ pub struct CurrentTable {
     pub transforms: Option<Vec<Transformer>>,
 }
 
-pub fn parse(
-    copy_row: &str,
-    strategies: &HashMap<String, HashMap<String, Transformer>>,
-) -> CurrentTable {
+pub fn parse(copy_row: &str, strategies: &Strategies) -> CurrentTable {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"COPY (?P<table>.*) \((?P<columns>.*)\)").unwrap();
     }
@@ -36,7 +32,7 @@ pub fn parse(
 fn get_current_table_information(
     table: &str,
     unsplit_columns: &str,
-    strategies: &HashMap<String, HashMap<String, Transformer>>,
+    strategies: &Strategies,
 ) -> CurrentTable {
     let table_name = table.replace("\"", "");
     let column_list: Vec<String> = unsplit_columns
@@ -52,17 +48,16 @@ fn get_current_table_information(
 }
 
 fn transforms_from_strategy(
-    strategies: &HashMap<String, HashMap<String, Transformer>>,
+    strategies: &Strategies,
     table_name: &str,
     column_list: &Vec<String>,
 ) -> Vec<Transformer> {
     match strategies.get(table_name) {
-        Some(transforms) => {
+        Some(columns) => {
             return column_list
                 .iter()
-                .map(|c| match transforms.get(c) {
-                    //TODO should we clone here?
-                    Some(column_transform) => return column_transform.clone(),
+                .map(|c| match columns.get(c) {
+                    Some(column_info) => return column_info.transformer.clone(),
                     None => panic!(
                         "No transform found for column: {:?} in table: {:?}",
                         c, table_name
@@ -83,25 +78,26 @@ fn capture_to_item<'a, 'b>(capture: &'a regex::Captures, name: &'b str) -> Optio
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::strategy_structs::TransformerType;
+    use crate::parsers::strategy_structs::{ColumnInfo, DataType, TransformerType};
+    use std::collections::HashMap;
 
     #[test]
     fn returns_transforms_for_table() {
-        let expected_transforms = HashMap::from([
+        let column_infos = HashMap::from([
             (
                 "id".to_string(),
-                create_transformer(TransformerType::Identity),
+                create_column_info(TransformerType::Identity),
             ),
             (
                 "first_name".to_string(),
-                create_transformer(TransformerType::FakeFirstName),
+                create_column_info(TransformerType::FakeFirstName),
             ),
             (
                 "last_name".to_string(),
-                create_transformer(TransformerType::FakeLastName),
+                create_column_info(TransformerType::FakeLastName),
             ),
         ]);
-        let strategies = HashMap::from([("public.users".to_string(), expected_transforms)]);
+        let strategies = HashMap::from([("public.users".to_string(), column_infos)]);
         let parsed_copy_row = parse(
             "COPY public.users (id, first_name, last_name) FROM stdin;\n",
             &strategies,
@@ -128,7 +124,7 @@ mod tests {
             "public.references".to_string(),
             HashMap::from([(
                 "id".to_string(),
-                create_transformer(TransformerType::Identity),
+                create_column_info(TransformerType::Identity),
             )]),
         )]);
 
@@ -144,11 +140,11 @@ mod tests {
             HashMap::from([
                 (
                     "id".to_string(),
-                    create_transformer(TransformerType::Identity),
+                    create_column_info(TransformerType::Identity),
                 ),
                 (
                     "from".to_string(),
-                    create_transformer(TransformerType::Identity),
+                    create_column_info(TransformerType::Identity),
                 ),
             ]),
         )]);
@@ -156,6 +152,13 @@ mod tests {
         let _parsed_copy_row = parse("COPY public.users (\"from\") FROM stdin;\n", &strategies);
 
         assert!(true, "we didn't panic!");
+    }
+
+    fn create_column_info(name: TransformerType) -> ColumnInfo {
+        return ColumnInfo {
+            transformer: create_transformer(name),
+            data_type: DataType::General,
+        };
     }
     fn create_transformer(name: TransformerType) -> Transformer {
         return Transformer {
@@ -169,11 +172,11 @@ mod tests {
         let expected_transforms = HashMap::from([
             (
                 "id".to_string(),
-                create_transformer(TransformerType::Identity),
+                create_column_info(TransformerType::Identity),
             ),
             (
                 "last_name".to_string(),
-                create_transformer(TransformerType::FakeLastName),
+                create_column_info(TransformerType::FakeLastName),
             ),
         ]);
         let strategies = HashMap::from([("public.users".to_string(), expected_transforms)]);
@@ -188,17 +191,11 @@ mod tests {
         let expected_transforms = HashMap::from([
             (
                 "id".to_string(),
-                Transformer {
-                    name: TransformerType::Identity,
-                    args: None,
-                },
+                create_column_info(TransformerType::Identity),
             ),
             (
                 "last_name".to_string(),
-                Transformer {
-                    name: TransformerType::FakeLastName,
-                    args: None,
-                },
+                create_column_info(TransformerType::FakeLastName),
             ),
         ]);
         let strategies = HashMap::from([("public.users".to_string(), expected_transforms)]);
@@ -214,10 +211,7 @@ mod tests {
             "public.something_unrelated".to_string(),
             HashMap::from([(
                 "id".to_string(),
-                Transformer {
-                    name: TransformerType::Identity,
-                    args: None,
-                },
+                create_column_info(TransformerType::Identity),
             )]),
         )]);
         parse(
