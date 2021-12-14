@@ -1,5 +1,5 @@
 use crate::parsers::row_parser;
-use crate::parsers::transformer::Transformer;
+use crate::parsers::strategy_structs::Transformer;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;

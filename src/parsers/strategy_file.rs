@@ -1,38 +1,11 @@
-use crate::parsers::transformer::Transformer;
-use itertools::Itertools;
+use crate::parsers::strategy_structs::*;
+use crate::parsers::strategy_validator;
 use postgres::GenericClient;
 use postgres::{Client, NoTls};
-use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
-
-#[derive(Serialize, Deserialize)]
-struct ColumnInFile {
-    name: String,
-    transformer: Transformer,
-}
-#[derive(Serialize, Deserialize)]
-struct StrategyInFile {
-    table_name: String,
-    schema: String,
-    columns: Vec<ColumnInFile>,
-}
-
-#[derive(Debug)]
-pub struct MissingColumns {
-    missing_from_strategy_file: Option<Vec<SimpleColumn>>,
-    missing_from_db: Option<Vec<SimpleColumn>>,
-}
-
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
-struct SimpleColumn {
-    table_name: String,
-    column_name: String,
-}
-
-type Strategies = HashMap<String, HashMap<String, Transformer>>;
 
 pub fn parse(file_name: String) -> Strategies {
     match read_file(file_name) {
@@ -67,43 +40,7 @@ where
         });
     }
 
-    let columns_from_strategy_file: HashSet<SimpleColumn> = strategies
-        .iter()
-        .flat_map(|(table, columns)| {
-            return columns.iter().map(|(column, _)| SimpleColumn {
-                table_name: table.to_string(),
-                column_name: column.to_string(),
-            });
-        })
-        .collect();
-
-    let in_strategy_file_but_not_db: Vec<_> = columns_from_strategy_file
-        .difference(&columns_from_db)
-        .map(|a| a.clone())
-        .collect();
-
-    let in_db_but_not_strategy_file: Vec<_> = columns_from_db
-        .difference(&columns_from_strategy_file)
-        .map(|a| a.clone())
-        .collect();
-    match (
-        in_db_but_not_strategy_file.len(),
-        in_strategy_file_but_not_db.len(),
-    ) {
-        (0, 0) => Ok(()),
-        (0, _) => Err(MissingColumns {
-            missing_from_db: Some(in_strategy_file_but_not_db),
-            missing_from_strategy_file: None,
-        }),
-        (_, 0) => Err(MissingColumns {
-            missing_from_db: None,
-            missing_from_strategy_file: Some(in_db_but_not_strategy_file),
-        }),
-        (_, _) => Err(MissingColumns {
-            missing_from_db: Some(in_strategy_file_but_not_db),
-            missing_from_strategy_file: Some(in_db_but_not_strategy_file),
-        }),
-    }
+    return strategy_validator::validate(strategies, columns_from_db);
 }
 
 fn transform_file_strategies(
@@ -141,11 +78,12 @@ fn read_file(file_name: String) -> serde_json::Result<Vec<StrategyInFile>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::transformer::TransformerType;
+    use crate::parsers::strategy_structs::TransformerType;
     use postgres::Transaction;
 
     #[test]
     fn meh() {
+        //TODO write a test here!
         run_test(|connection| {
             let strategies = HashMap::from([
                 (
@@ -166,7 +104,6 @@ mod tests {
 
             let result = generate(strategies, connection);
             println!("{:?}", result);
-            assert!(false);
         });
     }
 

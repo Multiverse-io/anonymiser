@@ -1,4 +1,5 @@
 use crate::parsers::national_insurance_number;
+use crate::parsers::strategy_structs::{Transformer, TransformerType};
 use base16;
 use base32::Alphabet;
 use chrono::{Datelike, NaiveDate};
@@ -9,7 +10,6 @@ use fake::faker::internet::en::*;
 use fake::faker::name::en::*;
 use fake::Fake;
 use rand::{thread_rng, Rng};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
@@ -18,40 +18,6 @@ static UNIQUE_INTEGER: AtomicUsize = AtomicUsize::new(0);
 
 fn get_unique() -> usize {
     return UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst);
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum TransformerType {
-    EmptyJson,
-    Error,
-    FakeBase16String,
-    FakeBase32String,
-    FakeCity,
-    FakeCompanyName,
-    FakeEmail,
-    FakeFirstName,
-    FakeFullAddress,
-    FakeFullName,
-    FakeIPv4,
-    FakeLastName,
-    FakeNationalIdentityNumber,
-    FakePhoneNumber,
-    FakePostCode,
-    FakeState,
-    FakeStreetAddress,
-    FakeUsername,
-    FakeUUID,
-    Fixed,
-    Identity,
-    ObfuscateDay,
-    Redact,
-    Scramble,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Transformer {
-    pub name: TransformerType,
-    pub args: Option<HashMap<String, String>>,
 }
 
 pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: &str) -> String {

@@ -50,12 +50,8 @@ fn main() -> Result<(), std::io::Error> {
             db_url,
         } => {
             let strategies = strategy_file::parse(strategy_file);
-            let mut conn = Client::connect(
-                "postgresql://postgres:postgres@localhost:5432/postgres",
-                NoTls,
-            )
-            .expect("expected connection to succeed");
-            strategy_file::generate(strategies, &mut conn);
+            let mut conn = Client::connect(&db_url, NoTls).expect("expected connection to succeed");
+            let _result = strategy_file::generate(strategies, &mut conn);
         }
     }
     return Ok(());
