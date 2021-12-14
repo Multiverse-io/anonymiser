@@ -82,8 +82,10 @@ mod tests {
     use postgres::Transaction;
 
     #[test]
+    #[ignore]
     fn meh() {
         //TODO write a test here!
+        //TODO get sql on CI!
         run_test(|connection| {
             let strategies = HashMap::from([
                 (
