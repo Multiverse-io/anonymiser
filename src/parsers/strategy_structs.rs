@@ -1,16 +1,56 @@
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Eq, Serialize, Deserialize)]
 pub struct ColumnInFile {
+    pub data_type: String,
+    pub description: String,
     pub name: String,
     pub transformer: Transformer,
 }
-#[derive(Serialize, Deserialize)]
+
+impl Ord for ColumnInFile {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.name.cmp(&other.name)
+    }
+}
+
+impl PartialOrd for ColumnInFile {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for ColumnInFile {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+#[derive(Debug, Eq, Serialize, Deserialize)]
 pub struct StrategyInFile {
     pub table_name: String,
-    pub schema: String,
+    pub description: String,
     pub columns: Vec<ColumnInFile>,
+}
+
+impl Ord for StrategyInFile {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.table_name.cmp(&other.table_name)
+    }
+}
+
+impl PartialOrd for StrategyInFile {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for StrategyInFile {
+    fn eq(&self, other: &Self) -> bool {
+        self.table_name == other.table_name
+    }
 }
 
 #[derive(Debug)]
@@ -27,7 +67,7 @@ pub struct SimpleColumn {
 
 pub type Strategies = HashMap<String, HashMap<String, Transformer>>;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TransformerType {
     EmptyJson,
     Error,
@@ -55,8 +95,10 @@ pub enum TransformerType {
     Scramble,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Transformer {
     pub name: TransformerType,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub args: Option<HashMap<String, String>>,
 }

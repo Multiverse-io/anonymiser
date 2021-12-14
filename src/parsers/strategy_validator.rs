@@ -1,7 +1,7 @@
 use crate::parsers::strategy_structs::*;
 use std::collections::HashSet;
 pub fn validate(
-    strategies: Strategies,
+    strategies: &Strategies,
     columns_from_db: HashSet<SimpleColumn>,
 ) -> Result<(), MissingColumns> {
     let columns_from_strategy_file: HashSet<SimpleColumn> = strategies
@@ -61,7 +61,7 @@ mod tests {
             create_simple_column("public.location", "postcode"),
         ]);
 
-        let result = validate(strategies, columns_from_db);
+        let result = validate(&strategies, columns_from_db);
 
         assert!(result.is_ok());
     }
@@ -75,7 +75,7 @@ mod tests {
             create_simple_column("public.location", "postcode"),
         ]);
 
-        let result = validate(strategies, columns_from_db);
+        let result = validate(&strategies, columns_from_db);
 
         let error = result.unwrap_err();
         assert!(error.missing_from_db.is_none());
@@ -94,7 +94,7 @@ mod tests {
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
 
-        let result = validate(strategies, columns_from_db);
+        let result = validate(&strategies, columns_from_db);
 
         let error = result.unwrap_err();
         assert!(error.missing_from_strategy_file.is_none());
@@ -110,7 +110,7 @@ mod tests {
 
         let columns_from_db = HashSet::from([create_simple_column("public.location", "postcode")]);
 
-        let result = validate(strategies, columns_from_db);
+        let result = validate(&strategies, columns_from_db);
 
         let error = result.unwrap_err();
         assert_eq!(
