@@ -10,6 +10,21 @@ pub fn validate(
     strategies: &Strategies,
     columns_from_db: HashSet<SimpleColumn>,
 ) -> Result<(), MissingColumns> {
+    //TODO probably dont iterate over and over again!
+
+    let unanonymised_pii: Vec<SimpleColumn> = strategies
+        .iter()
+        .flat_map(|(table_name, columns)| {
+            return columns
+                .iter()
+                .filter(|(_, column_info)| {
+                    return (column_info.data_type == DataType::PotentialPii
+                        || column_info.data_type == DataType::Pii)
+                        && column_info.transformer.name == TransformerType::Identity;
+                })
+                .map(|(column_name, _)| create_simple_column(column_name, table_name));
+        })
+        .collect();
     let unknown_data_types: Vec<SimpleColumn> = strategies
         .iter()
         .flat_map(|(table_name, columns)| {
@@ -54,14 +69,16 @@ pub fn validate(
         in_strategy_file_but_not_db.len(),
         unknown_data_types.len(),
         error_transformer_types.len(),
+        unanonymised_pii.len(),
     ) {
-        (0, 0, 0, 0) => Ok(()),
+        (0, 0, 0, 0, 0) => Ok(()),
         _ => {
             return Err(MissingColumns {
                 missing_from_db: add_if_present(in_strategy_file_but_not_db),
                 missing_from_strategy_file: add_if_present(in_db_but_not_strategy_file),
                 unknown_data_types: add_if_present(unknown_data_types),
                 error_transformer_types: add_if_present(error_transformer_types),
+                unanonymised_pii: add_if_present(unanonymised_pii),
             });
         }
     }
@@ -69,7 +86,9 @@ pub fn validate(
 
 fn add_if_present(list: Vec<SimpleColumn>) -> Option<Vec<SimpleColumn>> {
     if list.len() > 0 {
-        return Some(list);
+        let mut new_list = list.clone();
+        new_list.sort();
+        return Some(new_list);
     } else {
         return None;
     }
@@ -83,10 +102,14 @@ mod tests {
 
     #[test]
     fn returns_ok_with_matching_fields() {
-        let strategies = HashMap::from([
-            create_strategy("public.person", "first_name"),
-            create_strategy("public.location", "postcode"),
-        ]);
+        let mut strategies =
+            create_strategy("public.person", [create_column("first_name")].into_iter());
+
+        add_table(
+            &mut strategies,
+            "public.location",
+            [create_column("postcode")].into_iter(),
+        );
 
         let columns_from_db = HashSet::from([
             create_simple_column("public.person", "first_name"),
@@ -100,7 +123,8 @@ mod tests {
 
     #[test]
     fn returns_fields_missing_from_strategy_file_that_are_in_the_db() {
-        let strategies = HashMap::from([create_strategy("public.person", "first_name")]);
+        let strategies =
+            create_strategy("public.person", [create_column("first_name")].into_iter());
 
         let columns_from_db = HashSet::from([
             create_simple_column("public.person", "first_name"),
@@ -119,10 +143,14 @@ mod tests {
 
     #[test]
     fn returns_fields_missing_from_the_db_but_are_in_the_strategy_file() {
-        let strategies = HashMap::from([
-            create_strategy("public.person", "first_name"),
-            create_strategy("public.location", "postcode"),
-        ]);
+        let mut strategies =
+            create_strategy("public.person", [create_column("first_name")].into_iter());
+
+        add_table(
+            &mut strategies,
+            "public.location",
+            [create_column("postcode")].into_iter(),
+        );
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
 
@@ -138,7 +166,8 @@ mod tests {
 
     #[test]
     fn returns_fields_missing_both() {
-        let strategies = HashMap::from([create_strategy("public.person", "first_name")]);
+        let strategies =
+            create_strategy("public.person", [create_column("first_name")].into_iter());
 
         let columns_from_db = HashSet::from([create_simple_column("public.location", "postcode")]);
 
@@ -157,11 +186,14 @@ mod tests {
 
     #[test]
     fn returns_columns_missing_data_type() {
-        let strategies = HashMap::from([create_strategy_with_data_type(
+        let strategies = create_strategy(
             "public.person",
-            "first_name",
-            DataType::Unknown,
-        )]);
+            [create_strategy_with_data_type(
+                "first_name",
+                DataType::Unknown,
+            )]
+            .into_iter(),
+        );
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
 
@@ -175,11 +207,14 @@ mod tests {
     }
     #[test]
     fn returns_columns_with_error_transformer_types() {
-        let strategies = HashMap::from([create_strategy_with_transformer_type(
+        let strategies = create_strategy(
             "public.person",
-            "first_name",
-            TransformerType::Error,
-        )]);
+            [create_column_with_transformer_type(
+                "first_name",
+                TransformerType::Error,
+            )]
+            .into_iter(),
+        );
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
 
@@ -192,20 +227,72 @@ mod tests {
         );
     }
 
-    fn create_strategy(
-        table_name: &str,
-        column_name: &str,
-    ) -> (String, HashMap<String, ColumnInfo>) {
-        return create_strategy_with_data_type(table_name, column_name, DataType::General);
+    #[test]
+    fn returns_pii_columns_with_identity_transformer() {
+        let strategies = create_strategy(
+            "public.person",
+            [
+                create_column_with_data_and_transfromer_type(
+                    "first_name",
+                    DataType::Pii,
+                    TransformerType::Identity,
+                ),
+                create_column_with_data_and_transfromer_type(
+                    "last_name",
+                    DataType::PotentialPii,
+                    TransformerType::Identity,
+                ),
+            ]
+            .into_iter(),
+        );
+
+        println!("{:?}", strategies);
+
+        let columns_from_db = HashSet::from([
+            create_simple_column("public.person", "first_name"),
+            create_simple_column("public.person", "last_name"),
+        ]);
+
+        let result = validate(&strategies, columns_from_db);
+
+        let error = result.unwrap_err();
+        println!("{:?}", error);
+        assert_eq!(
+            error.unanonymised_pii.unwrap(),
+            vec!(
+                create_simple_column("public.person", "first_name"),
+                create_simple_column("public.person", "last_name")
+            )
+        );
     }
 
-    fn create_strategy_with_transformer_type(
-        table_name: &str,
+    fn create_strategy<I>(table_name: &str, columns: I) -> Strategies
+    where
+        I: Iterator<Item = (String, ColumnInfo)>,
+    {
+        return HashMap::from([(table_name.to_string(), HashMap::from_iter(columns))]);
+    }
+
+    fn add_table<I>(strategies: &mut Strategies, table_name: &str, columns: I)
+    where
+        I: Iterator<Item = (String, ColumnInfo)>,
+    {
+        strategies.insert(table_name.to_string(), HashMap::from_iter(columns));
+    }
+
+    fn create_column(column_name: &str) -> (String, ColumnInfo) {
+        return create_column_with_data_and_transfromer_type(
+            column_name,
+            DataType::General,
+            TransformerType::Identity,
+        );
+    }
+
+    fn create_column_with_transformer_type(
         column_name: &str,
         transformer_type: TransformerType,
-    ) -> (String, HashMap<String, ColumnInfo>) {
-        return create_strategy_with_data_and_transformer_type(
-            table_name,
+    ) -> (String, ColumnInfo) {
+        return create_column_with_data_and_transfromer_type(
             column_name,
             DataType::General,
             transformer_type,
@@ -213,35 +300,29 @@ mod tests {
     }
 
     fn create_strategy_with_data_type(
-        table_name: &str,
         column_name: &str,
         data_type: DataType,
-    ) -> (String, HashMap<String, ColumnInfo>) {
-        return create_strategy_with_data_and_transformer_type(
-            table_name,
+    ) -> (String, ColumnInfo) {
+        return create_column_with_data_and_transfromer_type(
             column_name,
             data_type,
             TransformerType::Identity,
         );
     }
-    fn create_strategy_with_data_and_transformer_type(
-        table_name: &str,
+    fn create_column_with_data_and_transfromer_type(
         column_name: &str,
         data_type: DataType,
         transformer_type: TransformerType,
-    ) -> (String, HashMap<String, ColumnInfo>) {
+    ) -> (String, ColumnInfo) {
         return (
-            table_name.to_string(),
-            HashMap::from([(
-                column_name.to_string(),
-                ColumnInfo {
-                    data_type: data_type,
-                    transformer: Transformer {
-                        name: transformer_type,
-                        args: None,
-                    },
+            column_name.to_string(),
+            ColumnInfo {
+                data_type: data_type,
+                transformer: Transformer {
+                    name: transformer_type,
+                    args: None,
                 },
-            )]),
+            },
         );
     }
 

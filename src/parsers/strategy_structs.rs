@@ -59,14 +59,35 @@ pub struct MissingColumns {
     pub missing_from_db: Option<Vec<SimpleColumn>>,
     pub unknown_data_types: Option<Vec<SimpleColumn>>,
     pub error_transformer_types: Option<Vec<SimpleColumn>>,
+    pub unanonymised_pii: Option<Vec<SimpleColumn>>,
 }
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Hash, Eq)]
 pub struct SimpleColumn {
     pub table_name: String,
     pub column_name: String,
 }
+impl Ord for SimpleColumn {
+    fn cmp(&self, other: &Self) -> Ordering {
+        format!("{}{}", self.table_name, self.column_name)
+            .cmp(&format!("{}{}", other.table_name, other.column_name))
+    }
+}
 
+impl PartialOrd for SimpleColumn {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for SimpleColumn {
+    fn eq(&self, other: &Self) -> bool {
+        format!("{}{}", self.table_name, self.column_name)
+            == format!("{}{}", other.table_name, other.column_name)
+    }
+}
+
+#[derive(Debug)]
 pub struct ColumnInfo {
     pub data_type: DataType,
     pub transformer: Transformer,

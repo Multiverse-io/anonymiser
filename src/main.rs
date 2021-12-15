@@ -111,11 +111,22 @@ fn fix_missing_columns(strategy_file: &str, missing_columns: MissingColumns) -> 
 fn format_missing_columns(strategy_file: &str, missing_columns: &MissingColumns) -> String {
     let mut message = "".to_string();
 
+    match &missing_columns.unanonymised_pii {
+        Some(missing) => {
+            let missing_list = missing_to_message(&missing);
+            message.push_str(&format!(
+                "Some fields are tagged as being PII but do not have anonymising transformers set. ({})\n\t{}\nPlease add valid transformers!\n\n",
+                strategy_file, missing_list
+            ))
+        }
+        None => (),
+    }
+
     match &missing_columns.error_transformer_types {
         Some(missing) => {
             let missing_list = missing_to_message(&missing);
             message.push_str(&format!(
-                "Some fields still have 'Error' transformer types ({})\n\t{}\nPlease add a valid transformer!\n\n",
+                "Some fields still have 'Error' transformer types ({})\n\t{}\nPlease add valid transformers!\n\n",
                 strategy_file, missing_list
             ))
         }
@@ -126,7 +137,7 @@ fn format_missing_columns(strategy_file: &str, missing_columns: &MissingColumns)
         Some(missing) => {
             let missing_list = missing_to_message(&missing);
             message.push_str(&format!(
-                "Some fields still have 'Unknown' data types ({})\n\t{}\nPlease add a valid data type!\n\n",
+                "Some fields still have 'Unknown' data types ({})\n\t{}\nPlease add valid data types!\n\n",
                 strategy_file, missing_list
             ))
         }
