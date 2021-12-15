@@ -1,16 +1,41 @@
 use crate::parsers::strategy_structs::*;
 use std::collections::HashSet;
+fn create_simple_column(column_name: &str, table_name: &str) -> SimpleColumn {
+    return SimpleColumn {
+        table_name: table_name.to_string(),
+        column_name: column_name.to_string(),
+    };
+}
 pub fn validate(
     strategies: &Strategies,
     columns_from_db: HashSet<SimpleColumn>,
 ) -> Result<(), MissingColumns> {
+    let unknown_data_types: Vec<SimpleColumn> = strategies
+        .iter()
+        .flat_map(|(table_name, columns)| {
+            return columns
+                .iter()
+                .filter(|(_, column_info)| column_info.data_type == DataType::Unknown)
+                .map(|(column_name, _)| create_simple_column(column_name, table_name));
+        })
+        .collect();
+
+    let error_transformer_types: Vec<SimpleColumn> = strategies
+        .iter()
+        .flat_map(|(table_name, columns)| {
+            return columns
+                .iter()
+                .filter(|(_, column_info)| column_info.transformer.name == TransformerType::Error)
+                .map(|(column_name, _)| create_simple_column(column_name, table_name));
+        })
+        .collect();
+
     let columns_from_strategy_file: HashSet<SimpleColumn> = strategies
         .iter()
         .flat_map(|(table, columns)| {
-            return columns.iter().map(|(column, _)| SimpleColumn {
-                table_name: table.to_string(),
-                column_name: column.to_string(),
-            });
+            return columns
+                .iter()
+                .map(|(column, _)| create_simple_column(column, table));
         })
         .collect();
 
@@ -23,23 +48,30 @@ pub fn validate(
         .difference(&columns_from_strategy_file)
         .map(|a| a.clone())
         .collect();
+
     match (
         in_db_but_not_strategy_file.len(),
         in_strategy_file_but_not_db.len(),
+        unknown_data_types.len(),
+        error_transformer_types.len(),
     ) {
-        (0, 0) => Ok(()),
-        (0, _) => Err(MissingColumns {
-            missing_from_db: Some(in_strategy_file_but_not_db),
-            missing_from_strategy_file: None,
-        }),
-        (_, 0) => Err(MissingColumns {
-            missing_from_db: None,
-            missing_from_strategy_file: Some(in_db_but_not_strategy_file),
-        }),
-        (_, _) => Err(MissingColumns {
-            missing_from_db: Some(in_strategy_file_but_not_db),
-            missing_from_strategy_file: Some(in_db_but_not_strategy_file),
-        }),
+        (0, 0, 0, 0) => Ok(()),
+        _ => {
+            return Err(MissingColumns {
+                missing_from_db: add_if_present(in_strategy_file_but_not_db),
+                missing_from_strategy_file: add_if_present(in_db_but_not_strategy_file),
+                unknown_data_types: add_if_present(unknown_data_types),
+                error_transformer_types: add_if_present(error_transformer_types),
+            });
+        }
+    }
+}
+
+fn add_if_present(list: Vec<SimpleColumn>) -> Option<Vec<SimpleColumn>> {
+    if list.len() > 0 {
+        return Some(list);
+    } else {
+        return None;
     }
 }
 
@@ -123,18 +155,89 @@ mod tests {
         );
     }
 
+    #[test]
+    fn returns_columns_missing_data_type() {
+        let strategies = HashMap::from([create_strategy_with_data_type(
+            "public.person",
+            "first_name",
+            DataType::Unknown,
+        )]);
+
+        let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
+
+        let result = validate(&strategies, columns_from_db);
+
+        let error = result.unwrap_err();
+        assert_eq!(
+            error.unknown_data_types.unwrap(),
+            vec!(create_simple_column("public.person", "first_name"))
+        );
+    }
+    #[test]
+    fn returns_columns_with_error_transformer_types() {
+        let strategies = HashMap::from([create_strategy_with_transformer_type(
+            "public.person",
+            "first_name",
+            TransformerType::Error,
+        )]);
+
+        let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
+
+        let result = validate(&strategies, columns_from_db);
+
+        let error = result.unwrap_err();
+        assert_eq!(
+            error.error_transformer_types.unwrap(),
+            vec!(create_simple_column("public.person", "first_name"))
+        );
+    }
+
     fn create_strategy(
         table_name: &str,
         column_name: &str,
+    ) -> (String, HashMap<String, ColumnInfo>) {
+        return create_strategy_with_data_type(table_name, column_name, DataType::General);
+    }
+
+    fn create_strategy_with_transformer_type(
+        table_name: &str,
+        column_name: &str,
+        transformer_type: TransformerType,
+    ) -> (String, HashMap<String, ColumnInfo>) {
+        return create_strategy_with_data_and_transformer_type(
+            table_name,
+            column_name,
+            DataType::General,
+            transformer_type,
+        );
+    }
+
+    fn create_strategy_with_data_type(
+        table_name: &str,
+        column_name: &str,
+        data_type: DataType,
+    ) -> (String, HashMap<String, ColumnInfo>) {
+        return create_strategy_with_data_and_transformer_type(
+            table_name,
+            column_name,
+            data_type,
+            TransformerType::Identity,
+        );
+    }
+    fn create_strategy_with_data_and_transformer_type(
+        table_name: &str,
+        column_name: &str,
+        data_type: DataType,
+        transformer_type: TransformerType,
     ) -> (String, HashMap<String, ColumnInfo>) {
         return (
             table_name.to_string(),
             HashMap::from([(
                 column_name.to_string(),
                 ColumnInfo {
-                    data_type: DataType::General,
+                    data_type: data_type,
                     transformer: Transformer {
-                        name: TransformerType::Identity,
+                        name: transformer_type,
                         args: None,
                     },
                 },

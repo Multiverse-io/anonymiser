@@ -68,8 +68,8 @@ fn main() -> Result<(), std::io::Error> {
                 Err(missing_columns) => {
                     let message = format_missing_columns(&strategy_file, &missing_columns);
                     println!("{}", message);
-                    if fix {
-                        println!("But the great news is that we're going to try and fix this!...");
+                    if fix && fixable(&missing_columns) {
+                        println!("But the great news is that we're going to try and fix some of this!...");
                         fix_missing_columns(&strategy_file, missing_columns);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
@@ -88,6 +88,16 @@ fn main() -> Result<(), std::io::Error> {
     return Ok(());
 }
 
+fn fixable(missing_columns: &MissingColumns) -> bool {
+    return missing_columns.missing_from_strategy_file.is_some()
+        && missing_columns
+            .missing_from_strategy_file
+            .as_ref()
+            .unwrap()
+            .len()
+            > 0;
+}
+
 fn fix_missing_columns(strategy_file: &str, missing_columns: MissingColumns) -> () {
     match missing_columns.missing_from_strategy_file {
         Some(missing) => {
@@ -100,6 +110,28 @@ fn fix_missing_columns(strategy_file: &str, missing_columns: MissingColumns) -> 
 
 fn format_missing_columns(strategy_file: &str, missing_columns: &MissingColumns) -> String {
     let mut message = "".to_string();
+
+    match &missing_columns.error_transformer_types {
+        Some(missing) => {
+            let missing_list = missing_to_message(&missing);
+            message.push_str(&format!(
+                "Some fields still have 'Error' transformer types ({})\n\t{}\nPlease add a valid transformer!\n\n",
+                strategy_file, missing_list
+            ))
+        }
+        None => (),
+    }
+
+    match &missing_columns.unknown_data_types {
+        Some(missing) => {
+            let missing_list = missing_to_message(&missing);
+            message.push_str(&format!(
+                "Some fields still have 'Unknown' data types ({})\n\t{}\nPlease add a valid data type!\n\n",
+                strategy_file, missing_list
+            ))
+        }
+        None => (),
+    }
     match &missing_columns.missing_from_db {
         Some(missing) => {
             let missing_list = missing_to_message(&missing);
