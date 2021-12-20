@@ -53,6 +53,7 @@ jobs:
       - image: cimg/rust:1.57.0
     steps:
       - checkout
+      - run: echo 'export GIT_COMMIT_MSG="$(git log --format=oneline -n 1 $CIRCLE_SHA1)"' >> $BASH_ENV
       - run: ./build
       - slack_notify_failure
       - store_test_results:
@@ -62,6 +63,7 @@ jobs:
       - image: cimg/rust:1.57.0
     steps:
       - checkout
+      - run: echo 'export GIT_COMMIT_MSG="$(git log --format=oneline -n 1 $CIRCLE_SHA1)"' >> $BASH_ENV
       - run: cargo build --release
       - store_artifacts:
           path: ./target/release/anonymiser
