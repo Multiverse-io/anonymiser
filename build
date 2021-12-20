@@ -3,5 +3,4 @@ set -e
 cargo install cargo2junit
 cargo fmt -- --check
 cargo test -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
-exit -1
 exit ${PIPESTATUS[0]}
