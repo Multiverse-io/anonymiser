@@ -1,0 +1,4 @@
+#!/bin/bash
+./release_scripts/x86_64-unknown-linux-musl/create_release
+./release_scripts/x86_64-unknown-linux-gnu/create_release
+./release_scripts/aarch64-apple-darwin/create_release

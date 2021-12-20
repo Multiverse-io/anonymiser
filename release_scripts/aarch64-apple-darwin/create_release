@@ -1,0 +1,5 @@
+#!/bin/bash
+
+crate build --release
+
+cp target/release/anonymiser ./anonymiser-aarch64-apple-darwin
