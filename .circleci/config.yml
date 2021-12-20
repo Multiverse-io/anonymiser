@@ -74,10 +74,10 @@ workflows:
     jobs:
       - test:
           context:
-            default
+            - Default
       - create-release:
           context:
-            default
+            - Default
           requires:
             - test
           filters:
