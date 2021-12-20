@@ -72,8 +72,12 @@ workflows:
   version: 2.4
   build:
     jobs:
-      - test
+      - test:
+          context:
+            default
       - create-release:
+          context:
+            default
           requires:
             - test
           filters:
