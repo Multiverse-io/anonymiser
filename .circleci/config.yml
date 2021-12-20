@@ -58,23 +58,6 @@ jobs:
       - slack_notify_failure
       - store_test_results:
           path: results.xml
-  create-release:
-    docker:
-      - image: cimg/rust:1.57.0
-    steps:
-      - checkout
-      - run: echo 'export GIT_COMMIT_MSG="$(git log --format=oneline -n 1 $CIRCLE_SHA1)"' >> $BASH_ENV
-      - run: ./create_releases
-      - store_artifacts:
-          path: ./anonymiser-aarch64-apple-darwin
-          destination: anonymiser-aarch64-apple-darwin
-      - store_artifacts:
-          path: ./anonymiser-x86_64-unknown-linux-gnu
-          destination: anonymiser-x86_64-unknown-linux-gnu
-      - store_artifacts:
-          path: ./anonymiser-x86_64-unknown-linux-musl
-          destination: anonymiser-x86_64-unknown-linux-musl
-      - slack_notify_failure
 
 workflows:
   version: 2.4
@@ -83,11 +66,3 @@ workflows:
       - test:
           context:
             - Default
-      - create-release:
-          context:
-            - Default
-          requires:
-            - test
-          filters:
-            branches:
-              only: main
