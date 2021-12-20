@@ -1,3 +1,5 @@
+.DS_Store
 /target
+results.xml
 *.sql
 *.json
