@@ -29,9 +29,9 @@ The following data types are supported
 - FakeBase16String - Random Base16 string
 - FakeBase32String - Random Base32 string
 - FakeCity - Random city from [faker](https://github.com/cksac/fake-rs)
-- FakeCompanyName - Random Company Name from [faker](https://github.com/cksac/fake-rs) *
-- FakeEmail - Random email address from [faker](https://github.com/cksac/fake-rs) *
-- FakeFirstNam - Random first name from [faker](https://github.com/cksac/fake-rs)
+- FakeCompanyName * - Random Company Name from [faker](https://github.com/cksac/fake-rs)
+- FakeEmail * - Random email address from [faker](https://github.com/cksac/fake-rs)
+- FakeFirstName - Random first name from [faker](https://github.com/cksac/fake-rs)
 - FakeFullAddress - Random address made up of segments from [faker](https://github.com/cksac/fake-rs)
 - FakeFullName - Random first plus last name from [faker](https://github.com/cksac/fake-rs)
 - FakeIPv4 - Random IPV4 address from [faker](https://github.com/cksac/fake-rs)
@@ -41,7 +41,7 @@ The following data types are supported
 - FakePostCode - Truncates postcode to the first 3 chars e.g. NW5
 - FakeState - Random US state from [faker](https://github.com/cksac/fake-rs)
 - FakeStreetAddress - Random building number + street name from [faker](https://github.com/cksac/fake-rs)
-- FakeUsername - Random username from [faker](https://github.com/cksac/fake-rs) *
+- FakeUsername * - Random username from [faker](https://github.com/cksac/fake-rs)
 - FakeUUID - Random UUIDv4
 - Fixed - Returns a fixed value (requires a `value` arg with the value to use)
 - Identity - Does not transform the original value
@@ -52,16 +52,33 @@ The following data types are supported
 Some transformers support option args. e.g. Fixed
 
 ```
-  "transformer": {
-    "name": "Fixed",
-    "args": {
-      "value": "new-value"
+  {
+    "data_type": "Pii",
+    "description": "",
+    "name": "naughty_field",
+    "transformer": {
+      "name": "Fixed",
+      "args": {
+        "value": "new-value"
+      }
     }
-  }
+  },
 ```
 
 All instances of this field with be replaced with `new-value`
 
-Transformers with a * at the end of the line support the arg `unique` which will append an incrementing number to the random data to guarantee no duplicates will occur.
+Transformers with a * support the arg `unique` which will append an incrementing number to the random data to guarantee no duplicates will occur e.g.
 
-
+```
+  {
+    "data_type": "Pii",
+    "description": "user email address",
+    "name": "email",
+    "transformer": {
+      "name": "FakeEmail",
+      "args": {
+        "unique": "true"
+      }
+    }
+  },
+```
