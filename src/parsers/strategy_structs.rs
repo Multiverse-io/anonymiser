@@ -129,7 +129,6 @@ pub enum TransformerType {
     Fixed,
     Identity,
     ObfuscateDay,
-    Redact,
     Scramble,
 }
 

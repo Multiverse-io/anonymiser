@@ -52,7 +52,6 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: 
         TransformerType::Fixed => fixed(&transform.args, table_name),
         TransformerType::Identity => value.to_string(),
         TransformerType::ObfuscateDay => obfuscate_day(value, table_name),
-        TransformerType::Redact => format!("Redacted {}", '\u{1F910}'),
         TransformerType::Scramble => scramble(value),
     }
 }
@@ -577,20 +576,6 @@ mod tests {
             TABLE_NAME,
         );
         assert_eq!(result, "0001-08-01 BC");
-    }
-
-    #[test]
-    fn redact() {
-        let street_address = "any street_address";
-        let redacted_street_address = transform(
-            street_address,
-            &Transformer {
-                name: TransformerType::Redact,
-                args: None,
-            },
-            TABLE_NAME,
-        );
-        assert_eq!(redacted_street_address, "Redacted 🤐");
     }
 
     #[test]
