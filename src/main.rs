@@ -25,6 +25,13 @@ enum Anonymiser {
         strategy_file: String,
     },
 
+    ToCsv {
+        #[structopt(short, long, default_value = "./output.csv")]
+        output_file: String,
+        #[structopt(short, long, default_value = "./strategy.json")]
+        strategy_file: String,
+    },
+
     CheckStrategies {
         #[structopt(short, long, default_value = "./strategy.json")]
         strategy_file: String,
@@ -56,6 +63,12 @@ fn main() -> Result<(), std::io::Error> {
         } => {
             let strategies = strategy_file::parse(&strategy_file);
             file_reader::read(input_file, output_file, &strategies)?;
+        }
+        Anonymiser::ToCsv {
+            output_file,
+            strategy_file,
+        } => {
+            strategy_file::to_csv(&strategy_file, &output_file)?;
         }
         Anonymiser::CheckStrategies {
             strategy_file,

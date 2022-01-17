@@ -1,4 +1,8 @@
 use crate::parsers::strategy_structs::*;
+use itertools::sorted;
+use itertools::Itertools;
+use std::io::Write;
+
 use serde_json;
 use std::collections::HashMap;
 use std::fs;
@@ -56,6 +60,39 @@ pub fn append_to_file(file_name: &str, missing_columns: Vec<SimpleColumn>) -> st
         .truncate(true)
         .open(file_name)?;
     serde_json::to_writer_pretty(file, &current_file_contents)?;
+    return Ok(());
+}
+
+pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()> {
+    let strategies = read_file(strategy_file)?;
+    let p: Vec<String> = strategies
+        .iter()
+        .flat_map(|strategy| {
+            strategy.columns.iter().filter_map(|column| {
+                if column.data_type == DataType::Pii || column.data_type == DataType::PotentialPii {
+                    return Some(format!(
+                        "{}, {}, {}",
+                        strategy.table_name, column.name, column.description
+                    ));
+                } else {
+                    return None;
+                }
+            })
+        })
+        .collect::<Vec<String>>();
+    let to_write = format!(
+        "{}\n{}",
+        "table name, column name, description",
+        sorted(p).join("\n")
+    );
+
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(csv_output_file)?;
+    file.write_all(to_write.as_bytes()).unwrap();
+
     return Ok(());
 }
 
