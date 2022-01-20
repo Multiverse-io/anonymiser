@@ -10,6 +10,7 @@ use fake::faker::internet::en::*;
 use fake::faker::name::en::*;
 use fake::Fake;
 use rand::{thread_rng, Rng};
+use regex::Regex;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
@@ -20,13 +21,17 @@ fn get_unique() -> usize {
     return UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst);
 }
 
-pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: &str) -> String {
+pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name: &str) -> String {
     if ["\\N", "deleted"].contains(&value) {
         return value.to_string();
     }
 
+    if value.starts_with("{") && value.ends_with("}") {
+        return transform_array(value.to_string(), transformer, table_name);
+    }
+
     let unique = get_unique();
-    match transform.name {
+    match transformer.name {
         TransformerType::Error => {
             panic!("Error transform still in place for table: {}", table_name)
         }
@@ -34,8 +39,8 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: 
         TransformerType::FakeBase16String => fake_base16_string(),
         TransformerType::FakeBase32String => fake_base32_string(),
         TransformerType::FakeCity => CityName().fake(),
-        TransformerType::FakeCompanyName => fake_company_name(&transform.args, unique),
-        TransformerType::FakeEmail => fake_email(&transform.args, unique),
+        TransformerType::FakeCompanyName => fake_company_name(&transformer.args, unique),
+        TransformerType::FakeEmail => fake_email(&transformer.args, unique),
         TransformerType::FakeFirstName => FirstName().fake(),
         TransformerType::FakeFullAddress => fake_full_address(),
         TransformerType::FakeFullName => fake_full_name(),
@@ -46,15 +51,34 @@ pub fn transform<'line>(value: &'line str, transform: &Transformer, table_name: 
         TransformerType::FakePhoneNumber => fake_phone_number(value),
         TransformerType::FakeStreetAddress => fake_street_address(),
         TransformerType::FakeState => StateName().fake(),
-        TransformerType::FakeUsername => fake_username(&transform.args, unique),
+        TransformerType::FakeUsername => fake_username(&transformer.args, unique),
         //TODO not tested VV
         TransformerType::FakeUUID => Uuid::new_v4().to_string(),
-        TransformerType::Fixed => fixed(&transform.args, table_name),
+        TransformerType::Fixed => fixed(&transformer.args, table_name),
         TransformerType::Identity => value.to_string(),
         TransformerType::ObfuscateDay => obfuscate_day(value, table_name),
         TransformerType::Scramble => scramble(value),
     }
 }
+
+fn transform_array(value: String, transformer: &Transformer, table_name: &str) -> String {
+    let array_of_strings_regex = Regex::new(r#"^\{".+".*\}$"#).unwrap();
+    re.is_match(&new_value)
+
+    let mut unsplit_array = value.to_string();
+    unsplit_array.remove(0);
+    unsplit_array.pop();
+
+    let array: Vec<String> = unsplit_array
+        .split(", ")
+        .map(|x| {
+            return transform(x, transformer, table_name);
+        })
+        .collect();
+
+    return format!("{{{}}}", array.join(", "));
+}
+
 fn prepend_unique_if_present(
     new_value: String,
     args: &Option<HashMap<String, String>>,
@@ -183,6 +207,8 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
 fn scramble(original_value: &str) -> String {
     let mut output_string: String = "".to_string();
     let chars = original_value.chars().collect::<Vec<char>>();
+    let number_match = Regex::new(r"[0-9]").unwrap();
+
     for i in 0..chars.len() {
         let current_char = chars[i];
         if current_char == '\\' {
@@ -190,6 +216,9 @@ fn scramble(original_value: &str) -> String {
             output_string.push(chars[i]);
         } else if current_char == ' ' {
             output_string.push(current_char);
+        } else if number_match.is_match(&current_char.to_string()) {
+            let new_char = thread_rng().gen_range(b'0'..=b'9') as char;
+            output_string.push(new_char);
         } else if i > 0 && chars[i - 1] == '\\' {
             //The second bit of the control character! e.g. the 'n' bit of '\n'
             output_string.push(current_char);
@@ -669,5 +698,68 @@ mod tests {
         );
         assert!(new_value != initial_value);
         //TODO finish this test
+    }
+
+    #[test]
+    fn scramble_changes_integers_into_integers_only() {
+        let initial_value = "123456789";
+
+        let new_value = transform(
+            &initial_value,
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_value != initial_value);
+        let re = Regex::new(r"^[0-9]{9}$").unwrap();
+        assert!(
+            re.is_match(&new_value),
+            "new value: \"{}\" does not contain same digit / alphabet structure as input",
+            new_value
+        );
+    }
+
+    #[test]
+    fn can_scramble_array_string_fields() {
+        let initial_value = "{\"A\", \"B\"}";
+        let new_value = transform(
+            &initial_value,
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_value != initial_value);
+        println!("{}", new_value);
+        let re = Regex::new(r#"^\{"[a-z]", "[a-z]"\}$"#).unwrap();
+        assert!(
+            re.is_match(&new_value),
+            "new value: \"{}\" does not contain same digit / alphabet structure as input",
+            new_value
+        );
+    }
+
+    #[test]
+    fn can_scramble_array_integer_fields() {
+        let initial_value = "{1, 2}";
+        let new_value = transform(
+            &initial_value,
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_value != initial_value);
+        println!("{}", new_value);
+        let re = Regex::new(r#"^\{[0-9], [0-9]\}$"#).unwrap();
+        assert!(
+            re.is_match(&new_value),
+            "new value: \"{}\" does not contain same digit / alphabet structure as input",
+            new_value
+        );
     }
 }
