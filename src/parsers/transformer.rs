@@ -27,7 +27,7 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
     }
 
     if value.starts_with("{") && value.ends_with("}") {
-        return transform_array(value.to_string(), transformer, table_name);
+        return transform_array(value, transformer, table_name);
     }
 
     let unique = get_unique();
@@ -61,18 +61,30 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
     }
 }
 
-fn transform_array(value: String, transformer: &Transformer, table_name: &str) -> String {
+fn transform_array(value: &str, transformer: &Transformer, table_name: &str) -> String {
     let array_of_strings_regex = Regex::new(r#"^\{".+".*\}$"#).unwrap();
-    re.is_match(&new_value)
-
+    let is_string_array = array_of_strings_regex.is_match(value);
     let mut unsplit_array = value.to_string();
+
     unsplit_array.remove(0);
     unsplit_array.pop();
 
     let array: Vec<String> = unsplit_array
         .split(", ")
-        .map(|x| {
-            return transform(x, transformer, table_name);
+        .map(|list_item| {
+            if is_string_array {
+                let mut list_item_without_enclosing_quotes = list_item.to_string();
+                list_item_without_enclosing_quotes.remove(0);
+                list_item_without_enclosing_quotes.pop();
+                let transformed =
+                    transform(&list_item_without_enclosing_quotes, transformer, table_name);
+
+                let quote = String::from("\"");
+
+                return format!("{}{}{}", quote, transformed, quote);
+            } else {
+                return transform(list_item, transformer, table_name);
+            }
         })
         .collect();
 
