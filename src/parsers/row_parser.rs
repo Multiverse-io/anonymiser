@@ -232,12 +232,10 @@ mod tests {
             in_copy: true,
             current_table: Some(CurrentTable {
                 table_name: "public.users".to_string(),
-                transforms: Some(vec![
-                    Transformer {
-                        name: TransformerType::Scramble,
-                        args: None,
-                    }
-                ]),
+                transforms: Some(vec![Transformer {
+                    name: TransformerType::Scramble,
+                    args: None,
+                }]),
             }),
         };
         let processed_row = parse(table_data_row, &mut state, &strategies);
