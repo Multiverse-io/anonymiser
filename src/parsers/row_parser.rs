@@ -222,4 +222,24 @@ mod tests {
         let processed_row = parse(table_data_row, &mut state, &strategies);
         assert_eq!("first\tsecond\tthird\n", processed_row);
     }
+
+    #[test]
+    fn transforms_array_fields() {
+        let table_data_row = "{\"My string\"}\n";
+        let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
+
+        let mut state = RowParsingState {
+            in_copy: true,
+            current_table: Some(CurrentTable {
+                table_name: "public.users".to_string(),
+                transforms: Some(vec![Transformer {
+                    name: TransformerType::Scramble,
+                    args: None,
+                }]),
+            }),
+        };
+        let processed_row = parse(table_data_row, &mut state, &strategies);
+        println!("{}", processed_row);
+        assert!(table_data_row != processed_row);
+    }
 }
