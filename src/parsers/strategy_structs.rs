@@ -93,7 +93,7 @@ pub struct ColumnInfo {
     pub transformer: Transformer,
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum DataType {
     CommerciallySensitive,
     General,

@@ -5,9 +5,10 @@
 
 `./create_releases` will create 3 releases:
 - anonymiser-aarch64-apple-darwin (for m1 macs)
+- anonymiser-x86_64-apple-darwin (for intel macs)
 - anonymiser-x86_64-unknown-linux-gnu (for debian)
 - anonymiser-x86_64-unknown-linux-musl (for alpine)
-in the root of the project
+in the root of the project, this will prompt you for input to create a github release
 if you just want to build for your current arch you can run `cargo build --release` and it will create an anonymiser binary in `targets/release/`
 
 

@@ -54,7 +54,7 @@ jobs:
     steps:
       - checkout
       - run: echo 'export GIT_COMMIT_MSG="$(git log --format=oneline -n 1 $CIRCLE_SHA1)"' >> $BASH_ENV
-      - run: ./build
+      - run: ./test
       - slack_notify_failure
       - store_test_results:
           path: results.xml

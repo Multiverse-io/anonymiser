@@ -3,3 +3,6 @@
 ./release_scripts/x86_64-unknown-linux-gnu/create_release
 ./release_scripts/aarch64-apple-darwin/create_release
 ./release_scripts/x86_64-apple-darwin/create_release
+
+
+gh release create v0.1.1 './anonymiser-x86_64-unknown-linux-gnu#General linux' './anonymiser-x86_64-unknown-linux-musl#Alpine linux' './anonymiser-x86_64-apple-darwin#Intel Mac' './anonymiser-aarch64-apple-darwin#Apple silicon mac'
