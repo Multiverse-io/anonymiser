@@ -25,9 +25,11 @@ enum Anonymiser {
         output_file: String,
         #[structopt(short, long, default_value = "./strategy.json")]
         strategy_file: String,
-        #[structopt(short, long)]
+        /// Does not transform PotentiallPii data types
+        #[structopt(long)]
         allow_potential_pii: bool,
-        #[structopt(short, long)]
+        /// Does not trasnform Commercially sensitive data types
+        #[structopt(long)]
         allow_commercially_sensitive: bool,
     },
 
