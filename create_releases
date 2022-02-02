@@ -2,6 +2,16 @@
 
 set -exu
 
+# the tag should increment the previous tag on github here(https://github.com/Multiverse-io/anonymiser/tags)
+tag=$1;
+
+if [[ ! $tag =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+then
+  echo "tag should be in the format '0.1.1'";
+  exit 1;
+fi
+
+
 echo "building x86_64-unknown-linux-musl"
 ./release_scripts/x86_64-unknown-linux-musl/create_release
 echo "building x86_64-unknown-linux-gnu"
@@ -11,15 +21,6 @@ echo "aarch64-apple-darwin"
 echo "x86_64-apple-darwin"
 ./release_scripts/x86_64-apple-darwin/create_release
 
-
-# the tag should increment the previous tag on github here(https://github.com/Multiverse-io/anonymiser/tags)
-tag=$1;
-
-if [[ ! $tag =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-then
-  echo "tag should be in the format '0.1.1'";
-  exit 1;
-fi
 
 #Horrible hack with the .bak due to how mac-os sed works.. this is ugly but should work on both linux and mac-os
 sed -i.bak "s/^version = \".*\"$/version = \"$tag\"/" Cargo.toml
