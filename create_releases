@@ -1,8 +1,18 @@
 #!/bin/bash
+
+set -exu
+
+echo "building x86_64-unknown-linux-musl"
 ./release_scripts/x86_64-unknown-linux-musl/create_release
+echo "building x86_64-unknown-linux-gnu"
 ./release_scripts/x86_64-unknown-linux-gnu/create_release
+echo "aarch64-apple-darwin"
 ./release_scripts/aarch64-apple-darwin/create_release
+echo "x86_64-apple-darwin"
 ./release_scripts/x86_64-apple-darwin/create_release
 
 
-gh release create v0.1.1 './anonymiser-x86_64-unknown-linux-gnu#General linux' './anonymiser-x86_64-unknown-linux-musl#Alpine linux' './anonymiser-x86_64-apple-darwin#Intel Mac' './anonymiser-aarch64-apple-darwin#Apple silicon mac'
+# the tag should increment the previous tag on github here(https://github.com/Multiverse-io/anonymiser/tags)
+tag=$1;
+
+gh release create $tag './anonymiser-x86_64-unknown-linux-gnu#General linux' './anonymiser-x86_64-unknown-linux-musl#Alpine linux' './anonymiser-x86_64-apple-darwin#Intel Mac' './anonymiser-aarch64-apple-darwin#Apple silicon mac'
