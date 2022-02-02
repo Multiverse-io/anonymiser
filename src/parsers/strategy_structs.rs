@@ -87,7 +87,7 @@ impl PartialEq for SimpleColumn {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct ColumnInfo {
     pub data_type: DataType,
     pub transformer: Transformer,
@@ -138,4 +138,18 @@ pub struct Transformer {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub args: Option<HashMap<String, String>>,
+}
+
+pub struct TransformerOverrides {
+    pub allow_potential_pii: bool,
+    pub allow_commercially_sensitive: bool,
+}
+
+impl Default for TransformerOverrides {
+    fn default() -> Self {
+        Self {
+            allow_potential_pii: false,
+            allow_commercially_sensitive: false,
+        }
+    }
 }

@@ -1,3 +1,4 @@
+use crate::parsers::strategy_file_parser;
 use crate::parsers::strategy_structs::*;
 use itertools::sorted;
 use itertools::Itertools;
@@ -7,9 +8,9 @@ use serde_json;
 use std::collections::HashMap;
 use std::fs;
 
-pub fn parse(file_name: &str, allow_potential_pii: bool) -> Strategies {
+pub fn read(file_name: &str, transformer_overrides: TransformerOverrides) -> Strategies {
     match read_file(file_name) {
-        Ok(strategies) => transform_file_strategies(strategies, allow_potential_pii),
+        Ok(strategies) => strategy_file_parser::parse(strategies, transformer_overrides),
         Err(error) => panic!("Unable to read strategy file: {:?}", error),
     }
 }
@@ -94,43 +95,6 @@ pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()>
     file.write_all(to_write.as_bytes()).unwrap();
 
     return Ok(());
-}
-
-fn transformer(column: ColumnInFile, allow_potential_pii: bool) -> Transformer {
-    if allow_potential_pii && column.data_type == DataType::PotentialPii {
-        return Transformer {
-            name: TransformerType::Identity,
-            args: None,
-        };
-    } else {
-        return column.transformer;
-    };
-}
-fn transform_file_strategies(
-    strategies: Vec<StrategyInFile>,
-    allow_potential_pii: bool,
-) -> HashMap<String, HashMap<String, ColumnInfo>> {
-    let mut transformed_strategies: HashMap<String, HashMap<String, ColumnInfo>> = HashMap::new();
-    //TODO If all columns are none, lets not do any transforming?
-    for strategy in strategies {
-        let columns = strategy
-            .columns
-            .into_iter()
-            .map(|column| {
-                return (
-                    column.name.clone(),
-                    ColumnInfo {
-                        data_type: column.data_type.clone(),
-                        transformer: transformer(column, allow_potential_pii),
-                    },
-                );
-            })
-            .collect();
-
-        transformed_strategies.insert(strategy.table_name, columns);
-    }
-
-    return transformed_strategies;
 }
 
 fn read_file(file_name: &str) -> serde_json::Result<Vec<StrategyInFile>> {
