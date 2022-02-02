@@ -1,8 +1,10 @@
 mod file_reader;
 mod parsers;
-use crate::parsers::strategy_structs::{MissingColumns, SimpleColumn, Strategies};
+use crate::parsers::strategy_structs::{
+    MissingColumns, SimpleColumn, Strategies, TransformerOverrides,
+};
 use itertools::Itertools;
-use parsers::{db_schema, strategy_file, strategy_validator};
+use parsers::{db_schema, strategy_file_reader, strategy_validator};
 use postgres::{Client, NoTls};
 use structopt::StructOpt;
 
@@ -25,6 +27,8 @@ enum Anonymiser {
         strategy_file: String,
         #[structopt(short, long)]
         allow_potential_pii: bool,
+        #[structopt(short, long)]
+        allow_commercially_sensitive: bool,
     },
 
     ToCsv {
@@ -63,22 +67,29 @@ fn main() -> Result<(), std::io::Error> {
             output_file,
             strategy_file,
             allow_potential_pii,
+            allow_commercially_sensitive,
         } => {
-            let strategies = strategy_file::parse(&strategy_file, allow_potential_pii);
+            let transformer_overrides = TransformerOverrides {
+                allow_potential_pii: allow_potential_pii,
+                allow_commercially_sensitive: allow_commercially_sensitive,
+            };
+
+            let strategies = strategy_file_reader::read(&strategy_file, transformer_overrides);
             file_reader::read(input_file, output_file, &strategies)?;
         }
         Anonymiser::ToCsv {
             output_file,
             strategy_file,
         } => {
-            strategy_file::to_csv(&strategy_file, &output_file)?;
+            strategy_file_reader::to_csv(&strategy_file, &output_file)?;
         }
         Anonymiser::CheckStrategies {
             strategy_file,
             fix,
             db_url,
         } => {
-            let strategies = strategy_file::parse(&strategy_file, false);
+            let transformer = TransformerOverrides::default();
+            let strategies = strategy_file_reader::read(&strategy_file, transformer);
             match strategy_differences(&strategies, db_url) {
                 Ok(()) => println!("All up to date"),
                 Err(missing_columns) => {
@@ -97,8 +108,9 @@ fn main() -> Result<(), std::io::Error> {
             strategy_file,
             db_url,
         } => {
+            let transformer = TransformerOverrides::default();
             //TODO if strategy file doesnt exist this blows up
-            let strategies = strategy_file::parse(&strategy_file, false);
+            let strategies = strategy_file_reader::read(&strategy_file, transformer);
             let _result = strategy_differences(&strategies, db_url);
         }
     }
@@ -118,7 +130,7 @@ fn fixable(missing_columns: &MissingColumns) -> bool {
 fn fix_missing_columns(strategy_file: &str, missing_columns: MissingColumns) -> () {
     match missing_columns.missing_from_strategy_file {
         Some(missing) => {
-            strategy_file::append_to_file(&strategy_file, missing)
+            strategy_file_reader::append_to_file(&strategy_file, missing)
                 .expect("Unable to write to file :(");
         }
         None => (),

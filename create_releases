@@ -12,6 +12,11 @@ then
 fi
 
 
+#Horrible hack with the .bak due to how mac-os sed works.. this is ugly but should work on both linux and mac-os
+sed -i.bak "s/^version = \".*\"$/version = \"$tag\"/" Cargo.toml
+rm -f Cargo.tom.bak
+
+
 echo "building x86_64-unknown-linux-musl"
 ./release_scripts/x86_64-unknown-linux-musl/create_release
 echo "building x86_64-unknown-linux-gnu"
@@ -21,9 +26,5 @@ echo "aarch64-apple-darwin"
 echo "x86_64-apple-darwin"
 ./release_scripts/x86_64-apple-darwin/create_release
 
-
-#Horrible hack with the .bak due to how mac-os sed works.. this is ugly but should work on both linux and mac-os
-sed -i.bak "s/^version = \".*\"$/version = \"$tag\"/" Cargo.toml
-rm -f Cargo.tom.bak
 
 gh release create "v$tag" './anonymiser-x86_64-unknown-linux-gnu#General linux' './anonymiser-x86_64-unknown-linux-musl#Alpine linux' './anonymiser-x86_64-apple-darwin#Intel Mac' './anonymiser-aarch64-apple-darwin#Apple silicon mac'
