@@ -167,6 +167,44 @@ mod tests {
         assert_eq!(pii_column_transformer.args, None);
     }
 
+    #[test]
+    fn can_combine_override_flags() {
+        let strategies = vec![StrategyInFile {
+            table_name: TABLE_NAME.to_string(),
+            description: "description".to_string(),
+            columns: vec![
+                column_in_file(
+                    DataType::PotentialPii,
+                    PII_COLUMN_NAME,
+                    TransformerType::Scramble,
+                ),
+                column_in_file(
+                    DataType::CommerciallySensitive,
+                    COMMERCIALLY_SENSITIVE_COLUMN_NAME,
+                    TransformerType::Scramble,
+                ),
+            ],
+        }];
+
+        let parsed = parse(
+            strategies,
+            TransformerOverrides {
+                allow_potential_pii: true,
+                allow_commercially_sensitive: true,
+            },
+        );
+
+        let commercially_sensitive_transformer =
+            transformer_for_column(COMMERCIALLY_SENSITIVE_COLUMN_NAME, &parsed);
+        let pii_column_transformer = transformer_for_column(PII_COLUMN_NAME, &parsed);
+
+        assert_eq!(
+            commercially_sensitive_transformer.name,
+            TransformerType::Identity
+        );
+        assert_eq!(pii_column_transformer.name, TransformerType::Identity);
+    }
+
     fn transformer_for_column(
         column_name: &str,
         strategies: &HashMap<String, HashMap<String, ColumnInfo>>,
