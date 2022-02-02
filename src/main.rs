@@ -23,6 +23,8 @@ enum Anonymiser {
         output_file: String,
         #[structopt(short, long, default_value = "./strategy.json")]
         strategy_file: String,
+        #[structopt(short, long)]
+        allow_potential_pii: bool,
     },
 
     ToCsv {
@@ -60,8 +62,9 @@ fn main() -> Result<(), std::io::Error> {
             input_file,
             output_file,
             strategy_file,
+            allow_potential_pii,
         } => {
-            let strategies = strategy_file::parse(&strategy_file);
+            let strategies = strategy_file::parse(&strategy_file, allow_potential_pii);
             file_reader::read(input_file, output_file, &strategies)?;
         }
         Anonymiser::ToCsv {
@@ -75,7 +78,7 @@ fn main() -> Result<(), std::io::Error> {
             fix,
             db_url,
         } => {
-            let strategies = strategy_file::parse(&strategy_file);
+            let strategies = strategy_file::parse(&strategy_file, false);
             match strategy_differences(&strategies, db_url) {
                 Ok(()) => println!("All up to date"),
                 Err(missing_columns) => {
@@ -95,7 +98,7 @@ fn main() -> Result<(), std::io::Error> {
             db_url,
         } => {
             //TODO if strategy file doesnt exist this blows up
-            let strategies = strategy_file::parse(&strategy_file);
+            let strategies = strategy_file::parse(&strategy_file, false);
             let _result = strategy_differences(&strategies, db_url);
         }
     }
