@@ -28,7 +28,7 @@ enum Anonymiser {
         /// Does not transform PotentiallPii data types
         #[structopt(long)]
         allow_potential_pii: bool,
-        /// Does not trasnform Commercially sensitive data types
+        /// Does not transform Commercially sensitive data types
         #[structopt(long)]
         allow_commercially_sensitive: bool,
     },
