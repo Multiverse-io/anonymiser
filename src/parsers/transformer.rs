@@ -26,6 +26,10 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
         return value.to_string();
     }
 
+    if transformer.name == TransformerType::Identity {
+        return value.to_string();
+    }
+
     if value.starts_with("{") && value.ends_with("}") {
         return transform_array(value, transformer, table_name);
     }
@@ -752,6 +756,21 @@ mod tests {
             "new value: \"{}\" does not contain same digit / alphabet structure as input",
             new_value
         );
+    }
+
+    #[test]
+    fn ignores_arrays_if_identity() {
+        //TODO currently we have a couple of bugs in parsing around commas inside strings
+        let initial_value = "{\"A, B\", \"C\"}";
+        let new_value = transform(
+            &initial_value,
+            &Transformer {
+                name: TransformerType::Identity,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert_eq!(new_value, initial_value);
     }
 
     #[test]
