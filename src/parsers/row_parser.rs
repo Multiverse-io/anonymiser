@@ -5,14 +5,18 @@ use crate::parsers::transformer;
 use itertools::join;
 
 pub struct RowParsingState {
-    in_copy: bool,
+    in_copy_statement: bool,
+    in_create_table_statement: bool,
+    create_table_statement: String,
     current_table: Option<CurrentTable>,
 }
 
 pub fn initial_state() -> RowParsingState {
     RowParsingState {
-        in_copy: false,
+        in_copy_statement: false,
+        create_table_statement: "".to_string(),
         current_table: None,
+        in_create_table_statement: false,
     }
 }
 
@@ -21,21 +25,35 @@ pub fn parse<'line, 'state>(
     state: &'state mut RowParsingState,
     strategies: &'state Strategies,
 ) -> String {
-    if line.starts_with("COPY ") {
+    if line.starts_with("CREATE TABLE ") {
+        state.in_create_table_statement = true;
+        state.create_table_statement.push_str(line);
+        return line.to_string();
+    } else if line.starts_with("COPY ") {
         let current_table = copy_row::parse(&line, strategies);
-        state.in_copy = true;
+        state.in_copy_statement = true;
         state.current_table = Some(current_table);
         return line.to_string();
+    } else if state.in_create_table_statement && line.starts_with(");") {
+        state.in_create_table_statement = false;
+        add_to_table_store(&state.create_table_statement);
+        state.create_table_statement = String::new();
+        return line.to_string();
     } else if line.starts_with("\\.") {
-        state.in_copy = false;
+        state.in_copy_statement = false;
         state.current_table = None;
         return line.to_string();
-    } else if state.in_copy {
+    } else if state.in_copy_statement {
         return transform_row(line, &state.current_table);
+    } else if state.in_create_table_statement {
+        state.create_table_statement.push_str(line);
+        return line.to_string();
     } else {
         return line.to_string();
     }
 }
+
+fn add_to_table_store(create_table_statement: &str) {}
 
 fn transform_row<'line, 'state>(
     line: &'line str,
@@ -72,6 +90,53 @@ mod tests {
     use super::*;
     use crate::parsers::strategy_structs::{ColumnInfo, DataType, Transformer, TransformerType};
     use std::collections::HashMap;
+
+    #[test]
+    fn create_row_starts_parsing_for_create_table_definition() {
+        let create_row = "CREATE TABLE public.test (";
+        let mut state = initial_state();
+        let strategies = HashMap::new();
+        let processed_row = parse(create_row, &mut state, &strategies);
+        assert_eq!(create_row, processed_row);
+        assert!(state.in_create_table_statement == true);
+        assert_eq!(state.create_table_statement, create_row);
+    }
+
+    #[test]
+    fn inside_create_row_accumulate_until_the_end() {
+        let create_row = "CREATE TABLE public.test (";
+        let mid_create_row = "    id integer";
+        let end_create_row = ");";
+        let mut state = initial_state();
+        let strategies = HashMap::new();
+
+        let processed_row1 = parse(create_row, &mut state, &strategies);
+        assert!(state.in_create_table_statement == true);
+        assert_eq!(create_row, processed_row1);
+
+        let processed_row2 = parse(mid_create_row, &mut state, &strategies);
+        assert_eq!(mid_create_row, processed_row2);
+        assert!(state.in_create_table_statement == true);
+        assert_eq!(
+            state.create_table_statement,
+            create_row.to_string() + &mid_create_row.to_string()
+        );
+
+        let processed_row3 = parse(end_create_row, &mut state, &strategies);
+        assert!(state.in_create_table_statement == false);
+        assert_eq!(end_create_row, processed_row3);
+        assert_eq!(state.create_table_statement, String::new());
+    }
+    #[test]
+    fn end_create_table_only_if_inside_a_create_table_statement() {
+        let end_create_row = ");";
+        let mut state = initial_state();
+        let strategies = HashMap::new();
+
+        let processed_row = parse(end_create_row, &mut state, &strategies);
+        assert_eq!(end_create_row, processed_row);
+        assert_eq!(state.create_table_statement, String::new());
+    }
 
     #[test]
     fn copy_row_sets_status_to_being_in_copy_and_adds_transforms_in_the_correct_order_for_the_columns(
@@ -113,7 +178,7 @@ mod tests {
 
         let mut state = initial_state();
         let processed_row = parse(copy_row, &mut state, &strategies);
-        assert!(state.in_copy == true);
+        assert!(state.in_copy_statement == true);
         assert_eq!(copy_row, processed_row);
 
         match &state.current_table {
@@ -177,7 +242,7 @@ mod tests {
 
         let mut state = initial_state();
         let processed_row = parse(end_copy_row, &mut state, &strategies);
-        assert!(state.in_copy == false);
+        assert!(state.in_copy_statement == false);
         assert_eq!(end_copy_row, processed_row);
         assert!(state.current_table.is_none());
     }
@@ -189,7 +254,7 @@ mod tests {
 
         let mut state = initial_state();
         let processed_row = parse(non_table_data_row, &mut state, &strategies);
-        assert!(state.in_copy == false);
+        assert!(state.in_copy_statement == false);
         assert!(state.current_table.is_none());
         assert_eq!(non_table_data_row, processed_row);
     }
@@ -200,7 +265,9 @@ mod tests {
         let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
 
         let mut state = RowParsingState {
-            in_copy: true,
+            in_copy_statement: true,
+            in_create_table_statement: false,
+            create_table_statement: String::new(),
             current_table: Some(CurrentTable {
                 table_name: "public.users".to_string(),
                 transforms: Some(vec![
@@ -229,7 +296,9 @@ mod tests {
         let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
 
         let mut state = RowParsingState {
-            in_copy: true,
+            in_copy_statement: true,
+            in_create_table_statement: false,
+            create_table_statement: String::new(),
             current_table: Some(CurrentTable {
                 table_name: "public.users".to_string(),
                 transforms: Some(vec![Transformer {
