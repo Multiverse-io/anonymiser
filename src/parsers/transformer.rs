@@ -226,33 +226,33 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
 
 
 fn scramble(original_value: &str) -> String {
-    lazy_static! {
-        static ref NUMBER_MATCH: Regex = Regex::new(r"[0-9]").unwrap();
-    }
-
-    let mut output_string: String = "".to_string();
     let chars = original_value.chars().collect::<Vec<char>>();
+
+    let mut output_buf = Vec::new();
+    output_buf.reserve(chars.len());
+
+    let mut rng = thread_rng();
 
     for i in 0..chars.len() {
         let current_char = chars[i];
         if current_char == '\\' {
             //The string contains a control character like \t \r \n
-            output_string.push(chars[i]);
+            output_buf.push(current_char);
         } else if current_char == ' ' {
-            output_string.push(current_char);
-        } else if NUMBER_MATCH.is_match(&current_char.to_string()) {
-            let new_char = thread_rng().gen_range(b'0'..=b'9') as char;
-            output_string.push(new_char);
+            output_buf.push(current_char);
+        } else if current_char.is_ascii_digit() {
+            let new_char = rng.gen_range(b'0'..=b'9') as char;
+            output_buf.push(new_char);
         } else if i > 0 && chars[i - 1] == '\\' {
             //The second bit of the control character! e.g. the 'n' bit of '\n'
-            output_string.push(current_char);
+            output_buf.push(current_char);
         } else {
-            let new_char = thread_rng().gen_range(b'a'..=b'z') as char;
-            output_string.push(new_char);
+            let new_char = rng.gen_range(b'a'..=b'z') as char;
+            output_buf.push(new_char);
         }
     }
 
-    return output_string;
+    return output_buf.iter().collect();
 }
 
 #[cfg(test)]
