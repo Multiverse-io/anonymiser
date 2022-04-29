@@ -9,6 +9,7 @@ use fake::faker::company::en::*;
 use fake::faker::internet::en::*;
 use fake::faker::name::en::*;
 use fake::Fake;
+use lazy_static::lazy_static;
 use rand::{thread_rng, Rng};
 use regex::Regex;
 use std::collections::HashMap;
@@ -30,7 +31,7 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
         return value.to_string();
     }
 
-    if value.starts_with("{") && value.ends_with("}") {
+    if value.starts_with('{') && value.ends_with('}') {
         return transform_array(value, transformer, table_name);
     }
 
@@ -66,8 +67,11 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
 }
 
 fn transform_array(value: &str, transformer: &Transformer, table_name: &str) -> String {
-    let array_of_strings_regex = Regex::new(r#"^\{".+".*\}$"#).unwrap();
-    let is_string_array = array_of_strings_regex.is_match(value);
+    lazy_static! {
+        static ref ARRAY_OF_STRINGS_REGEX: Regex = Regex::new(r#"^\{".+".*\}$"#).unwrap();
+    }
+
+    let is_string_array = ARRAY_OF_STRINGS_REGEX.is_match(value);
     let mut unsplit_array = value.to_string();
 
     unsplit_array.remove(0);
@@ -83,9 +87,7 @@ fn transform_array(value: &str, transformer: &Transformer, table_name: &str) -> 
                 let transformed =
                     transform(&list_item_without_enclosing_quotes, transformer, table_name);
 
-                let quote = String::from("\"");
-
-                return format!("{}{}{}", quote, transformed, quote);
+                format!("\"{}\"", transformed)
             } else {
                 return transform(list_item, transformer, table_name);
             }
@@ -215,36 +217,36 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
                     )
                     .as_ref(),
                 )
-                .to_string();
         }
     }
 }
 
 fn scramble(original_value: &str) -> String {
-    let mut output_string: String = "".to_string();
-    let chars = original_value.chars().collect::<Vec<char>>();
-    let number_match = Regex::new(r"[0-9]").unwrap();
+    let mut chars = original_value.chars();
+    let mut output_buf = Vec::new();
+    output_buf.reserve(chars.clone().count());
 
-    for i in 0..chars.len() {
-        let current_char = chars[i];
+    let mut rng = thread_rng();
+
+    while let Some(current_char) = chars.next() {
         if current_char == '\\' {
             //The string contains a control character like \t \r \n
-            output_string.push(chars[i]);
+            output_buf.push(current_char);
+            if let Some(c) = chars.next() {
+                output_buf.push(c);
+            }
         } else if current_char == ' ' {
-            output_string.push(current_char);
-        } else if number_match.is_match(&current_char.to_string()) {
-            let new_char = thread_rng().gen_range(b'0'..=b'9') as char;
-            output_string.push(new_char);
-        } else if i > 0 && chars[i - 1] == '\\' {
-            //The second bit of the control character! e.g. the 'n' bit of '\n'
-            output_string.push(current_char);
+            output_buf.push(current_char);
+        } else if current_char.is_ascii_digit() {
+            let new_char = rng.gen_range(b'0'..=b'9') as char;
+            output_buf.push(new_char);
         } else {
-            let new_char = thread_rng().gen_range(b'a'..=b'z') as char;
-            output_string.push(new_char);
+            let new_char = rng.gen_range(b'a'..=b'z') as char;
+            output_buf.push(new_char);
         }
     }
 
-    return output_string;
+    return output_buf.iter().collect();
 }
 
 #[cfg(test)]

@@ -34,10 +34,10 @@ fn get_current_table_information(
     unsplit_columns: &str,
     strategies: &Strategies,
 ) -> CurrentTable {
-    let table_name = table.replace("\"", "");
+    let table_name = table.replace('\"', "");
     let column_list: Vec<String> = unsplit_columns
         .split(", ")
-        .map(|s| s.replace("\"", "").to_string())
+        .map(|s| s.replace('\"', ""))
         .collect();
     let transforms = transforms_from_strategy(strategies, &table_name, &column_list);
 
