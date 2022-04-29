@@ -88,9 +88,7 @@ fn transform_array(value: &str, transformer: &Transformer, table_name: &str) -> 
                 let transformed =
                     transform(&list_item_without_enclosing_quotes, transformer, table_name);
 
-                let quote = String::from("\"");
-
-                return format!("{}{}{}", quote, transformed, quote);
+                format!("\"{}\"", transformed)
             } else {
                 return transform(list_item, transformer, table_name);
             }
