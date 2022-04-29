@@ -1,14 +1,14 @@
+use crate::parsers::national_insurance_number;
+use crate::parsers::strategy_structs::{Transformer, TransformerType};
 use base16;
 use base32::Alphabet;
 use chrono::{Datelike, NaiveDate};
 use core::ops::Range;
-use crate::parsers::national_insurance_number;
-use crate::parsers::strategy_structs::{Transformer, TransformerType};
-use fake::Fake;
 use fake::faker::address::en::*;
 use fake::faker::company::en::*;
 use fake::faker::internet::en::*;
 use fake::faker::name::en::*;
+use fake::Fake;
 use lazy_static::lazy_static;
 use rand::{thread_rng, Rng};
 use regex::Regex;
@@ -65,7 +65,6 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
         TransformerType::Scramble => scramble(value),
     }
 }
-
 
 fn transform_array(value: &str, transformer: &Transformer, table_name: &str) -> String {
     lazy_static! {
@@ -221,7 +220,6 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
         }
     }
 }
-
 
 fn scramble(original_value: &str) -> String {
     let mut chars = original_value.chars();
