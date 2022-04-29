@@ -1,14 +1,15 @@
-use crate::parsers::national_insurance_number;
-use crate::parsers::strategy_structs::{Transformer, TransformerType};
 use base16;
 use base32::Alphabet;
 use chrono::{Datelike, NaiveDate};
 use core::ops::Range;
+use crate::parsers::national_insurance_number;
+use crate::parsers::strategy_structs::{Transformer, TransformerType};
+use fake::Fake;
 use fake::faker::address::en::*;
 use fake::faker::company::en::*;
 use fake::faker::internet::en::*;
 use fake::faker::name::en::*;
-use fake::Fake;
+use lazy_static::lazy_static;
 use rand::{thread_rng, Rng};
 use regex::Regex;
 use std::collections::HashMap;
@@ -65,9 +66,13 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
     }
 }
 
+
 fn transform_array(value: &str, transformer: &Transformer, table_name: &str) -> String {
-    let array_of_strings_regex = Regex::new(r#"^\{".+".*\}$"#).unwrap();
-    let is_string_array = array_of_strings_regex.is_match(value);
+    lazy_static! {
+        static ref ARRAY_OF_STRINGS_REGEX: Regex = Regex::new(r#"^\{".+".*\}$"#).unwrap();
+    }
+
+    let is_string_array = ARRAY_OF_STRINGS_REGEX.is_match(value);
     let mut unsplit_array = value.to_string();
 
     unsplit_array.remove(0);
@@ -220,10 +225,14 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
     }
 }
 
+
 fn scramble(original_value: &str) -> String {
+    lazy_static! {
+        static ref NUMBER_MATCH: Regex = Regex::new(r"[0-9]").unwrap();
+    }
+
     let mut output_string: String = "".to_string();
     let chars = original_value.chars().collect::<Vec<char>>();
-    let number_match = Regex::new(r"[0-9]").unwrap();
 
     for i in 0..chars.len() {
         let current_char = chars[i];
@@ -232,7 +241,7 @@ fn scramble(original_value: &str) -> String {
             output_string.push(chars[i]);
         } else if current_char == ' ' {
             output_string.push(current_char);
-        } else if number_match.is_match(&current_char.to_string()) {
+        } else if NUMBER_MATCH.is_match(&current_char.to_string()) {
             let new_char = thread_rng().gen_range(b'0'..=b'9') as char;
             output_string.push(new_char);
         } else if i > 0 && chars[i - 1] == '\\' {
