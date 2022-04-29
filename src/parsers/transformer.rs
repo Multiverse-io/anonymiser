@@ -224,26 +224,24 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
 
 
 fn scramble(original_value: &str) -> String {
-    let chars = original_value.chars().collect::<Vec<char>>();
-
+    let mut chars = original_value.chars();
     let mut output_buf = Vec::new();
-    output_buf.reserve(chars.len());
+    output_buf.reserve(chars.clone().count());
 
     let mut rng = thread_rng();
 
-    for i in 0..chars.len() {
-        let current_char = chars[i];
+    while let Some(current_char) = chars.next() {
         if current_char == '\\' {
             //The string contains a control character like \t \r \n
             output_buf.push(current_char);
+            if let Some(c) = chars.next() {
+                output_buf.push(c);
+            }
         } else if current_char == ' ' {
             output_buf.push(current_char);
         } else if current_char.is_ascii_digit() {
             let new_char = rng.gen_range(b'0'..=b'9') as char;
             output_buf.push(new_char);
-        } else if i > 0 && chars[i - 1] == '\\' {
-            //The second bit of the control character! e.g. the 'n' bit of '\n'
-            output_buf.push(current_char);
         } else {
             let new_char = rng.gen_range(b'a'..=b'z') as char;
             output_buf.push(new_char);
