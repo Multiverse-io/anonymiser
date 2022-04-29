@@ -31,7 +31,7 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
         return value.to_string();
     }
 
-    if value.starts_with("{") && value.ends_with("}") {
+    if value.starts_with('{') && value.ends_with('}') {
         return transform_array(value, transformer, table_name);
     }
 

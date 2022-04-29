@@ -64,7 +64,7 @@ fn transform_row<'line, 'state>(
 }
 
 fn split_row<'line>(line: &'line str) -> std::str::Split<&str> {
-    return line.strip_suffix("\n").unwrap_or(line).split("\t");
+    return line.strip_suffix('\n').unwrap_or(line).split("\t");
 }
 
 #[cfg(test)]
