@@ -56,12 +56,12 @@ pub fn validate(
 
     let in_strategy_file_but_not_db: Vec<_> = columns_from_strategy_file
         .difference(&columns_from_db)
-        .map(|a| a.clone())
+        .cloned()
         .collect();
 
     let in_db_but_not_strategy_file: Vec<_> = columns_from_db
         .difference(&columns_from_strategy_file)
-        .map(|a| a.clone())
+        .cloned()
         .collect();
 
     match (
@@ -86,7 +86,7 @@ pub fn validate(
 
 fn add_if_present(list: Vec<SimpleColumn>) -> Option<Vec<SimpleColumn>> {
     if list.len() > 0 {
-        let mut new_list = list.clone();
+        let mut new_list = list;
         new_list.sort();
         return Some(new_list);
     } else {

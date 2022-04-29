@@ -220,7 +220,6 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
                     )
                     .as_ref(),
                 )
-                .to_string();
         }
     }
 }
