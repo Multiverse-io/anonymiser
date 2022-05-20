@@ -2,13 +2,13 @@ use crate::parsers::strategy_structs::{Strategies, Transformer};
 use lazy_static::lazy_static;
 use regex::Regex;
 
-#[derive(Debug)]
-pub struct CurrentTable {
+#[derive(Clone, Debug, PartialEq)]
+pub struct CurrentTableTransforms {
     pub table_name: String,
     pub transforms: Option<Vec<Transformer>>,
 }
 
-pub fn parse(copy_row: &str, strategies: &Strategies) -> CurrentTable {
+pub fn parse(copy_row: &str, strategies: &Strategies) -> CurrentTableTransforms {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"COPY (?P<table>.*) \((?P<columns>.*)\)").unwrap();
     }
@@ -33,7 +33,7 @@ fn get_current_table_information(
     table: &str,
     unsplit_columns: &str,
     strategies: &Strategies,
-) -> CurrentTable {
+) -> CurrentTableTransforms {
     let table_name = table.replace('\"', "");
     let column_list: Vec<String> = unsplit_columns
         .split(", ")
@@ -41,7 +41,7 @@ fn get_current_table_information(
         .collect();
     let transforms = transforms_from_strategy(strategies, &table_name, &column_list);
 
-    return CurrentTable {
+    return CurrentTableTransforms {
         table_name: table_name,
         transforms: Some(transforms),
     };
@@ -103,7 +103,7 @@ mod tests {
             &strategies,
         );
 
-        let expected = CurrentTable {
+        let expected = CurrentTableTransforms {
             table_name: "public.users".to_string(),
             transforms: Some(vec![
                 create_transformer(TransformerType::Identity),

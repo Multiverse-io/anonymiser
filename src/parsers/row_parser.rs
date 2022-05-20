@@ -1,50 +1,95 @@
 use crate::parsers::copy_row;
-use crate::parsers::copy_row::CurrentTable;
+use crate::parsers::copy_row::CurrentTableTransforms;
+use crate::parsers::create_row;
 use crate::parsers::strategy_structs::Strategies;
 use crate::parsers::transformer;
 use itertools::join;
 
-pub struct RowParsingState {
-    in_copy: bool,
-    current_table: Option<CurrentTable>,
+#[derive(Debug, PartialEq)]
+enum RowType {
+    Normal,
+    CopyBlockStart,
+    CopyBlockRow,
+    CopyBlockEnd,
+    CreateTableStart,
+    CreateTableRow,
+    CreateTableEnd,
 }
 
-pub fn initial_state() -> RowParsingState {
-    RowParsingState {
-        in_copy: false,
-        current_table: None,
+#[derive(Clone, Debug, PartialEq)]
+pub enum State {
+    Normal,
+    InCopy {
+        current_table: CurrentTableTransforms,
+    },
+    CreateTableStart,
+    InCreateTable {
+        table_name: String,
+    },
+}
+
+pub fn initial_state() -> State {
+    State::Normal
+}
+
+fn row_type(line: &str, state: &State) -> RowType {
+    if line.starts_with("CREATE TABLE ") {
+        RowType::CreateTableStart
+    } else if line.starts_with("COPY ") {
+        RowType::CopyBlockStart
+    } else if line.starts_with("\\.") {
+        RowType::CopyBlockEnd
+    } else if matches!(state, State::InCopy { .. }) {
+        RowType::CopyBlockRow
+    } else {
+        RowType::Normal
     }
 }
 
-pub fn parse<'line, 'state>(
-    line: &'line str,
-    state: &'state mut RowParsingState,
-    strategies: &'state Strategies,
-) -> String {
-    if line.starts_with("COPY ") {
-        let current_table = copy_row::parse(&line, strategies);
-        state.in_copy = true;
-        state.current_table = Some(current_table);
-        return line.to_string();
-    } else if line.starts_with("\\.") {
-        state.in_copy = false;
-        state.current_table = None;
-        return line.to_string();
-    } else if state.in_copy {
-        return transform_row(line, &state.current_table);
-    } else {
-        return line.to_string();
+pub fn parse(line: &str, state: &State, strategies: &Strategies) -> (String, State) {
+    match (row_type(line, state), state) {
+        (RowType::CreateTableStart, _state) => {
+            let table_name = create_row::parse(line);
+            return (line.to_string(), State::InCreateTable { table_name });
+        }
+        (RowType::CreateTableRow, State::InCreateTable { table_name }) => {
+            return (
+                line.to_string(),
+                State::InCreateTable {
+                    table_name: table_name.to_string(),
+                },
+            );
+        }
+        (RowType::CopyBlockStart, _state) => {
+            let current_table = copy_row::parse(&line, strategies);
+            return (
+                line.to_string(),
+                State::InCopy {
+                    current_table: current_table,
+                },
+            );
+        }
+        (RowType::CopyBlockEnd, _state) => {
+            return (line.to_string(), State::Normal);
+        }
+        (RowType::CopyBlockRow, State::InCopy { current_table }) => {
+            return (
+                transform_row(line, &current_table),
+                State::InCopy {
+                    current_table: current_table.clone(),
+                },
+            );
+        }
+        _ => {
+            return (line.to_string(), State::Normal);
+        }
     }
 }
 
 fn transform_row<'line, 'state>(
     line: &'line str,
-    maybe_current_table: &'state Option<CurrentTable>,
+    current_table: &'state CurrentTableTransforms,
 ) -> String {
-    let current_table = maybe_current_table
-        .as_ref()
-        .expect("Something bad happened, we're inside a copy block but we haven't realised!");
-
     match &current_table.transforms {
         Some(transforms) => {
             let column_values = split_row(line);
@@ -72,6 +117,38 @@ mod tests {
     use super::*;
     use crate::parsers::strategy_structs::{ColumnInfo, DataType, Transformer, TransformerType};
     use std::collections::HashMap;
+
+    #[test]
+    fn create_table_start_row_is_parsed() {
+        let create_table_row = "CREATE TABLE public.candidate_details (";
+        let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
+
+        let state = initial_state();
+        let (transformed_row, new_state) = parse(create_table_row, &state, &strategies);
+        assert_eq!(
+            new_state,
+            State::InCreateTable {
+                table_name: "public.candidate_details".to_string()
+            }
+        );
+        assert_eq!(create_table_row, transformed_row);
+    }
+
+    #[test]
+    fn create_table_mid_row_is_added_to_state() {
+        let create_table_row = "password character varying(255)";
+        let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
+
+        let state = initial_state();
+        let (transformed_row, new_state) = parse(create_table_row, &state, &strategies);
+        assert_eq!(
+            new_state,
+            State::InCreateTable {
+                table_name: "public.candidate_details".to_string()
+            }
+        );
+        assert_eq!(create_table_row, transformed_row);
+    }
 
     #[test]
     fn copy_row_sets_status_to_being_in_copy_and_adds_transforms_in_the_correct_order_for_the_columns(
@@ -111,13 +188,12 @@ mod tests {
         ]);
         let strategies = HashMap::from([("public.users".to_string(), column_infos)]);
 
-        let mut state = initial_state();
-        let processed_row = parse(copy_row, &mut state, &strategies);
-        assert!(state.in_copy == true);
-        assert_eq!(copy_row, processed_row);
+        let state = initial_state();
+        let (transformed_row, new_state) = parse(copy_row, &state, &strategies);
+        assert_eq!(copy_row, transformed_row);
 
-        match &state.current_table {
-            Some(current_table) => assert_eq!(
+        match new_state {
+            State::InCopy { current_table } => assert_eq!(
                 Some(vec!(
                     Transformer {
                         name: TransformerType::Identity,
@@ -134,7 +210,7 @@ mod tests {
                 )),
                 current_table.transforms
             ),
-            None => assert!(false, "No table transforms set"),
+            _other => assert!(false, "State is not InCopy!"),
         };
     }
 
@@ -175,11 +251,10 @@ mod tests {
         ]);
         let strategies = HashMap::from([("public.users".to_string(), transforms)]);
 
-        let mut state = initial_state();
-        let processed_row = parse(end_copy_row, &mut state, &strategies);
-        assert!(state.in_copy == false);
-        assert_eq!(end_copy_row, processed_row);
-        assert!(state.current_table.is_none());
+        let state = initial_state();
+        let (transformed_row, new_state) = parse(end_copy_row, &state, &strategies);
+        assert!(new_state == State::Normal);
+        assert_eq!(end_copy_row, transformed_row);
     }
 
     #[test]
@@ -187,11 +262,10 @@ mod tests {
         let non_table_data_row = "--this is a SQL comment";
         let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
 
-        let mut state = initial_state();
-        let processed_row = parse(non_table_data_row, &mut state, &strategies);
-        assert!(state.in_copy == false);
-        assert!(state.current_table.is_none());
-        assert_eq!(non_table_data_row, processed_row);
+        let state = initial_state();
+        let (transformed_row, new_state) = parse(non_table_data_row, &state, &strategies);
+        assert!(new_state == State::Normal);
+        assert_eq!(non_table_data_row, transformed_row);
     }
 
     #[test]
@@ -199,9 +273,8 @@ mod tests {
         let table_data_row = "123\tPeter\tPuckleberry\n";
         let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
 
-        let mut state = RowParsingState {
-            in_copy: true,
-            current_table: Some(CurrentTable {
+        let state = State::InCopy {
+            current_table: CurrentTableTransforms {
                 table_name: "public.users".to_string(),
                 transforms: Some(vec![
                     Transformer {
@@ -217,10 +290,10 @@ mod tests {
                         args: Some(HashMap::from([("value".to_string(), "third".to_string())])),
                     },
                 ]),
-            }),
+            },
         };
-        let processed_row = parse(table_data_row, &mut state, &strategies);
-        assert_eq!("first\tsecond\tthird\n", processed_row);
+        let (transformed_row, _) = parse(table_data_row, &state, &strategies);
+        assert_eq!("first\tsecond\tthird\n", transformed_row);
     }
 
     #[test]
@@ -228,17 +301,16 @@ mod tests {
         let table_data_row = "{\"My string\"}\n";
         let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
 
-        let mut state = RowParsingState {
-            in_copy: true,
-            current_table: Some(CurrentTable {
+        let state = State::InCopy {
+            current_table: CurrentTableTransforms {
                 table_name: "public.users".to_string(),
                 transforms: Some(vec![Transformer {
                     name: TransformerType::Scramble,
                     args: None,
                 }]),
-            }),
+            },
         };
-        let processed_row = parse(table_data_row, &mut state, &strategies);
+        let (processed_row, _new_state) = parse(table_data_row, &state, &strategies);
         println!("{}", processed_row);
         assert!(table_data_row != processed_row);
     }

@@ -26,7 +26,9 @@ pub fn read(
                     break;
                 }
 
-                let transformed_row = row_parser::parse(&line, &mut row_parser_state, strategies);
+                let (transformed_row, row_parser_state_) =
+                    row_parser::parse(&line, &row_parser_state, strategies);
+                row_parser_state = row_parser_state_;
                 file_writer.write_all(transformed_row.as_bytes())?;
                 line.clear();
             }
