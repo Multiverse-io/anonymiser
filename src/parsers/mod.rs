@@ -8,3 +8,4 @@ pub mod strategy_file_reader;
 pub mod strategy_structs;
 pub mod strategy_validator;
 pub mod transformer;
+pub mod types;

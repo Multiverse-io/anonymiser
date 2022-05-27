@@ -3,6 +3,8 @@ use crate::parsers::copy_row::CurrentTableTransforms;
 use crate::parsers::create_row;
 use crate::parsers::strategy_structs::Strategies;
 use crate::parsers::transformer;
+use crate::parsers::types;
+use crate::parsers::types::Column;
 use itertools::join;
 
 #[derive(Debug, PartialEq)]
@@ -25,6 +27,7 @@ pub enum State {
     CreateTableStart,
     InCreateTable {
         table_name: String,
+        types: Vec<Column>,
     },
 }
 
@@ -41,6 +44,8 @@ fn row_type(line: &str, state: &State) -> RowType {
         RowType::CopyBlockEnd
     } else if matches!(state, State::InCopy { .. }) {
         RowType::CopyBlockRow
+    } else if matches!(state, State::InCreateTable { .. }) {
+        RowType::CreateTableRow
     } else {
         RowType::Normal
     }
@@ -50,13 +55,26 @@ pub fn parse(line: &str, state: &State, strategies: &Strategies) -> (String, Sta
     match (row_type(line, state), state) {
         (RowType::CreateTableStart, _state) => {
             let table_name = create_row::parse(line);
-            return (line.to_string(), State::InCreateTable { table_name });
+            return (
+                line.to_string(),
+                State::InCreateTable {
+                    table_name,
+                    types: Vec::new(),
+                },
+            );
         }
-        (RowType::CreateTableRow, State::InCreateTable { table_name }) => {
+        (
+            RowType::CreateTableRow,
+            State::InCreateTable {
+                table_name,
+                types: _,
+            },
+        ) => {
             return (
                 line.to_string(),
                 State::InCreateTable {
                     table_name: table_name.to_string(),
+                    types: vec![types::parse(line)],
                 },
             );
         }
@@ -128,7 +146,8 @@ mod tests {
         assert_eq!(
             new_state,
             State::InCreateTable {
-                table_name: "public.candidate_details".to_string()
+                table_name: "public.candidate_details".to_string(),
+                types: Vec::new()
             }
         );
         assert_eq!(create_table_row, transformed_row);
@@ -139,12 +158,19 @@ mod tests {
         let create_table_row = "password character varying(255)";
         let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
 
-        let state = initial_state();
+        let state = State::InCreateTable {
+            table_name: "public.users".to_string(),
+            types: Vec::new(),
+        };
         let (transformed_row, new_state) = parse(create_table_row, &state, &strategies);
         assert_eq!(
             new_state,
             State::InCreateTable {
-                table_name: "public.candidate_details".to_string()
+                table_name: "public.users".to_string(),
+                types: vec![Column {
+                    name: "bodger".to_string(),
+                    data_type: "badger".to_string()
+                }]
             }
         );
         assert_eq!(create_table_row, transformed_row);
