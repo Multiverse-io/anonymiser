@@ -20,11 +20,11 @@ enum RowType {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum State {
+    //TODO need to accumulate types somewhere
     Normal,
     InCopy {
         current_table: CurrentTableTransforms,
     },
-    CreateTableStart,
     InCreateTable {
         table_name: String,
         types: Vec<Column>,
@@ -42,6 +42,8 @@ fn row_type(line: &str, state: &State) -> RowType {
         RowType::CopyBlockStart
     } else if line.starts_with("\\.") {
         RowType::CopyBlockEnd
+    } else if line.starts_with(");") && matches!(state, State::InCreateTable { .. }) {
+        RowType::CreateTableEnd
     } else if matches!(state, State::InCopy { .. }) {
         RowType::CopyBlockRow
     } else if matches!(state, State::InCreateTable { .. }) {
@@ -67,16 +69,19 @@ pub fn parse(line: &str, state: &State, strategies: &Strategies) -> (String, Sta
             RowType::CreateTableRow,
             State::InCreateTable {
                 table_name,
-                types: _,
+                types: current_types,
             },
         ) => {
             return (
                 line.to_string(),
                 State::InCreateTable {
                     table_name: table_name.to_string(),
-                    types: vec![types::parse(line)],
+                    types: add_create_table_row_to_types(line, current_types.to_vec()),
                 },
             );
+        }
+        (RowType::CreateTableEnd, _state) => {
+            return (line.to_string(), State::Normal);
         }
         (RowType::CopyBlockStart, _state) => {
             let current_table = copy_row::parse(&line, strategies);
@@ -98,8 +103,15 @@ pub fn parse(line: &str, state: &State, strategies: &Strategies) -> (String, Sta
                 },
             );
         }
-        _ => {
+
+        (RowType::Normal, State::Normal) => {
             return (line.to_string(), State::Normal);
+        }
+        (row_type, state) => {
+            panic!(
+                "omg! invalid combo of rowtype: {:?} and state: {:?}",
+                row_type, state
+            );
         }
     }
 }
@@ -126,6 +138,14 @@ fn transform_row<'line, 'state>(
     }
 }
 
+fn add_create_table_row_to_types(line: &str, mut current_types: Vec<Column>) -> Vec<Column> {
+    match types::parse(line) {
+        None => (),
+        Some(new_type) => current_types.push(new_type),
+    }
+
+    return current_types;
+}
 fn split_row<'line>(line: &'line str) -> std::str::Split<&str> {
     return line.strip_suffix('\n').unwrap_or(line).split("\t");
 }
@@ -160,19 +180,65 @@ mod tests {
 
         let state = State::InCreateTable {
             table_name: "public.users".to_string(),
-            types: Vec::new(),
+            types: vec![Column {
+                name: "id".to_string(),
+                data_type: "bigint".to_string(),
+            }],
         };
         let (transformed_row, new_state) = parse(create_table_row, &state, &strategies);
+
         assert_eq!(
             new_state,
             State::InCreateTable {
                 table_name: "public.users".to_string(),
-                types: vec![Column {
-                    name: "bodger".to_string(),
-                    data_type: "badger".to_string()
-                }]
+                types: vec![
+                    Column {
+                        name: "id".to_string(),
+                        data_type: "bigint".to_string()
+                    },
+                    Column {
+                        name: "password".to_string(),
+                        data_type: "character varying(255)".to_string()
+                    }
+                ]
             }
         );
+        assert_eq!(create_table_row, transformed_row);
+    }
+
+    #[test]
+    fn non_type_create_table_row_is_ignored() {
+        let create_table_row = "PARTITION BY something else";
+        let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
+
+        let state = State::InCreateTable {
+            table_name: "public.users".to_string(),
+            types: vec![],
+        };
+        let (transformed_row, new_state) = parse(create_table_row, &state, &strategies);
+
+        assert_eq!(
+            new_state,
+            State::InCreateTable {
+                table_name: "public.users".to_string(),
+                types: vec![],
+            }
+        );
+        assert_eq!(create_table_row, transformed_row);
+    }
+
+    #[test]
+    fn end_of_a_create_table_row_changes_state() {
+        let create_table_row = ");";
+        let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
+
+        let state = State::InCreateTable {
+            table_name: "public.users".to_string(),
+            types: vec![],
+        };
+        let (transformed_row, new_state) = parse(create_table_row, &state, &strategies);
+
+        assert_eq!(new_state, State::Normal);
         assert_eq!(create_table_row, transformed_row);
     }
 
