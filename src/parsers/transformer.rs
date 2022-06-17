@@ -31,6 +31,10 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
         return value.to_string();
     }
 
+    if table_name == "public.candidate_quiz_responses" {
+        println!("{:?}", value);
+    }
+
     if value.starts_with('{') && value.ends_with('}') {
         return transform_array(value, transformer, table_name);
     }
@@ -794,5 +798,19 @@ mod tests {
             "new value: \"{}\" does not contain same digit / alphabet structure as input",
             new_value
         );
+    }
+
+    #[test]
+    fn empty_json() {
+        let json = "{\"foo\": \"bar\"}";
+        let new_json = transform(
+            json,
+            &Transformer {
+                name: TransformerType::EmptyJson,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert_eq!(new_json, "{}");
     }
 }

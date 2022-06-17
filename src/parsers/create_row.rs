@@ -1,4 +1,5 @@
 pub fn parse(line: &str) -> String {
+    println!("{:?}", line);
     let result = line
         .strip_prefix("CREATE TABLE ")
         .and_then(|s| s.strip_suffix(" ("));

@@ -5,7 +5,6 @@ pub struct Column {
 }
 
 fn is_non_column_definition(first_word: &str) -> bool {
-    println!("{:?}", first_word);
     let non_column_starting_words = [
         "NOT",
         "CONSTRAINT",
@@ -27,6 +26,7 @@ fn is_non_column_definition(first_word: &str) -> bool {
 }
 
 pub fn parse(line: &str) -> Option<Column> {
+    println!("{:?}", line);
     let trimmed_line = match line.strip_suffix(",") {
         None => line,
         Some(trimmed_line) => trimmed_line,
@@ -39,23 +39,20 @@ pub fn parse(line: &str) -> Option<Column> {
 
     if !is_non_column_definition(name) {
         let rest: String = bits
-            .take_while(|w| {
-                println!("{:?}", w);
-                match w {
-                    &"COLLATE" => false,
-                    &"COMPRESSION" => false,
-                    &"NOT" => false,
-                    &"NULL" => false,
-                    &"CHECK" => false,
-                    &"DEFAULT" => false,
-                    &"GENERATED" => false,
-                    &"UNIQUE" => false,
-                    &"PRIMARY" => false,
-                    &"REFERENCES" => false,
-                    &"DEFERRABLE" => false,
-                    &"INITIALLY" => false,
-                    _ => true,
-                }
+            .take_while(|w| match w {
+                &"COLLATE" => false,
+                &"COMPRESSION" => false,
+                &"NOT" => false,
+                &"NULL" => false,
+                &"CHECK" => false,
+                &"DEFAULT" => false,
+                &"GENERATED" => false,
+                &"UNIQUE" => false,
+                &"PRIMARY" => false,
+                &"REFERENCES" => false,
+                &"DEFERRABLE" => false,
+                &"INITIALLY" => false,
+                _ => true,
             })
             .collect::<Vec<&str>>()
             .join(" ");
@@ -197,21 +194,21 @@ mod tests {
 
     #[test]
     fn with_table_constraint_CONSTRAINT_modifier() {
-        let row = "CONSTRAINT id CHECK ((id > 0))";
+        let row = "CONSTRAINT id CHECK ((id > 0)),";
         let parsed = parse(row);
         assert!(parsed.is_none());
     }
 
     #[test]
     fn with_table_constraint_CHECK_modifier() {
-        let row = "CHECK not_sure_here, can't find an example!";
+        let row = "CHECK not_sure_here, can't find an example!,";
         let parsed = parse(row);
         assert!(parsed.is_none());
     }
 
     #[test]
     fn with_table_constraint_UNIQUE_modifier() {
-        let row = "UNIQUE (name)";
+        let row = "UNIQUE (name),";
         let parsed = parse(row);
         assert!(parsed.is_none());
     }

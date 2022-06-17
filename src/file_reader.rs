@@ -1,4 +1,5 @@
 use crate::parsers::row_parser;
+use crate::parsers::state::State;
 use crate::parsers::strategy_structs::Strategies;
 use std::fs::File;
 use std::io::prelude::*;
@@ -17,7 +18,7 @@ pub fn read(
     let mut reader = BufReader::new(file_reader);
     let mut line = String::new();
 
-    let mut row_parser_state = row_parser::initial_state();
+    let mut row_parser_state = State::new();
 
     loop {
         match reader.read_line(&mut line) {
@@ -25,10 +26,8 @@ pub fn read(
                 if bytes_read == 0 {
                     break;
                 }
-
-                let (transformed_row, row_parser_state_) =
-                    row_parser::parse(&line, &row_parser_state, strategies);
-                row_parser_state = row_parser_state_;
+                line = line.trim().to_string();
+                let transformed_row = row_parser::parse(&line, &mut row_parser_state, strategies);
                 file_writer.write_all(transformed_row.as_bytes())?;
                 line.clear();
             }
