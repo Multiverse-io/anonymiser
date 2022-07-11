@@ -11,11 +11,12 @@ where
         .query(
             "
             SELECT
-                concat('public.', c.table_name) as table_name,
-                column_name as column_name
+                concat(c.table_schema, '.', c.table_name) as table_name,
+                column_name as column_name,
+                c.table_schema as schema_name
             FROM information_schema.columns c
             INNER JOIN information_schema.tables t on c.table_name = t.table_name
-            WHERE c.table_schema = 'public'
+            WHERE c.table_schema NOT IN ('information_schema', 'pg_catalog')
             AND table_type = 'BASE TABLE'
             ORDER BY table_name, column_name;",
             &[],
@@ -48,6 +49,14 @@ mod tests {
             assert_eq!(
                 result,
                 HashSet::from([
+                    SimpleColumn {
+                        table_name: "archived.old_table".to_string(),
+                        column_name: "old_column".to_string()
+                    },
+                    SimpleColumn {
+                        table_name: "archived.old_table".to_string(),
+                        column_name: "id".to_string()
+                    },
                     SimpleColumn {
                         table_name: "public.person".to_string(),
                         column_name: "id".to_string()
@@ -94,6 +103,7 @@ mod tests {
         .unwrap();
 
         let mut transaction = anonymiser_test_conn.transaction().unwrap();
+        transaction.batch_execute("CREATE SCHEMA IF NOT EXISTS archived").unwrap();
         transaction
             .batch_execute(
                 "
@@ -112,6 +122,17 @@ mod tests {
             CREATE TABLE location (
                 id          SERIAL PRIMARY KEY,
                 post_code  TEXT NOT NULL
+            )
+        ",
+            )
+            .unwrap();
+
+        transaction
+            .batch_execute(
+                "
+            CREATE TABLE archived.old_table (
+                id          SERIAL PRIMARY KEY,
+                old_column  TEXT NOT NULL
             )
         ",
             )
