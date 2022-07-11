@@ -103,7 +103,9 @@ mod tests {
         .unwrap();
 
         let mut transaction = anonymiser_test_conn.transaction().unwrap();
-        transaction.batch_execute("CREATE SCHEMA IF NOT EXISTS archived").unwrap();
+        transaction
+            .batch_execute("CREATE SCHEMA IF NOT EXISTS archived")
+            .unwrap();
         transaction
             .batch_execute(
                 "
