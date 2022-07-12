@@ -3,7 +3,24 @@
 
 ## Creating releases
 
-`./create_releases` will create 3 releases:
+### Pre-requisites for M1 Mac
+You must have rust and rustup installed:
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+You will also need docker desktop installed - https://www.docker.com/products/docker-desktop/ - make sure you have a licence for it too!!
+
+Then install the other pre-requisites:
+```
+rustup target add x86_64-unknown-linux-gnu
+rustup target add x86_64-apple-darwin
+brew install gh
+gh auth login
+```
+
+### Creating the releases
+`./create_releases <version_number>` (replace <version_number> with the version to release) will create 3 releases:
 - anonymiser-aarch64-apple-darwin (for m1 macs)
 - anonymiser-x86_64-apple-darwin (for intel macs)
 - anonymiser-x86_64-unknown-linux-gnu (for debian)
