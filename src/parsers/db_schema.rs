@@ -15,7 +15,7 @@ where
                 column_name as column_name,
                 c.table_schema as schema_name
             FROM information_schema.columns c
-            INNER JOIN information_schema.tables t on c.table_name = t.table_name
+            INNER JOIN information_schema.tables t on c.table_name = t.table_name and c.table_schema = t.table_schema
             WHERE c.table_schema NOT IN ('information_schema', 'pg_catalog')
             AND table_type = 'BASE TABLE'
             ORDER BY table_name, column_name;",
@@ -136,6 +136,14 @@ mod tests {
                 id          SERIAL PRIMARY KEY,
                 old_column  TEXT NOT NULL
             )
+        ",
+            )
+            .unwrap();
+
+        transaction
+            .batch_execute(
+                "
+            CREATE VIEW archived.location AS SELECT id, post_code FROM public.location
         ",
             )
             .unwrap();
