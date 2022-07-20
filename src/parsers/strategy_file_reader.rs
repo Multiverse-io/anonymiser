@@ -45,12 +45,28 @@ pub fn append_to_file(file_name: &str, missing_columns: Vec<SimpleColumn>) -> st
                             args: None,
                         },
                     });
-                    existing_table.columns.sort();
                 }
+                existing_table.columns.sort();
             }
-            //TODO deal with whole missing table VV
             None => {
-                panic!("We dont deal with the table not existing yet! we can patch columns but not tables!");
+                let mut new_table = StrategyInFile {
+                    table_name: table.clone(),
+                    description: "".to_string(),
+                    columns: vec![],
+                };
+                for column in missing_columns {
+                    new_table.columns.push(ColumnInFile {
+                        data_type: DataType::Unknown,
+                        description: "".to_string(),
+                        name: column,
+                        transformer: Transformer {
+                            name: TransformerType::Error,
+                            args: None,
+                        },
+                    });
+                    new_table.columns.sort();
+                }
+                current_file_contents.push(new_table);
             }
         }
     }
