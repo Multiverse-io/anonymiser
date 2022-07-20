@@ -10,6 +10,20 @@ pub struct ColumnInFile {
     pub transformer: Transformer,
 }
 
+impl ColumnInFile {
+    pub fn new(column_name: &str) -> Self {
+        ColumnInFile {
+            data_type: DataType::Unknown,
+            description: "".to_string(),
+            name: column_name.to_string(),
+            transformer: Transformer {
+                name: TransformerType::Error,
+                args: None,
+            },
+        }
+    }
+}
+
 impl Ord for ColumnInFile {
     fn cmp(&self, other: &Self) -> Ordering {
         self.name.cmp(&other.name)

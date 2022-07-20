@@ -36,15 +36,7 @@ pub fn append_to_file(file_name: &str, missing_columns: Vec<SimpleColumn>) -> st
             Some(position) => {
                 let existing_table = current_file_contents.get_mut(position).unwrap();
                 for column in missing_columns {
-                    existing_table.columns.push(ColumnInFile {
-                        data_type: DataType::Unknown,
-                        description: "".to_string(),
-                        name: column,
-                        transformer: Transformer {
-                            name: TransformerType::Error,
-                            args: None,
-                        },
-                    });
+                    existing_table.columns.push(ColumnInFile::new(&column));
                 }
                 existing_table.columns.sort();
             }
@@ -55,17 +47,9 @@ pub fn append_to_file(file_name: &str, missing_columns: Vec<SimpleColumn>) -> st
                     columns: vec![],
                 };
                 for column in missing_columns {
-                    new_table.columns.push(ColumnInFile {
-                        data_type: DataType::Unknown,
-                        description: "".to_string(),
-                        name: column,
-                        transformer: Transformer {
-                            name: TransformerType::Error,
-                            args: None,
-                        },
-                    });
-                    new_table.columns.sort();
+                    new_table.columns.push(ColumnInFile::new(&column));
                 }
+                new_table.columns.sort();
                 current_file_contents.push(new_table);
             }
         }
