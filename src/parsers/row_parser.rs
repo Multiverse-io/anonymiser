@@ -79,7 +79,7 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
             state.update_position(Position::InCopy {
                 current_table: current_table.clone(),
             });
-            return transform_row(line, &current_table);
+            return transform_row(line, &current_table, &state.types);
         }
 
         (RowType::Normal, Position::Normal) => {
@@ -98,11 +98,14 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
 fn transform_row<'line, 'state>(
     line: &'line str,
     current_table: &'state CurrentTableTransforms,
+    types: &Types,
 ) -> String {
     match &current_table.transforms {
         Some(transforms) => {
             let column_values = split_row(line);
+
             let transformed = column_values.enumerate().map(|(i, value)| {
+                let column_type = types.lookup(&current_table.table_name, "".to_string());
                 return transformer::transform(value, &transforms[i], &current_table.table_name);
             });
 
@@ -167,7 +170,7 @@ mod tests {
                     data_type: "bigint".to_string(),
                 }],
             },
-            types: HashMap::new(),
+            types: Types(HashMap::new()),
         };
         let transformed_row = parse(create_table_row, &mut state, &strategies);
 
@@ -200,7 +203,7 @@ mod tests {
                 table_name: "public.users".to_string(),
                 types: vec![],
             },
-            types: HashMap::new(),
+            types: Types(HashMap::new()),
         };
         let transformed_row = parse(create_table_row, &mut state, &strategies);
 
@@ -227,7 +230,7 @@ mod tests {
                     data_type: "bigint".to_string(),
                 }],
             },
-            types: HashMap::new(),
+            types: Types(HashMap::new()),
         };
         let transformed_row = parse(create_table_row, &mut state, &strategies);
 
@@ -387,7 +390,7 @@ mod tests {
                     ]),
                 },
             },
-            types: HashMap::new(),
+            types: Types(HashMap::new()),
         };
         let transformed_row = parse(table_data_row, &mut state, &strategies);
         assert_eq!("first\tsecond\tthird\n", transformed_row);
@@ -408,7 +411,7 @@ mod tests {
                     }]),
                 },
             },
-            types: HashMap::new(),
+            types: Types(HashMap::new()),
         };
         let processed_row = parse(table_data_row, &mut state, &strategies);
         println!("{}", processed_row);

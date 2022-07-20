@@ -2,7 +2,19 @@ use crate::parsers::copy_row::CurrentTableTransforms;
 use crate::parsers::types::Column;
 use std::collections::HashMap;
 
-pub type Types = HashMap<String, HashMap<String, String>>;
+#[derive(Clone, Debug, PartialEq)]
+pub struct Types(pub HashMap<String, HashMap<String, String>>);
+
+impl Types {
+    pub fn new(initial: HashMap<String, HashMap<String, String>>) {
+        Types(initial);
+    }
+
+    pub fn insert(&self, table_name: &String, thing: HashMap<String, String>) {}
+    pub fn lookup(&self, table_name: &String, column_name: String) -> String {
+        "om".to_string()
+    }
+}
 
 pub struct State {
     pub position: Position,
@@ -25,7 +37,7 @@ impl State {
     pub fn new() -> State {
         State {
             position: Position::Normal,
-            types: HashMap::new(),
+            types: Types(HashMap::new()),
         }
     }
 
@@ -39,7 +51,7 @@ impl State {
                 Position::Normal,
             ) => {
                 self.types.insert(
-                    table_name,
+                    &table_name,
                     table_types
                         .iter()
                         .map(|c| (c.name.clone(), c.data_type.clone()))
@@ -97,7 +109,7 @@ mod tests {
                     },
                 ],
             },
-            types: HashMap::new(),
+            types: Types(HashMap::new()),
         };
 
         state.update_position(Position::Normal);

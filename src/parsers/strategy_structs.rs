@@ -7,6 +7,7 @@ pub struct ColumnInFile {
     pub data_type: DataType,
     pub description: String,
     pub name: String,
+
     pub transformer: Transformer,
 }
 
