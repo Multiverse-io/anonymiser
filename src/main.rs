@@ -6,6 +6,7 @@ use crate::parsers::strategy_structs::{
 use itertools::Itertools;
 use parsers::{db_schema, strategy_file_reader, strategy_validator};
 use postgres::{Client, NoTls};
+use std::collections::HashMap;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -110,10 +111,16 @@ fn main() -> Result<(), std::io::Error> {
             strategy_file,
             db_url,
         } => {
-            let transformer = TransformerOverrides::default();
-            //TODO if strategy file doesnt exist this blows up
-            let strategies = strategy_file_reader::read(&strategy_file, transformer);
-            let _result = strategy_differences(&strategies, db_url);
+            match strategy_differences(&HashMap::new(), db_url) {
+                Ok(()) => println!("All up to date"),
+                Err(missing_columns) => {
+                    if fixable(&missing_columns) {
+                        fix_missing_columns(&strategy_file, missing_columns);
+                        println!("All done, you'll need to set a data_type and transformer for those fields");
+                    }
+                    std::process::exit(1);
+                }
+            }
         }
     }
     return Ok(());
