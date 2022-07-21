@@ -5,7 +5,7 @@ use crate::parsers::strategy_structs::{
     MissingColumns, SimpleColumn, Strategies, TransformerOverrides,
 };
 use itertools::Itertools;
-use parsers::{db_schema, strategy_file_reader, strategy_validator};
+use parsers::{db_schema, strategy_file, strategy_validator};
 use postgres::{Client, NoTls};
 use structopt::StructOpt;
 
@@ -77,14 +77,14 @@ fn main() -> Result<(), std::io::Error> {
                 allow_commercially_sensitive,
             };
 
-            let strategies = strategy_file_reader::read(&strategy_file, transformer_overrides);
+            let strategies = strategy_file::read(&strategy_file, transformer_overrides);
             file_reader::read(input_file, output_file, &strategies)?;
         }
         Anonymiser::ToCsv {
             output_file,
             strategy_file,
         } => {
-            strategy_file_reader::to_csv(&strategy_file, &output_file)?;
+            strategy_file::to_csv(&strategy_file, &output_file)?;
         }
         Anonymiser::CheckStrategies {
             strategy_file,
@@ -92,7 +92,7 @@ fn main() -> Result<(), std::io::Error> {
             db_url,
         } => {
             let transformer = TransformerOverrides::none();
-            let strategies = strategy_file_reader::read(&strategy_file, transformer);
+            let strategies = strategy_file::read(&strategy_file, transformer);
             match strategy_differences(&strategies, db_url) {
                 Ok(()) => println!("All up to date"),
                 Err(missing_columns) => {
@@ -113,7 +113,7 @@ fn main() -> Result<(), std::io::Error> {
         } => {
             let transformer = TransformerOverrides::none();
             //TODO if strategy file doesnt exist this blows up
-            let strategies = strategy_file_reader::read(&strategy_file, transformer);
+            let strategies = strategy_file::read(&strategy_file, transformer);
             let _result = strategy_differences(&strategies, db_url);
         }
     }
@@ -131,8 +131,7 @@ fn fixable(missing_columns: &MissingColumns) -> bool {
 
 fn fix_missing_columns(strategy_file: &str, missing_columns: MissingColumns) {
     if let Some(missing) = missing_columns.missing_from_strategy_file {
-        strategy_file_reader::append_to_file(strategy_file, missing)
-            .expect("Unable to write to file :(");
+        strategy_file::append(strategy_file, missing).expect("Unable to write to file :(");
     }
 }
 
