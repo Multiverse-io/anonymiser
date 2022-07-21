@@ -68,9 +68,11 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
-      - run: rustup target add x86_64-apple-darwin
-      - run: cargo build --release --target=x86_64-unknown-linux-gnu
-      - run: cargo build --release --target=x86_64-apple-darwin
+      - setup_remote_docker:
+          version: 20.10.14
+      - run: cargo install cross --git https://github.com/cross-rs/cross
+      - run: cross build --release --target=x86_64-unknown-linux-gnu
+      - run: cross build --release --target=x86_64-apple-darwin
       - store_artifacts:
           path: target/x86_64-unknown-linux-gnu/release/anonymiser
           destination: x86_64-unknown-linux-gnu
