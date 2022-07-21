@@ -69,9 +69,11 @@ jobs:
     steps:
       - checkout
       - run: cargo build --release --target=x86_64-unknown-linux-gnu
-      - store_artifacts:
-          path: target/x86_64-unknown-linux-gnu/release/anonymiser
-          destination: x86_64-unknown-linux-gnu
+      - run: mv target/x86_64-unknown-linux-gnu/release/anonymiser x86_64-unknown-linux-gnu
+      - persist_to_workspace:
+          root: .
+          paths:
+            - x86_64-unknown-linux-gnu
 
   build_release_alpine:
     docker:
@@ -82,9 +84,11 @@ jobs:
       - checkout
       - run: apk add --no-cache git musl-dev
       - run: cargo build --release --target=x86_64-unknown-linux-musl
-      - store_artifacts:
-          path: target/x86_64-unknown-linux-musl/release/anonymiser
-          destination: x86_64-unknown-linux-musl
+      - run: mv target/x86_64-unknown-linux-musl/release/anonymiser x86_64-unknown-linux-musl
+      - persist_to_workspace:
+          root: .
+          paths:
+            - x86_64-unknown-linux-musl
 
   build_release_macos:
     macos:
@@ -97,12 +101,22 @@ jobs:
       - run: rustup target add aarch64-apple-darwin
       - run: cargo build --release --target=x86_64-apple-darwin
       - run: cargo build --release --target=aarch64-apple-darwin
-      - store_artifacts:
-          path: target/x86_64-apple-darwin/release/anonymiser
-          destination: x86_64-apple-darwin
-      - store_artifacts:
-          path: target/aarch64-apple-darwin/release/anonymiser
-          destination: aarch64-apple-darwin
+      - run: mv target/x86_64-apple-darwin/release/anonymiser x86_64-apple-darwin
+      - run: mv target/aarch64-apple-darwin/release/anonymiser aarch64-apple-darwin
+      - persist_to_workspace:
+          root: .
+          paths:
+            - x86_64-apple-darwin
+            - aarch64-apple-darwin
+
+  create_release:
+    machine:
+      image: ubuntu-2004:2022.04.2
+    environment:
+    steps:
+      - attach_workspace:
+          at: .
+      - run: ls
 
 workflows:
   version: 2.4
@@ -111,13 +125,21 @@ workflows:
       - test:
           context:
             - Default
+
       - build_release_linux:
           context:
             - Default
-
       - build_release_alpine:
           context:
             - Default
       - build_release_macos:
           context:
             - Default
+
+      - create_release:
+          context:
+            - Default
+          requires:
+            - build_release_linux
+            - build_release_alpine
+            - build_release_macos
