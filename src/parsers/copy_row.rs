@@ -78,7 +78,7 @@ fn capture_to_item<'a, 'b>(capture: &'a regex::Captures, name: &'b str) -> Optio
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::strategy_structs::{ColumnInfo, DataType, TransformerType};
+    use crate::parsers::strategy_structs::{ColumnInfo, DataCategory, TransformerType};
     use std::collections::HashMap;
 
     #[test]
@@ -157,7 +157,7 @@ mod tests {
     fn create_column_info(name: TransformerType) -> ColumnInfo {
         return ColumnInfo {
             transformer: create_transformer(name),
-            data_type: DataType::General,
+            data_category: DataCategory::General,
         };
     }
     fn create_transformer(name: TransformerType) -> Transformer {

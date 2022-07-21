@@ -3,16 +3,25 @@ use crate::parsers::types::Column;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Types(pub HashMap<String, HashMap<String, String>>);
+pub struct Types {
+    types: HashMap<String, HashMap<String, String>>,
+}
 
 impl Types {
-    pub fn new(initial: HashMap<String, HashMap<String, String>>) {
-        Types(initial);
+    pub fn new(initial: HashMap<String, HashMap<String, String>>) -> Self {
+        Types { types: initial }
     }
 
-    pub fn insert(&self, table_name: &String, thing: HashMap<String, String>) {}
-    pub fn lookup(&self, table_name: &String, column_name: String) -> String {
-        "om".to_string()
+    pub fn insert(&mut self, table_name: &String, thing: HashMap<String, String>) {
+        self.types.insert(table_name.to_string(), thing);
+    }
+
+    pub fn lookup(&self, table_name: &String, column_name: String) -> Option<String> {
+        return self
+            .types
+            .get(table_name)
+            .and_then(|table| table.get(&column_name))
+            .and_then(|column_type| Some(column_type.to_string()));
     }
 }
 
@@ -37,7 +46,7 @@ impl State {
     pub fn new() -> State {
         State {
             position: Position::Normal,
-            types: Types(HashMap::new()),
+            types: Types::new(HashMap::new()),
         }
     }
 
@@ -57,7 +66,6 @@ impl State {
                         .map(|c| (c.name.clone(), c.data_type.clone()))
                         .collect::<HashMap<String, String>>(),
                 );
-                println!("TYPES: {:?}", table_types);
             }
 
             (_, _) => (),
@@ -76,7 +84,7 @@ mod tests {
     fn new_creates_default_state() {
         let state = State::new();
         assert_eq!(state.position, Position::Normal);
-        assert_eq!(state.types, HashMap::new());
+        assert_eq!(state.types, Types::new(HashMap::new()));
     }
 
     #[test]
@@ -109,7 +117,7 @@ mod tests {
                     },
                 ],
             },
-            types: Types(HashMap::new()),
+            types: Types::new(HashMap::new()),
         };
 
         state.update_position(Position::Normal);
@@ -117,7 +125,7 @@ mod tests {
         assert_eq!(state.position, Position::Normal);
         assert_eq!(
             state.types,
-            HashMap::from([(
+            Types::new(HashMap::from([(
                 "table-mc-tableface".to_string(),
                 HashMap::from([
                     ("column".to_string(), "bigint".to_string()),
@@ -126,7 +134,7 @@ mod tests {
                         "timestamp with time zone".to_string()
                     )
                 ])
-            )])
+            )]))
         );
     }
 }

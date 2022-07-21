@@ -106,6 +106,7 @@ fn transform_row<'line, 'state>(
 
             let transformed = column_values.enumerate().map(|(i, value)| {
                 let column_type = types.lookup(&current_table.table_name, "".to_string());
+                println!("{:?}", &transforms);
                 return transformer::transform(value, &transforms[i], &current_table.table_name);
             });
 
@@ -137,7 +138,9 @@ fn split_row<'line>(line: &'line str) -> std::str::Split<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::strategy_structs::{ColumnInfo, DataType, Transformer, TransformerType};
+    use crate::parsers::strategy_structs::{
+        ColumnInfo, DataCategory, Transformer, TransformerType,
+    };
     use std::collections::HashMap;
 
     #[test]
@@ -170,7 +173,7 @@ mod tests {
                     data_type: "bigint".to_string(),
                 }],
             },
-            types: Types(HashMap::new()),
+            types: Types::new(HashMap::new()),
         };
         let transformed_row = parse(create_table_row, &mut state, &strategies);
 
@@ -203,7 +206,7 @@ mod tests {
                 table_name: "public.users".to_string(),
                 types: vec![],
             },
-            types: Types(HashMap::new()),
+            types: Types::new(HashMap::new()),
         };
         let transformed_row = parse(create_table_row, &mut state, &strategies);
 
@@ -230,16 +233,16 @@ mod tests {
                     data_type: "bigint".to_string(),
                 }],
             },
-            types: Types(HashMap::new()),
+            types: Types::new(HashMap::new()),
         };
         let transformed_row = parse(create_table_row, &mut state, &strategies);
 
         assert_eq!(state.position, Position::Normal);
 
-        let expected_types = HashMap::from([(
+        let expected_types = Types::new(HashMap::from([(
             "public.users".to_string(),
             HashMap::from([("id".to_string(), "bigint".to_string())]),
-        )]);
+        )]));
         assert_eq!(state.types, expected_types);
         assert_eq!(create_table_row, transformed_row);
     }
@@ -252,7 +255,7 @@ mod tests {
             (
                 "id".to_string(),
                 ColumnInfo {
-                    data_type: DataType::General,
+                    data_category: DataCategory::General,
                     transformer: Transformer {
                         name: TransformerType::Identity,
                         args: None,
@@ -262,7 +265,7 @@ mod tests {
             (
                 "first_name".to_string(),
                 ColumnInfo {
-                    data_type: DataType::General,
+                    data_category: DataCategory::General,
                     transformer: Transformer {
                         name: TransformerType::FakeFirstName,
                         args: None,
@@ -272,7 +275,7 @@ mod tests {
             (
                 "last_name".to_string(),
                 ColumnInfo {
-                    data_type: DataType::General,
+                    data_category: DataCategory::General,
                     transformer: Transformer {
                         name: TransformerType::FakeLastName,
                         args: None,
@@ -315,7 +318,7 @@ mod tests {
             (
                 "id".to_string(),
                 ColumnInfo {
-                    data_type: DataType::General,
+                    data_category: DataCategory::General,
                     transformer: Transformer {
                         name: TransformerType::Identity,
                         args: None,
@@ -325,7 +328,7 @@ mod tests {
             (
                 "first_name".to_string(),
                 ColumnInfo {
-                    data_type: DataType::General,
+                    data_category: DataCategory::General,
                     transformer: Transformer {
                         name: TransformerType::FakeFirstName,
                         args: None,
@@ -335,7 +338,7 @@ mod tests {
             (
                 "last_name".to_string(),
                 ColumnInfo {
-                    data_type: DataType::General,
+                    data_category: DataCategory::General,
                     transformer: Transformer {
                         name: TransformerType::FakeLastName,
                         args: None,
@@ -390,7 +393,7 @@ mod tests {
                     ]),
                 },
             },
-            types: Types(HashMap::new()),
+            types: Types::new(HashMap::new()),
         };
         let transformed_row = parse(table_data_row, &mut state, &strategies);
         assert_eq!("first\tsecond\tthird\n", transformed_row);
@@ -411,7 +414,7 @@ mod tests {
                     }]),
                 },
             },
-            types: Types(HashMap::new()),
+            types: Types::new(HashMap::new()),
         };
         let processed_row = parse(table_data_row, &mut state, &strategies);
         println!("{}", processed_row);

@@ -18,19 +18,19 @@ pub fn validate(
             return columns
                 .iter()
                 .filter(|(_, column_info)| {
-                    return (column_info.data_type == DataType::PotentialPii
-                        || column_info.data_type == DataType::Pii)
+                    return (column_info.data_category == DataCategory::PotentialPii
+                        || column_info.data_category == DataCategory::Pii)
                         && column_info.transformer.name == TransformerType::Identity;
                 })
                 .map(|(column_name, _)| create_simple_column(column_name, table_name));
         })
         .collect();
-    let unknown_data_types: Vec<SimpleColumn> = strategies
+    let unknown_data_categories: Vec<SimpleColumn> = strategies
         .iter()
         .flat_map(|(table_name, columns)| {
             return columns
                 .iter()
-                .filter(|(_, column_info)| column_info.data_type == DataType::Unknown)
+                .filter(|(_, column_info)| column_info.data_category == DataCategory::Unknown)
                 .map(|(column_name, _)| create_simple_column(column_name, table_name));
         })
         .collect();
@@ -67,7 +67,7 @@ pub fn validate(
     match (
         in_db_but_not_strategy_file.len(),
         in_strategy_file_but_not_db.len(),
-        unknown_data_types.len(),
+        unknown_data_categories.len(),
         error_transformer_types.len(),
         unanonymised_pii.len(),
     ) {
@@ -76,7 +76,7 @@ pub fn validate(
             return Err(MissingColumns {
                 missing_from_db: add_if_present(in_strategy_file_but_not_db),
                 missing_from_strategy_file: add_if_present(in_db_but_not_strategy_file),
-                unknown_data_types: add_if_present(unknown_data_types),
+                unknown_data_categories: add_if_present(unknown_data_categories),
                 error_transformer_types: add_if_present(error_transformer_types),
                 unanonymised_pii: add_if_present(unanonymised_pii),
             });
@@ -185,12 +185,12 @@ mod tests {
     }
 
     #[test]
-    fn returns_columns_missing_data_type() {
+    fn returns_columns_missing_data_category() {
         let strategies = create_strategy(
             "public.person",
-            [create_strategy_with_data_type(
+            [create_strategy_with_data_category(
                 "first_name",
-                DataType::Unknown,
+                DataCategory::Unknown,
             )]
             .into_iter(),
         );
@@ -201,7 +201,7 @@ mod tests {
 
         let error = result.unwrap_err();
         assert_eq!(
-            error.unknown_data_types.unwrap(),
+            error.unknown_data_categories.unwrap(),
             vec!(create_simple_column("public.person", "first_name"))
         );
     }
@@ -234,12 +234,12 @@ mod tests {
             [
                 create_column_with_data_and_transfromer_type(
                     "first_name",
-                    DataType::Pii,
+                    DataCategory::Pii,
                     TransformerType::Identity,
                 ),
                 create_column_with_data_and_transfromer_type(
                     "last_name",
-                    DataType::PotentialPii,
+                    DataCategory::PotentialPii,
                     TransformerType::Identity,
                 ),
             ]
@@ -283,7 +283,7 @@ mod tests {
     fn create_column(column_name: &str) -> (String, ColumnInfo) {
         return create_column_with_data_and_transfromer_type(
             column_name,
-            DataType::General,
+            DataCategory::General,
             TransformerType::Identity,
         );
     }
@@ -294,30 +294,30 @@ mod tests {
     ) -> (String, ColumnInfo) {
         return create_column_with_data_and_transfromer_type(
             column_name,
-            DataType::General,
+            DataCategory::General,
             transformer_type,
         );
     }
 
-    fn create_strategy_with_data_type(
+    fn create_strategy_with_data_category(
         column_name: &str,
-        data_type: DataType,
+        data_category: DataCategory,
     ) -> (String, ColumnInfo) {
         return create_column_with_data_and_transfromer_type(
             column_name,
-            data_type,
+            data_category,
             TransformerType::Identity,
         );
     }
     fn create_column_with_data_and_transfromer_type(
         column_name: &str,
-        data_type: DataType,
+        data_category: DataCategory,
         transformer_type: TransformerType,
     ) -> (String, ColumnInfo) {
         return (
             column_name.to_string(),
             ColumnInfo {
-                data_type: data_type,
+                data_category: data_category,
                 transformer: Transformer {
                     name: transformer_type,
                     args: None,

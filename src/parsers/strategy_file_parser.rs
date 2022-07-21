@@ -15,7 +15,7 @@ pub fn parse(
                 return (
                     column.name.clone(),
                     ColumnInfo {
-                        data_type: column.data_type.clone(),
+                        data_category: column.data_category.clone(),
                         transformer: transformer(column, &transformer_overrides),
                     },
                 );
@@ -29,12 +29,12 @@ pub fn parse(
 }
 
 fn transformer(column: ColumnInFile, overrides: &TransformerOverrides) -> Transformer {
-    if column.data_type == DataType::PotentialPii && overrides.allow_potential_pii {
+    if column.data_category == DataCategory::PotentialPii && overrides.allow_potential_pii {
         return Transformer {
             name: TransformerType::Identity,
             args: None,
         };
-    } else if column.data_type == DataType::CommerciallySensitive
+    } else if column.data_category == DataCategory::CommerciallySensitive
         && overrides.allow_commercially_sensitive
     {
         return Transformer {
@@ -62,7 +62,7 @@ mod tests {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
             columns: vec![column_in_file(
-                DataType::Pii,
+                DataCategory::Pii,
                 column_name,
                 TransformerType::Scramble,
             )],
@@ -73,7 +73,7 @@ mod tests {
             HashMap::from([(
                 column_name.to_string(),
                 ColumnInfo {
-                    data_type: DataType::Pii,
+                    data_category: DataCategory::Pii,
                     transformer: Transformer {
                         name: TransformerType::Scramble,
                         args: None,
@@ -92,12 +92,12 @@ mod tests {
             description: "description".to_string(),
             columns: vec![
                 column_in_file(
-                    DataType::PotentialPii,
+                    DataCategory::PotentialPii,
                     PII_COLUMN_NAME,
                     TransformerType::Scramble,
                 ),
                 column_in_file(
-                    DataType::CommerciallySensitive,
+                    DataCategory::CommerciallySensitive,
                     COMMERCIALLY_SENSITIVE_COLUMN_NAME,
                     TransformerType::Scramble,
                 ),
@@ -133,12 +133,12 @@ mod tests {
             description: "description".to_string(),
             columns: vec![
                 column_in_file(
-                    DataType::PotentialPii,
+                    DataCategory::PotentialPii,
                     PII_COLUMN_NAME,
                     TransformerType::Scramble,
                 ),
                 column_in_file(
-                    DataType::CommerciallySensitive,
+                    DataCategory::CommerciallySensitive,
                     COMMERCIALLY_SENSITIVE_COLUMN_NAME,
                     TransformerType::Scramble,
                 ),
@@ -174,12 +174,12 @@ mod tests {
             description: "description".to_string(),
             columns: vec![
                 column_in_file(
-                    DataType::PotentialPii,
+                    DataCategory::PotentialPii,
                     PII_COLUMN_NAME,
                     TransformerType::Scramble,
                 ),
                 column_in_file(
-                    DataType::CommerciallySensitive,
+                    DataCategory::CommerciallySensitive,
                     COMMERCIALLY_SENSITIVE_COLUMN_NAME,
                     TransformerType::Scramble,
                 ),
@@ -213,12 +213,12 @@ mod tests {
     }
 
     fn column_in_file(
-        data_type: DataType,
+        data_category: DataCategory,
         name: &str,
         transformer_type: TransformerType,
     ) -> ColumnInFile {
         return ColumnInFile {
-            data_type: data_type,
+            data_category: data_category,
             description: name.to_string(),
             name: name.to_string(),
             transformer: Transformer {

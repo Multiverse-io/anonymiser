@@ -37,7 +37,7 @@ pub fn append_to_file(file_name: &str, missing_columns: Vec<SimpleColumn>) -> st
                 let existing_table = current_file_contents.get_mut(position).unwrap();
                 for column in missing_columns {
                     existing_table.columns.push(ColumnInFile {
-                        data_type: DataType::Unknown,
+                        data_category: DataCategory::Unknown,
                         description: "".to_string(),
                         name: column,
                         transformer: Transformer {
@@ -70,7 +70,9 @@ pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()>
         .iter()
         .flat_map(|strategy| {
             strategy.columns.iter().filter_map(|column| {
-                if column.data_type == DataType::Pii || column.data_type == DataType::PotentialPii {
+                if column.data_category == DataCategory::Pii
+                    || column.data_category == DataCategory::PotentialPii
+                {
                     return Some(format!(
                         "{}, {}, {}",
                         strategy.table_name, column.name, column.description

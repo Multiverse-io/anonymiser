@@ -164,7 +164,7 @@ fn format_missing_columns(strategy_file: &str, missing_columns: &MissingColumns)
         None => (),
     }
 
-    match &missing_columns.unknown_data_types {
+    match &missing_columns.unknown_data_categories {
         Some(missing) => {
             let missing_list = missing_to_message(&missing);
             message.push_str(&format!(

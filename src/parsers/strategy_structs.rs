@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Eq, Serialize, Deserialize)]
 pub struct ColumnInFile {
-    pub data_type: DataType,
+    pub data_category: DataCategory,
     pub description: String,
     pub name: String,
 
@@ -58,7 +58,7 @@ impl PartialEq for StrategyInFile {
 pub struct MissingColumns {
     pub missing_from_strategy_file: Option<Vec<SimpleColumn>>,
     pub missing_from_db: Option<Vec<SimpleColumn>>,
-    pub unknown_data_types: Option<Vec<SimpleColumn>>,
+    pub unknown_data_categories: Option<Vec<SimpleColumn>>,
     pub error_transformer_types: Option<Vec<SimpleColumn>>,
     pub unanonymised_pii: Option<Vec<SimpleColumn>>,
 }
@@ -90,12 +90,12 @@ impl PartialEq for SimpleColumn {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct ColumnInfo {
-    pub data_type: DataType,
+    pub data_category: DataCategory,
     pub transformer: Transformer,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum DataType {
+pub enum DataCategory {
     CommerciallySensitive,
     General,
     PotentialPii,
