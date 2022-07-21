@@ -63,7 +63,7 @@ pub struct MissingColumns {
     pub unanonymised_pii: Option<Vec<SimpleColumn>>,
 }
 
-#[derive(Clone, Debug, Hash, Eq)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct SimpleColumn {
     pub table_name: String,
     pub column_name: String,
@@ -78,13 +78,6 @@ impl Ord for SimpleColumn {
 impl PartialOrd for SimpleColumn {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for SimpleColumn {
-    fn eq(&self, other: &Self) -> bool {
-        format!("{}{}", self.table_name, self.column_name)
-            == format!("{}{}", other.table_name, other.column_name)
     }
 }
 
@@ -154,11 +147,3 @@ impl TransformerOverrides {
         }
     }
 }
-//impl Default for TransformerOverrides {
-//    fn default() -> Self {
-//        Self {
-//            allow_potential_pii: false,
-//            allow_commercially_sensitive: false,
-//        }
-//    }
-//}
