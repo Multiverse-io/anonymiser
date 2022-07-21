@@ -100,7 +100,7 @@ fn main() -> Result<(), std::io::Error> {
                     println!("{}", message);
                     if fix && fixable(&missing_columns) {
                         println!("But the great news is that we're going to try and fix some of this!...");
-                        fix_missing_columns(&strategy_file, missing_columns);
+                        fix_columns(&strategy_file, missing_columns);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
                     std::process::exit(1);
@@ -115,7 +115,7 @@ fn main() -> Result<(), std::io::Error> {
                 Ok(()) => println!("All up to date"),
                 Err(missing_columns) => {
                     if fixable(&missing_columns) {
-                        fix_missing_columns(&strategy_file, missing_columns);
+                        fix_columns(&strategy_file, missing_columns);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
                     std::process::exit(1);
@@ -127,23 +127,25 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 fn fixable(missing_columns: &MissingColumns) -> bool {
-    return missing_columns.missing_from_strategy_file.is_some()
-        && missing_columns
-            .missing_from_strategy_file
-            .as_ref()
-            .unwrap()
-            .len()
-            > 0;
+    match missing_columns {
+        MissingColumns {
+            missing_from_strategy_file: Some(x),
+            missing_from_db: Some(y),
+            ..
+        } if matches!(x.as_slice(), []) && matches!(y.as_slice(), []) => false,
+        _ => true,
+    }
 }
 
-fn fix_missing_columns(strategy_file: &str, missing_columns: MissingColumns) -> () {
-    match missing_columns.missing_from_strategy_file {
-        Some(missing) => {
-            strategy_file_reader::append_to_file(&strategy_file, missing)
-                .expect("Unable to write to file :(");
-        }
-        None => (),
-    };
+fn fix_columns(strategy_file: &str, missing_columns: MissingColumns) -> () {
+    let missing = missing_columns
+        .missing_from_strategy_file
+        .unwrap_or_default();
+
+    let redundant = missing_columns.missing_from_db.unwrap_or_default();
+
+    strategy_file_reader::sync_to_file(&strategy_file, missing, redundant)
+        .expect("Unable to write to file :(");
 }
 
 fn format_missing_columns(strategy_file: &str, missing_columns: &MissingColumns) -> String {
