@@ -13,19 +13,18 @@ pub fn parse(copy_row: &str, strategies: &Strategies) -> CurrentTableTransforms 
         static ref RE: Regex = Regex::new(r"COPY (?P<table>.*) \((?P<columns>.*)\)").unwrap();
     }
 
-    match RE.captures(&copy_row) {
-        Some(cap) => {
-            let some_columns = capture_to_item(&cap, "columns");
-            let some_table = capture_to_item(&cap, "table");
-            match (some_table, some_columns) {
-                (Some(table), Some(unsplit_columns)) => {
-                    return get_current_table_information(table, unsplit_columns, strategies)
-                }
+    if let Some(cap) = RE.captures(copy_row) {
+        let some_columns = capture_to_item(&cap, "columns");
+        let some_table = capture_to_item(&cap, "table");
+        match (some_table, some_columns) {
+            (Some(table), Some(unsplit_columns)) => {
+                return get_current_table_information(table, unsplit_columns, strategies);
+            }
 
-                (_, _) => panic!("Invalid Copy row format: {:?}", copy_row),
-            };
-        }
-        _ => panic!("Invalid Copy row format: {:?}", copy_row),
+            (_, _) => panic!("Invalid Copy row format: {:?}", copy_row),
+        };
+    } else {
+        panic!("Invalid Copy row format: {:?}", copy_row);
     };
 }
 
@@ -41,23 +40,23 @@ fn get_current_table_information(
         .collect();
     let transforms = transforms_from_strategy(strategies, &table_name, &column_list);
 
-    return CurrentTableTransforms {
-        table_name: table_name,
+    CurrentTableTransforms {
+        table_name,
         transforms: Some(transforms),
-    };
+    }
 }
 
 fn transforms_from_strategy(
     strategies: &Strategies,
     table_name: &str,
-    column_list: &Vec<String>,
+    column_list: &[String],
 ) -> Vec<Transformer> {
     match strategies.get(table_name) {
         Some(columns) => {
             return column_list
                 .iter()
                 .map(|c| match columns.get(c) {
-                    Some(column_info) => return column_info.transformer.clone(),
+                    Some(column_info) => column_info.transformer.clone(),
                     None => panic!(
                         "No transform found for column: {:?} in table: {:?}",
                         c, table_name
@@ -155,16 +154,13 @@ mod tests {
     }
 
     fn create_column_info(name: TransformerType) -> ColumnInfo {
-        return ColumnInfo {
+        ColumnInfo {
             transformer: create_transformer(name),
             data_category: DataCategory::General,
-        };
+        }
     }
     fn create_transformer(name: TransformerType) -> Transformer {
-        return Transformer {
-            name: name,
-            args: None,
-        };
+        Transformer { name, args: None }
     }
     #[test]
     #[should_panic(expected = "Invalid Copy row format")]

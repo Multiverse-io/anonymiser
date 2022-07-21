@@ -146,11 +146,19 @@ pub struct TransformerOverrides {
     pub allow_commercially_sensitive: bool,
 }
 
-impl Default for TransformerOverrides {
-    fn default() -> Self {
+impl TransformerOverrides {
+    pub fn none() -> Self {
         Self {
             allow_potential_pii: false,
             allow_commercially_sensitive: false,
         }
     }
 }
+//impl Default for TransformerOverrides {
+//    fn default() -> Self {
+//        Self {
+//            allow_potential_pii: false,
+//            allow_commercially_sensitive: false,
+//        }
+//    }
+//}

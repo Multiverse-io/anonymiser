@@ -6,7 +6,7 @@ pub fn parse(line: &str) -> String {
 
     match result {
         None => panic!("Create table string doesn't look right??? \"{}\"", line),
-        Some(name) => return name.to_string(),
+        Some(name) => name.to_string(),
     }
 }
 

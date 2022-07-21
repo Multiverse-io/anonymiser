@@ -12,16 +12,15 @@ impl Types {
         Types { types: initial }
     }
 
-    pub fn insert(&mut self, table_name: &String, thing: HashMap<String, String>) {
+    pub fn insert(&mut self, table_name: &str, thing: HashMap<String, String>) {
         self.types.insert(table_name.to_string(), thing);
     }
 
-    pub fn lookup(&self, table_name: &String, column_name: String) -> Option<String> {
-        return self
-            .types
+    pub fn lookup(&self, table_name: &str, column_name: String) -> Option<String> {
+        self.types
             .get(table_name)
             .and_then(|table| table.get(&column_name))
-            .and_then(|column_type| Some(column_type.to_string()));
+            .map(|column_type| column_type.to_string())
     }
 }
 
@@ -51,25 +50,23 @@ impl State {
     }
 
     pub fn update_position(&mut self, new_position: Position) {
-        match (self.position.clone(), new_position.clone()) {
-            (
-                Position::InCreateTable {
-                    table_name,
-                    types: table_types,
-                },
-                Position::Normal,
-            ) => {
-                self.types.insert(
-                    &table_name,
-                    table_types
-                        .iter()
-                        .map(|c| (c.name.clone(), c.data_type.clone()))
-                        .collect::<HashMap<String, String>>(),
-                );
-            }
+        if let (
+            Position::InCreateTable {
+                table_name,
+                types: table_types,
+            },
+            Position::Normal,
+        ) = (self.position.clone(), new_position.clone())
+        {
+            self.types.insert(
+                &table_name,
+                table_types
+                    .iter()
+                    .map(|c| (c.name.clone(), c.data_type.clone()))
+                    .collect::<HashMap<String, String>>(),
+            );
+        }
 
-            (_, _) => (),
-        };
         self.position = new_position
     }
 }
@@ -102,6 +99,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(non_snake_case)]
     fn if_updating_from_InCreateTable_to_Normal_updates_types() {
         let mut state = State {
             position: Position::InCreateTable {

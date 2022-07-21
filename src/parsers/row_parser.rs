@@ -45,7 +45,7 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
                 table_name,
                 types: Vec::new(),
             });
-            return line.to_string();
+            line.to_string()
         }
         (
             RowType::CreateTableRow,
@@ -55,36 +55,34 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
             },
         ) => {
             state.update_position(Position::InCreateTable {
-                table_name: table_name.to_string(),
+                table_name,
                 types: add_create_table_row_to_types(line, current_types.to_vec()),
             });
-            return line.to_string();
+            line.to_string()
         }
         (RowType::CreateTableEnd, _position) => {
             state.update_position(Position::Normal);
-            return line.to_string();
+            line.to_string()
         }
         (RowType::CopyBlockStart, _position) => {
-            let current_table = copy_row::parse(&line, strategies);
-            state.update_position(Position::InCopy {
-                current_table: current_table,
-            });
-            return line.to_string();
+            let current_table = copy_row::parse(line, strategies);
+            state.update_position(Position::InCopy { current_table });
+            line.to_string()
         }
         (RowType::CopyBlockEnd, _position) => {
             state.update_position(Position::Normal);
-            return line.to_string();
+            line.to_string()
         }
         (RowType::CopyBlockRow, Position::InCopy { current_table }) => {
             state.update_position(Position::InCopy {
                 current_table: current_table.clone(),
             });
-            return transform_row(line, &current_table, &state.types);
+            transform_row(line, &current_table, &state.types)
         }
 
         (RowType::Normal, Position::Normal) => {
             state.update_position(Position::Normal);
-            return line.to_string();
+            line.to_string()
         }
         (row_type, position) => {
             panic!(
@@ -95,28 +93,26 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
     }
 }
 
-fn transform_row<'line, 'state>(
-    line: &'line str,
-    current_table: &'state CurrentTableTransforms,
-    types: &Types,
-) -> String {
+fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Types) -> String {
     match &current_table.transforms {
         Some(transforms) => {
             let column_values = split_row(line);
 
             let transformed = column_values.enumerate().map(|(i, value)| {
-                let column_type = types.lookup(&current_table.table_name, "".to_string());
+                //TODO sort this out
+                let _column_type = types.lookup(&current_table.table_name, "".to_string());
+
                 println!("{:?}", &transforms);
-                return transformer::transform(value, &transforms[i], &current_table.table_name);
+                transformer::transform(value, &transforms[i], &current_table.table_name)
             });
 
             let mut joined = join(transformed, "\t");
             joined.push('\n');
-            return joined;
+            joined
         }
         None => {
             //TODO test carriage returns etc. here
-            return line.to_string();
+            line.to_string()
         }
     }
 }
@@ -129,10 +125,10 @@ fn add_create_table_row_to_types(line: &str, mut current_types: Vec<Column>) -> 
 
     println!("CURENT TYPS: {:?}", current_types);
 
-    return current_types;
+    current_types
 }
-fn split_row<'line>(line: &'line str) -> std::str::Split<&str> {
-    return line.strip_suffix('\n').unwrap_or(line).split("\t");
+fn split_row(line: &str) -> std::str::Split<char> {
+    return line.strip_suffix('\n').unwrap_or(line).split('\t');
 }
 
 #[cfg(test)]
@@ -307,7 +303,7 @@ mod tests {
                 )),
                 current_table.transforms
             ),
-            _other => assert!(false, "Position is not InCopy!"),
+            _other => unreachable!("Position is not InCopy!"),
         };
     }
 

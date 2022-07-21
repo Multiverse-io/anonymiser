@@ -1,10 +1,10 @@
 use crate::parsers::strategy_structs::*;
 use std::collections::HashSet;
 fn create_simple_column(column_name: &str, table_name: &str) -> SimpleColumn {
-    return SimpleColumn {
+    SimpleColumn {
         table_name: table_name.to_string(),
         column_name: column_name.to_string(),
-    };
+    }
 }
 pub fn validate(
     strategies: &Strategies,
@@ -18,9 +18,9 @@ pub fn validate(
             return columns
                 .iter()
                 .filter(|(_, column_info)| {
-                    return (column_info.data_category == DataCategory::PotentialPii
+                    (column_info.data_category == DataCategory::PotentialPii
                         || column_info.data_category == DataCategory::Pii)
-                        && column_info.transformer.name == TransformerType::Identity;
+                        && column_info.transformer.name == TransformerType::Identity
                 })
                 .map(|(column_name, _)| create_simple_column(column_name, table_name));
         })
@@ -72,25 +72,23 @@ pub fn validate(
         unanonymised_pii.len(),
     ) {
         (0, 0, 0, 0, 0) => Ok(()),
-        _ => {
-            return Err(MissingColumns {
-                missing_from_db: add_if_present(in_strategy_file_but_not_db),
-                missing_from_strategy_file: add_if_present(in_db_but_not_strategy_file),
-                unknown_data_categories: add_if_present(unknown_data_categories),
-                error_transformer_types: add_if_present(error_transformer_types),
-                unanonymised_pii: add_if_present(unanonymised_pii),
-            });
-        }
+        _ => Err(MissingColumns {
+            missing_from_db: add_if_present(in_strategy_file_but_not_db),
+            missing_from_strategy_file: add_if_present(in_db_but_not_strategy_file),
+            unknown_data_categories: add_if_present(unknown_data_categories),
+            error_transformer_types: add_if_present(error_transformer_types),
+            unanonymised_pii: add_if_present(unanonymised_pii),
+        }),
     }
 }
 
 fn add_if_present(list: Vec<SimpleColumn>) -> Option<Vec<SimpleColumn>> {
-    if list.len() > 0 {
+    if list.is_empty() {
+        None
+    } else {
         let mut new_list = list;
         new_list.sort();
-        return Some(new_list);
-    } else {
-        return None;
+        Some(new_list)
     }
 }
 
@@ -270,7 +268,7 @@ mod tests {
     where
         I: Iterator<Item = (String, ColumnInfo)>,
     {
-        return HashMap::from([(table_name.to_string(), HashMap::from_iter(columns))]);
+        HashMap::from([(table_name.to_string(), HashMap::from_iter(columns))])
     }
 
     fn add_table<I>(strategies: &mut Strategies, table_name: &str, columns: I)
@@ -281,55 +279,55 @@ mod tests {
     }
 
     fn create_column(column_name: &str) -> (String, ColumnInfo) {
-        return create_column_with_data_and_transfromer_type(
+        create_column_with_data_and_transfromer_type(
             column_name,
             DataCategory::General,
             TransformerType::Identity,
-        );
+        )
     }
 
     fn create_column_with_transformer_type(
         column_name: &str,
         transformer_type: TransformerType,
     ) -> (String, ColumnInfo) {
-        return create_column_with_data_and_transfromer_type(
+        create_column_with_data_and_transfromer_type(
             column_name,
             DataCategory::General,
             transformer_type,
-        );
+        )
     }
 
     fn create_strategy_with_data_category(
         column_name: &str,
         data_category: DataCategory,
     ) -> (String, ColumnInfo) {
-        return create_column_with_data_and_transfromer_type(
+        create_column_with_data_and_transfromer_type(
             column_name,
             data_category,
             TransformerType::Identity,
-        );
+        )
     }
     fn create_column_with_data_and_transfromer_type(
         column_name: &str,
         data_category: DataCategory,
         transformer_type: TransformerType,
     ) -> (String, ColumnInfo) {
-        return (
+        (
             column_name.to_string(),
             ColumnInfo {
-                data_category: data_category,
+                data_category,
                 transformer: Transformer {
                     name: transformer_type,
                     args: None,
                 },
             },
-        );
+        )
     }
 
     fn create_simple_column(table_name: &str, column_name: &str) -> SimpleColumn {
-        return SimpleColumn {
+        SimpleColumn {
             table_name: table_name.to_string(),
             column_name: column_name.to_string(),
-        };
+        }
     }
 }

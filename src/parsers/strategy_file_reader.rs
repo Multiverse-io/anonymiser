@@ -21,9 +21,9 @@ pub fn append_to_file(file_name: &str, missing_columns: Vec<SimpleColumn>) -> st
             .iter()
             .fold(HashMap::new(), |mut acc, column| {
                 acc.entry(column.table_name.clone())
-                    .or_insert_with(|| vec![])
+                    .or_insert(Vec::new())
                     .push(column.column_name.clone());
-                return acc;
+                acc
             });
 
     let mut current_file_contents = read_file(file_name).unwrap();
@@ -61,7 +61,7 @@ pub fn append_to_file(file_name: &str, missing_columns: Vec<SimpleColumn>) -> st
         .truncate(true)
         .open(file_name)?;
     serde_json::to_writer_pretty(file, &current_file_contents)?;
-    return Ok(());
+    Ok(())
 }
 
 pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()> {
@@ -78,7 +78,7 @@ pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()>
                         strategy.table_name, column.name, column.description
                     ));
                 } else {
-                    return None;
+                    None
                 }
             })
         })
@@ -96,14 +96,14 @@ pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()>
         .open(csv_output_file)?;
     file.write_all(to_write.as_bytes()).unwrap();
 
-    return Ok(());
+    Ok(())
 }
 
 fn read_file(file_name: &str) -> serde_json::Result<Vec<StrategyInFile>> {
     match fs::read_to_string(file_name) {
         Ok(file_contents) => {
             let p: Vec<StrategyInFile> = serde_json::from_str(&file_contents)?;
-            return Ok(p);
+            Ok(p)
         }
 
         Err(error) => panic!("Unable to read strategy file at {}: {:?}", file_name, error),

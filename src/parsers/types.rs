@@ -27,42 +27,44 @@ fn is_non_column_definition(first_word: &str) -> bool {
 
 pub fn parse(line: &str) -> Option<Column> {
     println!("{:?}", line);
-    let trimmed_line = match line.strip_suffix(",") {
+    let trimmed_line = match line.strip_suffix(',') {
         None => line,
         Some(trimmed_line) => trimmed_line,
     };
 
-    let mut bits = trimmed_line.split(" ");
+    let mut bits = trimmed_line.split(' ');
     let name = bits
         .next()
         .expect("Not expecting an empty row inside a CREATE TABLE statement!");
 
     if !is_non_column_definition(name) {
         let rest: String = bits
-            .take_while(|w| match w {
-                &"COLLATE" => false,
-                &"COMPRESSION" => false,
-                &"NOT" => false,
-                &"NULL" => false,
-                &"CHECK" => false,
-                &"DEFAULT" => false,
-                &"GENERATED" => false,
-                &"UNIQUE" => false,
-                &"PRIMARY" => false,
-                &"REFERENCES" => false,
-                &"DEFERRABLE" => false,
-                &"INITIALLY" => false,
-                _ => true,
+            .take_while(|w| {
+                !matches!(
+                    *w,
+                    "COLLATE"
+                        | "COMPRESSION"
+                        | "NOT"
+                        | "NULL"
+                        | "CHECK"
+                        | "DEFAULT"
+                        | "GENERATED"
+                        | "UNIQUE"
+                        | "PRIMARY"
+                        | "REFERENCES"
+                        | "DEFERRABLE"
+                        | "INITIALLY"
+                )
             })
             .collect::<Vec<&str>>()
             .join(" ");
 
-        return Some(Column {
+        Some(Column {
             name: name.to_string(),
             data_type: rest,
-        });
+        })
     } else {
-        return None;
+        None
     }
 }
 

@@ -36,5 +36,5 @@ pub fn read(
             }
         }
     }
-    return Ok(());
+    Ok(())
 }

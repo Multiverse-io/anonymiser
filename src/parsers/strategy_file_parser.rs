@@ -12,37 +12,37 @@ pub fn parse(
             .columns
             .into_iter()
             .map(|column| {
-                return (
+                (
                     column.name.clone(),
                     ColumnInfo {
                         data_category: column.data_category.clone(),
                         transformer: transformer(column, &transformer_overrides),
                     },
-                );
+                )
             })
             .collect();
 
         transformed_strategies.insert(strategy.table_name, columns);
     }
 
-    return transformed_strategies;
+    transformed_strategies
 }
 
 fn transformer(column: ColumnInFile, overrides: &TransformerOverrides) -> Transformer {
     if column.data_category == DataCategory::PotentialPii && overrides.allow_potential_pii {
-        return Transformer {
+        Transformer {
             name: TransformerType::Identity,
             args: None,
-        };
+        }
     } else if column.data_category == DataCategory::CommerciallySensitive
         && overrides.allow_commercially_sensitive
     {
-        return Transformer {
+        Transformer {
             name: TransformerType::Identity,
             args: None,
-        };
+        }
     } else {
-        return column.transformer;
+        column.transformer
     }
 }
 
@@ -81,7 +81,7 @@ mod tests {
                 },
             )]),
         )]);
-        let parsed = parse(strategies, TransformerOverrides::default());
+        let parsed = parse(strategies, TransformerOverrides::none());
         assert_eq!(expected, parsed);
     }
 
@@ -209,7 +209,7 @@ mod tests {
         column_name: &str,
         strategies: &HashMap<String, HashMap<String, ColumnInfo>>,
     ) -> Transformer {
-        return strategies[TABLE_NAME][column_name].transformer.clone();
+        strategies[TABLE_NAME][column_name].transformer.clone()
     }
 
     fn column_in_file(
@@ -217,14 +217,14 @@ mod tests {
         name: &str,
         transformer_type: TransformerType,
     ) -> ColumnInFile {
-        return ColumnInFile {
-            data_category: data_category,
+        ColumnInFile {
+            data_category,
             description: name.to_string(),
             name: name.to_string(),
             transformer: Transformer {
                 name: transformer_type,
                 args: None,
             },
-        };
+        }
     }
 }

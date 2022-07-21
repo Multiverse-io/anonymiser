@@ -19,7 +19,7 @@ use uuid::Uuid;
 static UNIQUE_INTEGER: AtomicUsize = AtomicUsize::new(0);
 
 fn get_unique() -> usize {
-    return UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst);
+    UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst)
 }
 
 pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name: &str) -> String {
@@ -93,7 +93,7 @@ fn transform_array(value: &str, transformer: &Transformer, table_name: &str) -> 
 
                 format!("\"{}\"", transformed)
             } else {
-                return transform(list_item, transformer, table_name);
+                transform(list_item, transformer, table_name)
             }
         })
         .collect();
@@ -114,27 +114,27 @@ fn prepend_unique_if_present(
     if unique_value {
         return format!("{}-{}", unique, new_value);
     } else {
-        return new_value;
+        new_value
     }
 }
 fn fake_base16_string() -> String {
     let random_bytes = rand::thread_rng().gen::<[u8; 16]>();
-    return base16::encode_lower(&random_bytes);
+    base16::encode_lower(&random_bytes)
 }
 
 fn fake_base32_string() -> String {
     let random_bytes = rand::thread_rng().gen::<[u8; 16]>();
-    return base32::encode(Alphabet::RFC4648 { padding: true }, &random_bytes);
+    base32::encode(Alphabet::RFC4648 { padding: true }, &random_bytes)
 }
 
 fn fake_company_name(args: &Option<HashMap<String, String>>, unique: usize) -> String {
     let new_company_name = CompanyName().fake();
-    return prepend_unique_if_present(new_company_name, args, unique);
+    prepend_unique_if_present(new_company_name, args, unique)
 }
 
 fn fake_email(optional_args: &Option<HashMap<String, String>>, unique: usize) -> String {
     let new_email = FreeEmail().fake();
-    return prepend_unique_if_present(new_email, optional_args, unique);
+    prepend_unique_if_present(new_email, optional_args, unique)
 }
 
 fn fake_street_address() -> String {
@@ -153,14 +153,14 @@ fn fake_full_address() -> String {
 fn fake_full_name() -> String {
     let first: String = FirstName().fake();
     let last: String = LastName().fake();
-    return format!("{} {}", first, last);
+    format!("{} {}", first, last)
 }
 
 fn fake_national_identity_number() -> String {
     //TODO currently this is free text so they can enter anything at all,
     //so im not bothering with us vs uk,
     //there dont seem to be any us social sec numbers in the DB currently
-    return national_insurance_number::random();
+    national_insurance_number::random()
 }
 
 //https://www.ofcom.org.uk/phones-telecoms-and-internet/information-for-industry/numbering/numbers-for-drama
@@ -182,45 +182,47 @@ fn fake_postcode(current_value: &str) -> String {
     //TODO not sure this is unicode safe...
     let mut truncated_value = current_value.to_string();
     truncated_value.truncate(3);
-    return truncated_value.to_string();
+    truncated_value.to_string()
 }
 
 fn fake_username(args: &Option<HashMap<String, String>>, unique: usize) -> String {
     let username = Username().fake();
-    return prepend_unique_if_present(username, args, unique);
+    prepend_unique_if_present(username, args, unique)
 }
 
 fn fixed(args: &Option<HashMap<String, String>>, table_name: &str) -> String {
-    let value = args.as_ref().and_then(|a| a.get("value")).expect(&format!(
-        "Value must be present in args for a fixed transformer in table: {}",
-        table_name,
-    ));
-    return value.to_string();
+    let value = args
+        .as_ref()
+        .and_then(|a| a.get("value"))
+        .unwrap_or_else(|| {
+            panic!(
+                "Value must be present in args for a fixed transformer in table: {}",
+                table_name,
+            )
+        });
+    value.to_string()
 }
 
 fn obfuscate_day(value: &str, table_name: &str) -> String {
     match NaiveDate::parse_from_str(value, "%Y-%m-%d") {
         Ok(date) => {
             let new_date = date.with_day(1).unwrap();
-            return new_date.to_string();
+            new_date.to_string()
         }
         Err(err) => {
             return value
                 .strip_suffix(" BC")
                 .and_then(|trimmed| {
-                    return NaiveDate::parse_from_str(trimmed, "%Y-%m-%d")
+                    NaiveDate::parse_from_str(trimmed, "%Y-%m-%d")
                         .ok()
-                        .and_then(|re_parsed| {
-                            return Some(format!("{} BC", re_parsed.with_day(1).unwrap()));
-                        });
+                        .map(|re_parsed| format!("{} BC", re_parsed.with_day(1).unwrap()))
                 })
-                .expect(
-                    format!(
+                .unwrap_or_else(|| {
+                    panic!(
                         "Invalid date found: \"{}\" in table: \"{}\". Error: \"{}\"",
                         value, table_name, err
                     )
-                    .as_ref(),
-                )
+                })
         }
     }
 }
@@ -635,7 +637,7 @@ mod tests {
             "Now this is a story all about how my life got flipped turned upside down";
 
         let new_value = transform(
-            &initial_value,
+            initial_value,
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -645,8 +647,8 @@ mod tests {
         assert!(new_value != initial_value);
         assert_eq!(new_value.chars().count(), initial_value.chars().count());
 
-        let expected_spaces_count = initial_value.matches(" ").count();
-        let actual_spaces_count = new_value.matches(" ").count();
+        let expected_spaces_count = initial_value.matches(' ').count();
+        let actual_spaces_count = new_value.matches(' ').count();
         assert_eq!(actual_spaces_count, expected_spaces_count);
     }
 
@@ -655,7 +657,7 @@ mod tests {
         let initial_value = "ab.?";
 
         let new_value = transform(
-            &initial_value,
+            initial_value,
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -675,7 +677,7 @@ mod tests {
         let initial_value = "ab 12 a1b2";
 
         let new_value = transform(
-            &initial_value,
+            initial_value,
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -711,7 +713,7 @@ mod tests {
         let initial_value = "this is a tab\t and another \t.";
 
         let new_value = transform(
-            &initial_value,
+            initial_value,
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -727,7 +729,7 @@ mod tests {
         let initial_value = "123456789";
 
         let new_value = transform(
-            &initial_value,
+            initial_value,
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -747,7 +749,7 @@ mod tests {
     fn can_scramble_array_string_fields() {
         let initial_value = "{\"A\", \"B\"}";
         let new_value = transform(
-            &initial_value,
+            initial_value,
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -769,7 +771,7 @@ mod tests {
         //TODO currently we have a couple of bugs in parsing around commas inside strings
         let initial_value = "{\"A, B\", \"C\"}";
         let new_value = transform(
-            &initial_value,
+            initial_value,
             &Transformer {
                 name: TransformerType::Identity,
                 args: None,
@@ -783,7 +785,7 @@ mod tests {
     fn can_scramble_array_integer_fields() {
         let initial_value = "{1, 2}";
         let new_value = transform(
-            &initial_value,
+            initial_value,
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
