@@ -80,6 +80,7 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
+      - run: apk add --no-cache git
       - run: cargo build --release --target=x86_64-unknown-linux-musl
       - store_artifacts:
           path: target/x86_64-unknown-linux-musl/release/anonymiser
