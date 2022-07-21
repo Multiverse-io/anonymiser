@@ -61,7 +61,7 @@ jobs:
       - store_test_results:
           path: results.xml
 
-  build_release:
+  build_release_linux:
     docker:
       - image: cimg/rust:1.62
     environment:
@@ -72,6 +72,18 @@ jobs:
       - store_artifacts:
           path: target/x86_64-unknown-linux-gnu/release/anonymiser
           destination: x86_64-unknown-linux-gnu
+
+  build_release_alpine:
+    docker:
+      - image: rust:1.62-alpine
+    environment:
+      CARGO_NET_GIT_FETCH_WITH_CLI: true
+    steps:
+      - checkout
+      - run: cargo build --release --target=x86_64-unknown-linux-musl
+      - store_artifacts:
+          path: target/x86_64-unknown-linux-musl/release/anonymiser
+          destination: x86_64-unknown-linux-musl
 
   build_release_macos:
     macos:
@@ -98,7 +110,11 @@ workflows:
       - test:
           context:
             - Default
-      - build_release:
+      - build_release_linux:
+          context:
+            - Default
+
+      - build_release_alpine:
           context:
             - Default
       - build_release_macos:
