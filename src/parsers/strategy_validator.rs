@@ -64,31 +64,31 @@ pub fn validate(
         .cloned()
         .collect();
 
-    match (
-        in_db_but_not_strategy_file.len(),
-        in_strategy_file_but_not_db.len(),
-        unknown_data_categories.len(),
-        error_transformer_types.len(),
-        unanonymised_pii.len(),
-    ) {
-        (0, 0, 0, 0, 0) => Ok(()),
-        _ => Err(MissingColumns {
+    if in_db_but_not_strategy_file.is_empty()
+        && in_strategy_file_but_not_db.is_empty()
+        && unknown_data_categories.is_empty()
+        && error_transformer_types.is_empty()
+        && unanonymised_pii.is_empty()
+    {
+        Ok(())
+    } else {
+        Err(MissingColumns {
             missing_from_db: add_if_present(in_strategy_file_but_not_db),
             missing_from_strategy_file: add_if_present(in_db_but_not_strategy_file),
             unknown_data_categories: add_if_present(unknown_data_categories),
             error_transformer_types: add_if_present(error_transformer_types),
             unanonymised_pii: add_if_present(unanonymised_pii),
-        }),
+        })
     }
 }
 
-fn add_if_present(list: Vec<SimpleColumn>) -> Option<Vec<SimpleColumn>> {
+fn add_if_present(list: Vec<SimpleColumn>) -> Vec<SimpleColumn> {
     if list.is_empty() {
-        None
+        list
     } else {
         let mut new_list = list;
         new_list.sort();
-        Some(new_list)
+        new_list
     }
 }
 
@@ -132,9 +132,9 @@ mod tests {
         let result = validate(&strategies, columns_from_db);
 
         let error = result.unwrap_err();
-        assert!(error.missing_from_db.is_none());
+        assert!(error.missing_from_db.is_empty());
         assert_eq!(
-            error.missing_from_strategy_file.unwrap(),
+            error.missing_from_strategy_file,
             vec!(create_simple_column("public.location", "postcode"))
         );
     }
@@ -155,9 +155,9 @@ mod tests {
         let result = validate(&strategies, columns_from_db);
 
         let error = result.unwrap_err();
-        assert!(error.missing_from_strategy_file.is_none());
+        assert!(error.missing_from_strategy_file.is_empty());
         assert_eq!(
-            error.missing_from_db.unwrap(),
+            error.missing_from_db,
             vec!(create_simple_column("public.location", "postcode"))
         );
     }
@@ -173,11 +173,11 @@ mod tests {
 
         let error = result.unwrap_err();
         assert_eq!(
-            error.missing_from_strategy_file.unwrap(),
+            error.missing_from_strategy_file,
             vec!(create_simple_column("public.location", "postcode"))
         );
         assert_eq!(
-            error.missing_from_db.unwrap(),
+            error.missing_from_db,
             vec!(create_simple_column("public.person", "first_name"))
         );
     }
@@ -199,7 +199,7 @@ mod tests {
 
         let error = result.unwrap_err();
         assert_eq!(
-            error.unknown_data_categories.unwrap(),
+            error.unknown_data_categories,
             vec!(create_simple_column("public.person", "first_name"))
         );
     }
@@ -220,7 +220,7 @@ mod tests {
 
         let error = result.unwrap_err();
         assert_eq!(
-            error.error_transformer_types.unwrap(),
+            error.error_transformer_types,
             vec!(create_simple_column("public.person", "first_name"))
         );
     }
@@ -256,7 +256,7 @@ mod tests {
         let error = result.unwrap_err();
         println!("{:?}", error);
         assert_eq!(
-            error.unanonymised_pii.unwrap(),
+            error.unanonymised_pii,
             vec!(
                 create_simple_column("public.person", "first_name"),
                 create_simple_column("public.person", "last_name")

@@ -128,22 +128,14 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 fn fixable(missing_columns: &MissingColumns) -> bool {
-    match missing_columns {
-        MissingColumns {
-            missing_from_strategy_file: Some(x),
-            missing_from_db: Some(y),
-            ..
-        } if matches!(x.as_slice(), []) && matches!(y.as_slice(), []) => false,
-        _ => true,
-    }
+    !missing_columns.missing_from_strategy_file.is_empty()
+        || !missing_columns.missing_from_db.is_empty()
 }
 
 fn fix_columns(strategy_file: &str, missing_columns: MissingColumns) {
-    let missing = missing_columns
-        .missing_from_strategy_file
-        .unwrap_or_default();
+    let missing = missing_columns.missing_from_strategy_file;
 
-    let redundant = missing_columns.missing_from_db.unwrap_or_default();
+    let redundant = missing_columns.missing_from_db;
 
     strategy_file::sync_to_file(strategy_file, missing, redundant)
         .expect("Unable to write to file :(");
@@ -152,61 +144,46 @@ fn fix_columns(strategy_file: &str, missing_columns: MissingColumns) {
 fn format_missing_columns(strategy_file: &str, missing_columns: &MissingColumns) -> String {
     let mut message = "".to_string();
 
-    match &missing_columns.unanonymised_pii {
-        Some(missing) => {
-            let missing_list = missing_to_message(missing);
-            write!(message,
+    if !missing_columns.unanonymised_pii.is_empty() {
+        let missing_list = missing_to_message(&missing_columns.unanonymised_pii);
+        write!(message,
                 "Some fields are tagged as being PII but do not have anonymising transformers set. ({})\n\t{}\nPlease add valid transformers!\n\n",
                 strategy_file, missing_list
             ).unwrap()
-        }
-        None => (),
     }
 
-    match &missing_columns.error_transformer_types {
-        Some(missing) => {
-            let missing_list = missing_to_message(missing);
-            write!(message, "Some fields still have 'Error' transformer types ({})\n\t{}\nPlease add valid transformers!\n\n",
+    if !missing_columns.error_transformer_types.is_empty() {
+        let missing_list = missing_to_message(&missing_columns.error_transformer_types);
+        write!(message, "Some fields still have 'Error' transformer types ({})\n\t{}\nPlease add valid transformers!\n\n",
                 strategy_file, missing_list
             ).unwrap()
-        }
-        None => (),
     }
 
-    match &missing_columns.unknown_data_categories {
-        Some(missing) => {
-            let missing_list = missing_to_message(missing);
-            write!(message,
+    if !missing_columns.unknown_data_categories.is_empty() {
+        let missing_list = missing_to_message(&missing_columns.unknown_data_categories);
+        write!(message,
                 "Some fields still have 'Unknown' data types ({})\n\t{}\nPlease add valid data types!\n\n",
                 strategy_file, missing_list
             ).unwrap()
-        }
-        None => (),
     }
-    match &missing_columns.missing_from_db {
-        Some(missing) => {
-            let missing_list = missing_to_message(missing);
-            write!(
-                message,
-                "Some fields are in the strategies file ({}) but not the database!\n\t{}\n",
-                strategy_file, missing_list
-            )
-            .unwrap()
-        }
-        None => (),
+    if !missing_columns.missing_from_db.is_empty() {
+        let missing_list = missing_to_message(&missing_columns.missing_from_db);
+        write!(
+            message,
+            "Some fields are in the strategies file ({}) but not the database!\n\t{}\n",
+            strategy_file, missing_list
+        )
+        .unwrap()
     }
 
-    match &missing_columns.missing_from_strategy_file {
-        Some(missing) => {
-            let missing_list = missing_to_message(missing);
-            write!(
-                message,
-                "Some fields are missing from strategies file ({})\n\t{}\n",
-                strategy_file, missing_list
-            )
-            .unwrap()
-        }
-        None => (),
+    if !missing_columns.missing_from_strategy_file.is_empty() {
+        let missing_list = missing_to_message(&missing_columns.missing_from_strategy_file);
+        write!(
+            message,
+            "Some fields are missing from strategies file ({})\n\t{}\n",
+            strategy_file, missing_list
+        )
+        .unwrap()
     }
 
     message

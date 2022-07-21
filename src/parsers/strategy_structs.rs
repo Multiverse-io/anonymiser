@@ -70,11 +70,11 @@ impl PartialEq for StrategyInFile {
 
 #[derive(Debug)]
 pub struct MissingColumns {
-    pub missing_from_strategy_file: Option<Vec<SimpleColumn>>,
-    pub missing_from_db: Option<Vec<SimpleColumn>>,
-    pub unknown_data_categories: Option<Vec<SimpleColumn>>,
-    pub error_transformer_types: Option<Vec<SimpleColumn>>,
-    pub unanonymised_pii: Option<Vec<SimpleColumn>>,
+    pub missing_from_strategy_file: Vec<SimpleColumn>,
+    pub missing_from_db: Vec<SimpleColumn>,
+    pub unknown_data_categories: Vec<SimpleColumn>,
+    pub error_transformer_types: Vec<SimpleColumn>,
+    pub unanonymised_pii: Vec<SimpleColumn>,
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
