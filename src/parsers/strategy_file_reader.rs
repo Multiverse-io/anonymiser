@@ -15,10 +15,15 @@ pub fn read(file_name: &str, transformer_overrides: TransformerOverrides) -> Str
     }
 }
 
-pub fn append_to_file(file_name: &str, missing_columns: Vec<SimpleColumn>) -> std::io::Result<()> {
+pub fn sync_to_file(
+    file_name: &str,
+    missing_columns: Vec<SimpleColumn>,
+    redundant_columns: Vec<SimpleColumn>,
+) -> std::io::Result<()> {
     let current_file_contents = read_file(file_name).unwrap();
 
-    let new_file_contents = add_missing(current_file_contents, &missing_columns);
+    let file_contents_with_missing = add_missing(current_file_contents, &missing_columns);
+    let new_file_contents = remove_redundant(file_contents_with_missing, &redundant_columns);
 
     let file = fs::OpenOptions::new()
         .write(true)
@@ -48,7 +53,6 @@ fn add_missing(present: Vec<StrategyInFile>, missing: &Vec<SimpleColumn>) -> Vec
                 for column in missing_columns {
                     existing_table.columns.push(ColumnInFile::new(&column));
                 }
-                existing_table.columns.sort();
             }
             None => {
                 let mut new_table = StrategyInFile {
@@ -59,7 +63,6 @@ fn add_missing(present: Vec<StrategyInFile>, missing: &Vec<SimpleColumn>) -> Vec
                 for column in missing_columns {
                     new_table.columns.push(ColumnInFile::new(&column));
                 }
-                new_table.columns.sort();
                 new_strategies.push(new_table);
             }
         }
@@ -68,6 +71,45 @@ fn add_missing(present: Vec<StrategyInFile>, missing: &Vec<SimpleColumn>) -> Vec
     new_strategies.sort();
 
     return new_strategies;
+}
+
+fn remove_redundant(
+    existing: Vec<StrategyInFile>,
+    redundant_columns_to_remove: &Vec<SimpleColumn>,
+) -> Vec<StrategyInFile> {
+    let table_names = redundant_columns_to_remove
+        .iter()
+        .fold(HashMap::new(), |mut acc, column| {
+            acc.entry(column.table_name.clone())
+                .or_insert_with(|| vec![])
+                .push(column.column_name.clone());
+            return acc;
+        });
+
+    existing
+        .into_iter()
+        .filter_map(
+            |strategy| match table_names.get(&strategy.table_name.clone()) {
+                Some(columns_to_remove) => {
+                    let new_columns: Vec<ColumnInFile> = strategy
+                        .columns
+                        .clone()
+                        .into_iter()
+                        .filter(|col| !columns_to_remove.contains(&col.name))
+                        .collect();
+
+                    if new_columns.len() > 0 {
+                        let mut new_strategy = strategy.clone();
+                        new_strategy.columns = new_columns;
+                        Some(new_strategy)
+                    } else {
+                        None
+                    }
+                }
+                None => Some(strategy),
+            },
+        )
+        .collect()
 }
 
 pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()> {
@@ -132,14 +174,6 @@ mod tests {
         let missing = vec![
             SimpleColumn {
                 table_name: "public.person".to_string(),
-                column_name: "id".to_string(),
-            },
-            SimpleColumn {
-                table_name: "public.person".to_string(),
-                column_name: "first_name".to_string(),
-            },
-            SimpleColumn {
-                table_name: "public.person".to_string(),
                 column_name: "last_name".to_string(),
             },
             SimpleColumn {
@@ -170,6 +204,51 @@ mod tests {
                 ],
             },
         ];
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn removes_redundant_columns() {
+        let existing_columns = vec![
+            StrategyInFile {
+                table_name: "public.location".to_string(),
+                description: "".to_string(),
+                columns: vec![ColumnInFile::new("id"), ColumnInFile::new("post_code")],
+            },
+            StrategyInFile {
+                table_name: "public.person".to_string(),
+                description: "".to_string(),
+                columns: vec![
+                    ColumnInFile::new("id"),
+                    ColumnInFile::new("first_name"),
+                    ColumnInFile::new("last_name"),
+                ],
+            },
+        ];
+
+        let redundant_columns_to_remove = vec![
+            SimpleColumn {
+                table_name: "public.location".to_string(),
+                column_name: "id".to_string(),
+            },
+            SimpleColumn {
+                table_name: "public.location".to_string(),
+                column_name: "post_code".to_string(),
+            },
+            SimpleColumn {
+                table_name: "public.person".to_string(),
+                column_name: "last_name".to_string(),
+            },
+        ];
+
+        let result = remove_redundant(existing_columns, &redundant_columns_to_remove);
+
+        let expected = vec![StrategyInFile {
+            table_name: "public.person".to_string(),
+            description: "".to_string(),
+            columns: vec![ColumnInFile::new("id"), ColumnInFile::new("first_name")],
+        }];
 
         assert_eq!(result, expected);
     }

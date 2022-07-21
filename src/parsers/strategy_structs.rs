@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-#[derive(Debug, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, Serialize, Deserialize)]
 pub struct ColumnInFile {
     pub data_type: DataType,
     pub description: String,
@@ -42,7 +42,7 @@ impl PartialEq for ColumnInFile {
     }
 }
 
-#[derive(Debug, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, Serialize, Deserialize)]
 pub struct StrategyInFile {
     pub table_name: String,
     pub description: String,
@@ -63,7 +63,7 @@ impl PartialOrd for StrategyInFile {
 
 impl PartialEq for StrategyInFile {
     fn eq(&self, other: &Self) -> bool {
-        self.table_name == other.table_name
+        self.table_name == other.table_name && self.columns == other.columns
     }
 }
 
