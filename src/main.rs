@@ -7,6 +7,7 @@ use crate::parsers::strategy_structs::{
 use itertools::Itertools;
 use parsers::{db_schema, strategy_file, strategy_validator};
 use postgres::{Client, NoTls};
+use std::collections::HashMap;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -100,7 +101,7 @@ fn main() -> Result<(), std::io::Error> {
                     println!("{}", message);
                     if fix && fixable(&missing_columns) {
                         println!("But the great news is that we're going to try and fix some of this!...");
-                        fix_missing_columns(&strategy_file, missing_columns);
+                        fix_columns(&strategy_file, missing_columns);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
                     std::process::exit(1);
@@ -111,28 +112,41 @@ fn main() -> Result<(), std::io::Error> {
             strategy_file,
             db_url,
         } => {
-            let transformer = TransformerOverrides::none();
-            //TODO if strategy file doesnt exist this blows up
-            let strategies = strategy_file::read(&strategy_file, transformer);
-            let _result = strategy_differences(&strategies, db_url);
+            match strategy_differences(&HashMap::new(), db_url) {
+                Ok(()) => println!("All up to date"),
+                Err(missing_columns) => {
+                    if fixable(&missing_columns) {
+                        fix_columns(&strategy_file, missing_columns);
+                        println!("All done, you'll need to set a data_type and transformer for those fields");
+                    }
+                    std::process::exit(1);
+                }
+            }
         }
     }
     Ok(())
 }
 
 fn fixable(missing_columns: &MissingColumns) -> bool {
-    missing_columns.missing_from_strategy_file.is_some()
-        && !missing_columns
-            .missing_from_strategy_file
-            .as_ref()
-            .unwrap()
-            .is_empty()
+    match missing_columns {
+        MissingColumns {
+            missing_from_strategy_file: Some(x),
+            missing_from_db: Some(y),
+            ..
+        } if matches!(x.as_slice(), []) && matches!(y.as_slice(), []) => false,
+        _ => true,
+    }
 }
 
-fn fix_missing_columns(strategy_file: &str, missing_columns: MissingColumns) {
-    if let Some(missing) = missing_columns.missing_from_strategy_file {
-        strategy_file::append(strategy_file, missing).expect("Unable to write to file :(");
-    }
+fn fix_columns(strategy_file: &str, missing_columns: MissingColumns) {
+    let missing = missing_columns
+        .missing_from_strategy_file
+        .unwrap_or_default();
+
+    let redundant = missing_columns.missing_from_db.unwrap_or_default();
+
+    strategy_file::sync_to_file(strategy_file, missing, redundant)
+        .expect("Unable to write to file :(");
 }
 
 fn format_missing_columns(strategy_file: &str, missing_columns: &MissingColumns) -> String {
