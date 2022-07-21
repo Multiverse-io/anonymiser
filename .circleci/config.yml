@@ -68,17 +68,23 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 20.10.14
-      - run: cargo install cross --git https://github.com/cross-rs/cross
-      - run: cross build --release --target=x86_64-unknown-linux-gnu
-      - run: cross build --release --target=x86_64-apple-darwin
+      - run: cargo build --release --target=x86_64-unknown-linux-gnu
       - store_artifacts:
           path: target/x86_64-unknown-linux-gnu/release/anonymiser
           destination: x86_64-unknown-linux-gnu
+
+  build_release_macos:
+    macos:
+      xcode: 13.4.0
+    environment:
+      CARGO_NET_GIT_FETCH_WITH_CLI: true
+    steps:
+      - checkout
+      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+      - run: cargo build --release --target=x86_64-apply-darwin
       - store_artifacts:
           path: target/x86_64-apple-darwin/release/anonymiser
-          destination: x86_64-applw-darwin
+          destination: x86_64-apple-darwin
 
 workflows:
   version: 2.4
@@ -88,5 +94,8 @@ workflows:
           context:
             - Default
       - build_release:
+          context:
+            - Default
+      - build_release_macos:
           context:
             - Default
