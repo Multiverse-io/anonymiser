@@ -50,7 +50,7 @@ notify:
 jobs:
   test:
     docker:
-      - image: cimg/rust:1.57.0
+      - image: cimg/rust:1.62.1
     steps:
       - checkout
       - run: echo 'export GIT_COMMIT_MSG="$(git log --format=oneline -n 1 $CIRCLE_SHA1)"' >> $BASH_ENV
@@ -59,10 +59,28 @@ jobs:
       - store_test_results:
           path: results.xml
 
+  build_release:
+    docker:
+      - image: cimg/rust:1.62.1
+    steps:
+      - checkout
+      - run: rustup target add x86_64-apple-darwin
+      - run: cargo build --release --target=x86_64-unknown-linux-gnu
+      - run: cargo build --release --target=x86_64-apple-darwin
+      - store_artifacts:
+          path: target/x86_64-unknown-linux-gnu/release/anonymiser
+          destination: x86_64-unknown-linux-gnu
+      - store_artifacts:
+          path: target/x86_64-apple-darwin/release/anonymiser
+          destination: x86_64-applw-darwin
+
 workflows:
   version: 2.4
   build:
     jobs:
       - test:
+          context:
+            - Default
+      - build_release:
           context:
             - Default
