@@ -81,8 +81,8 @@ jobs:
     steps:
       - checkout
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - run: rustup target add aarch64-apple-darwin
       - run: cargo build --release --target=x86_64-apple-darwin
-      - run: rustup add aarch64-apple-darwin
       - run: cargo build --release --target=aarch64-apple-darwin
       - store_artifacts:
           path: target/x86_64-apple-darwin/release/anonymiser
