@@ -129,6 +129,7 @@ workflows:
             - Default
 
   release:
+    jobs:
       - test:
           context:
             - Default
