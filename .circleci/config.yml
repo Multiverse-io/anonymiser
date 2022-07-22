@@ -112,8 +112,9 @@ jobs:
       - attach_workspace:
           at: .
       - run: ls
-      - gh/setup
-      - run: gh release create --draft -generate-notes "test" './anonymiser-x86_64-unknown-linux-gnu#General linux' './anonymiser-x86_64-unknown-linux-musl#Alpine linux' './anonymiser-x86_64-apple-darwin#Intel Mac' './anonymiser-aarch64-apple-darwin#Apple silicon mac'
+      - gh/setup:
+          version: 2.13.0
+      - run: gh release create --draft --generate-notes "test" './anonymiser-x86_64-unknown-linux-gnu#General linux' './anonymiser-x86_64-unknown-linux-musl#Alpine linux' './anonymiser-x86_64-apple-darwin#Intel Mac' './anonymiser-aarch64-apple-darwin#Apple silicon mac'
 
 workflows:
   version: 2.4
