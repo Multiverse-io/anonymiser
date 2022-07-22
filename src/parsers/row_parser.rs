@@ -6,7 +6,6 @@ use crate::parsers::strategy_structs::Strategies;
 use crate::parsers::transformer;
 use crate::parsers::types;
 use crate::parsers::types::Column;
-use crate::parsers::types::Type;
 use itertools::join;
 
 #[derive(Debug, PartialEq)]
@@ -103,7 +102,6 @@ fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Typ
                 //TODO sort this out
                 let _column_type = types.lookup(&current_table.table_name, "".to_string());
 
-                println!("{:?}", &transforms);
                 transformer::transform(value, &transforms[i], &current_table.table_name)
             });
 
@@ -124,7 +122,6 @@ fn add_create_table_row_to_types(line: &str, mut current_types: Vec<Column>) -> 
         Some(new_type) => current_types.push(new_type),
     }
 
-    println!("CURENT TYPS: {:?}", current_types);
     current_types
 }
 
@@ -138,6 +135,7 @@ mod tests {
     use crate::parsers::strategy_structs::{
         ColumnInfo, DataCategory, Transformer, TransformerType,
     };
+    use crate::parsers::types::Type;
     use std::collections::HashMap;
 
     #[test]

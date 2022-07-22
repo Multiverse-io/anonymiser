@@ -111,7 +111,7 @@ mod tests {
                     },
                     Column {
                         name: "column_2".to_string(),
-                        data_type: Type::date_or_time(),
+                        data_type: Type::character(),
                     },
                 ],
             },
@@ -127,7 +127,7 @@ mod tests {
                 "table-mc-tableface".to_string(),
                 HashMap::from([
                     ("column".to_string(), Type::integer()),
-                    ("column_2".to_string(), Type::date_or_time())
+                    ("column_2".to_string(), Type::character())
                 ])
             )]))
         );

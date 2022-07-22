@@ -24,7 +24,6 @@ impl Type {
 pub enum SubType {
     Character,
     Integer,
-    DateOrTime,
     Unknown { underlying_type: String },
 }
 
@@ -377,13 +376,6 @@ mod tests {
         pub fn character() -> Self {
             Type::SingleValue {
                 sub_type: SubType::Character,
-            }
-        }
-
-        //TODO not sure if we need this V or can just treat a string
-        pub fn date_or_time() -> Self {
-            Type::SingleValue {
-                sub_type: SubType::DateOrTime,
             }
         }
 

@@ -18,14 +18,14 @@ pub fn parse(copy_row: &str, strategies: &Strategies) -> CurrentTableTransforms 
         let some_table = capture_to_item(&cap, "table");
         match (some_table, some_columns) {
             (Some(table), Some(unsplit_columns)) => {
-                return get_current_table_information(table, unsplit_columns, strategies);
+                get_current_table_information(table, unsplit_columns, strategies)
             }
 
             (_, _) => panic!("Invalid Copy row format: {:?}", copy_row),
-        };
+        }
     } else {
         panic!("Invalid Copy row format: {:?}", copy_row);
-    };
+    }
 }
 
 fn get_current_table_information(
