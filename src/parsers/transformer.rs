@@ -797,4 +797,18 @@ mod tests {
             new_value
         );
     }
+
+    #[test]
+    fn empty_json() {
+        let json = "{\"foo\": \"bar\"}";
+        let new_json = transform(
+            json,
+            &Transformer {
+                name: TransformerType::EmptyJson,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert_eq!(new_json, "{}");
+    }
 }
