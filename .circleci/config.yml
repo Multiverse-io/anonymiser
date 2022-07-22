@@ -2,6 +2,7 @@ version: 2.1
 
 orbs:
   github-cli: circleci/github-cli@2.1.0
+  slack: circleci/slack@4.5.1
 
 commands:
   slack_notify_failure:
@@ -40,15 +41,6 @@ commands:
                 }
               ]
             }
-
-orbs:
-  slack: circleci/slack@4.5.1
-
-notify:
-  branches:
-    only:
-      - main
-
 
 jobs:
   test:
