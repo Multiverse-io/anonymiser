@@ -1,5 +1,9 @@
 version: 2.1
 
+orbs:
+  gh: circleci/github-cli@2.1.0
+  slack: circleci/slack@4.5.1
+
 commands:
   slack_notify_failure:
     steps:
@@ -38,19 +42,12 @@ commands:
               ]
             }
 
-orbs:
-  slack: circleci/slack@4.5.1
-
-notify:
-  branches:
-    only:
-      - main
-
-
 jobs:
   test:
     docker:
-      - image: cimg/rust:1.57.0
+      - image: cimg/rust:1.62
+    environment:
+      CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
       - run: echo 'export GIT_COMMIT_MSG="$(git log --format=oneline -n 1 $CIRCLE_SHA1)"' >> $BASH_ENV
@@ -59,6 +56,70 @@ jobs:
       - store_test_results:
           path: results.xml
 
+  build_release_linux:
+    docker:
+      - image: cimg/rust:1.62
+    environment:
+      CARGO_NET_GIT_FETCH_WITH_CLI: true
+    steps:
+      - checkout
+      - run: ./update_version $CIRCLE_TAG
+      - run: cargo build --release --target=x86_64-unknown-linux-gnu
+      - run: mv target/x86_64-unknown-linux-gnu/release/anonymiser anonymiser-x86_64-unknown-linux-gnu
+      - persist_to_workspace:
+          root: .
+          paths:
+            - anonymiser-x86_64-unknown-linux-gnu
+
+  build_release_alpine:
+    docker:
+      - image: rust:1.62-alpine
+    environment:
+      CARGO_NET_GIT_FETCH_WITH_CLI: true
+    steps:
+      - checkout
+      - run: apk add --no-cache git musl-dev bash
+      - run: ./update_version $CIRCLE_TAG
+      - run: cargo build --release --target=x86_64-unknown-linux-musl
+      - run: mv target/x86_64-unknown-linux-musl/release/anonymiser anonymiser-x86_64-unknown-linux-musl
+      - persist_to_workspace:
+          root: .
+          paths:
+            - anonymiser-x86_64-unknown-linux-musl
+
+  build_release_macos:
+    macos:
+      xcode: 13.4.0
+    environment:
+      CARGO_NET_GIT_FETCH_WITH_CLI: true
+    steps:
+      - checkout
+      - run: ./update_version $CIRCLE_TAG
+      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - run: rustup target add aarch64-apple-darwin
+      - run: cargo build --release --target=x86_64-apple-darwin
+      - run: cargo build --release --target=aarch64-apple-darwin
+      - run: mv target/x86_64-apple-darwin/release/anonymiser anonymiser-x86_64-apple-darwin
+      - run: mv target/aarch64-apple-darwin/release/anonymiser anonymiser-aarch64-apple-darwin
+      - persist_to_workspace:
+          root: .
+          paths:
+            - anonymiser-x86_64-apple-darwin
+            - anonymiser-aarch64-apple-darwin
+
+  create_release:
+    machine:
+      image: ubuntu-2204:current
+    environment:
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: ls
+      - gh/setup:
+          version: 2.14.2
+      - run: gh release create --draft --generate-notes "$CIRCLE_TAG" './anonymiser-x86_64-unknown-linux-gnu#General linux' './anonymiser-x86_64-unknown-linux-musl#Alpine linux' './anonymiser-x86_64-apple-darwin#Intel Mac' './anonymiser-aarch64-apple-darwin#Apple silicon mac'
+
 workflows:
   version: 2.4
   build:
@@ -66,3 +127,44 @@ workflows:
       - test:
           context:
             - Default
+
+  release:
+    jobs:
+      - test:
+          context:
+            - Default
+          filters: &filters-release
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+
+      - build_release_linux:
+          context:
+            - Default
+          filters:
+            <<: *filters-release
+
+      - build_release_alpine:
+          context:
+            - Default
+          filters:
+            <<: *filters-release
+
+      - build_release_macos:
+          context:
+            - Default
+          filters:
+            <<: *filters-release
+
+      - create_release:
+          context:
+            - Default
+            - github-deployer
+          requires:
+            - test
+            - build_release_linux
+            - build_release_alpine
+            - build_release_macos
+          filters:
+            <<: *filters-release
