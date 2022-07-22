@@ -63,6 +63,7 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
+      - run: ./update_version v0.1.7
       - run: cargo build --release --target=x86_64-unknown-linux-gnu
       - run: mv target/x86_64-unknown-linux-gnu/release/anonymiser anonymiser-x86_64-unknown-linux-gnu
       - persist_to_workspace:
@@ -77,6 +78,7 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
+      - run: ./update_version v0.1.7
       - run: apk add --no-cache git musl-dev
       - run: cargo build --release --target=x86_64-unknown-linux-musl
       - run: mv target/x86_64-unknown-linux-musl/release/anonymiser anonymiser-x86_64-unknown-linux-musl
@@ -92,6 +94,7 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
+      - run: ./update_version v0.1.7
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - run: rustup target add aarch64-apple-darwin
       - run: cargo build --release --target=x86_64-apple-darwin
@@ -115,7 +118,7 @@ jobs:
       - run: ls
       - gh/setup:
           version: 2.14.2
-      - run: gh release create --draft --generate-notes "test" './anonymiser-x86_64-unknown-linux-gnu#General linux' './anonymiser-x86_64-unknown-linux-musl#Alpine linux' './anonymiser-x86_64-apple-darwin#Intel Mac' './anonymiser-aarch64-apple-darwin#Apple silicon mac'
+      - run: gh release create --draft --generate-notes "v0.1.7" './anonymiser-x86_64-unknown-linux-gnu#General linux' './anonymiser-x86_64-unknown-linux-musl#Alpine linux' './anonymiser-x86_64-apple-darwin#Intel Mac' './anonymiser-aarch64-apple-darwin#Apple silicon mac'
 
 workflows:
   version: 2.4
