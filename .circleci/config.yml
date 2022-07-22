@@ -78,8 +78,8 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
-      - run: ./update_version v0.1.7
       - run: apk add --no-cache git musl-dev bash
+      - run: ./update_version v0.1.7
       - run: cargo build --release --target=x86_64-unknown-linux-musl
       - run: mv target/x86_64-unknown-linux-musl/release/anonymiser anonymiser-x86_64-unknown-linux-musl
       - persist_to_workspace:
