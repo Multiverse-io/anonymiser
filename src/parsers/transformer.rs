@@ -31,10 +31,6 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
         return value.to_string();
     }
 
-    if table_name == "public.candidate_quiz_responses" {
-        println!("{:?}", value);
-    }
-
     if value.starts_with('{') && value.ends_with('}') {
         return transform_array(value, transformer, table_name);
     }

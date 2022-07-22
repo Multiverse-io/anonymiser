@@ -6,6 +6,7 @@ use crate::parsers::strategy_structs::Strategies;
 use crate::parsers::transformer;
 use crate::parsers::types;
 use crate::parsers::types::Column;
+use crate::parsers::types::Type;
 use itertools::join;
 
 #[derive(Debug, PartialEq)]
@@ -124,9 +125,9 @@ fn add_create_table_row_to_types(line: &str, mut current_types: Vec<Column>) -> 
     }
 
     println!("CURENT TYPS: {:?}", current_types);
-
     current_types
 }
+
 fn split_row(line: &str) -> std::str::Split<char> {
     return line.strip_suffix('\n').unwrap_or(line).split('\t');
 }
@@ -166,7 +167,7 @@ mod tests {
                 table_name: "public.users".to_string(),
                 types: vec![Column {
                     name: "id".to_string(),
-                    data_type: "bigint".to_string(),
+                    data_type: Type::integer(),
                 }],
             },
             types: Types::new(HashMap::new()),
@@ -180,11 +181,11 @@ mod tests {
                 types: vec![
                     Column {
                         name: "id".to_string(),
-                        data_type: "bigint".to_string()
+                        data_type: Type::integer()
                     },
                     Column {
                         name: "password".to_string(),
-                        data_type: "character varying(255)".to_string()
+                        data_type: Type::character()
                     }
                 ]
             }
@@ -226,7 +227,7 @@ mod tests {
                 table_name: "public.users".to_string(),
                 types: vec![Column {
                     name: "id".to_string(),
-                    data_type: "bigint".to_string(),
+                    data_type: Type::integer(),
                 }],
             },
             types: Types::new(HashMap::new()),
@@ -237,7 +238,7 @@ mod tests {
 
         let expected_types = Types::new(HashMap::from([(
             "public.users".to_string(),
-            HashMap::from([("id".to_string(), "bigint".to_string())]),
+            HashMap::from([("id".to_string(), Type::integer())]),
         )]));
         assert_eq!(state.types, expected_types);
         assert_eq!(create_table_row, transformed_row);

@@ -1,5 +1,6 @@
 mod file_reader;
 use std::fmt::Write;
+mod fixer;
 mod parsers;
 use crate::parsers::strategy_structs::{
     MissingColumns, SimpleColumn, Strategies, TransformerOverrides,
@@ -47,7 +48,7 @@ enum Anonymiser {
         strategy_file: String,
 
         #[structopt(short, long)]
-        fix: bool,
+        fix_flag: bool,
 
         #[structopt(short, long, env = "DATABASE_URL")]
         db_url: String,
@@ -89,7 +90,7 @@ fn main() -> Result<(), std::io::Error> {
         }
         Anonymiser::CheckStrategies {
             strategy_file,
-            fix,
+            fix_flag,
             db_url,
         } => {
             let transformer = TransformerOverrides::none();
@@ -99,9 +100,9 @@ fn main() -> Result<(), std::io::Error> {
                 Err(missing_columns) => {
                     let message = format_missing_columns(&strategy_file, &missing_columns);
                     println!("{}", message);
-                    if fix && fixable(&missing_columns) {
-                        println!("But the great news is that we're going to try and fix some of this!...");
-                        fix_columns(&strategy_file, missing_columns);
+                    if fix_flag && fixer::can_fix(&missing_columns) {
+                        println!("But the great news is that we're going to try and fix_flag some of this!...");
+                        fixer::fix_columns(&strategy_file, missing_columns);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
                     std::process::exit(1);
@@ -115,8 +116,8 @@ fn main() -> Result<(), std::io::Error> {
             match strategy_differences(&HashMap::new(), db_url) {
                 Ok(()) => println!("All up to date"),
                 Err(missing_columns) => {
-                    if fixable(&missing_columns) {
-                        fix_columns(&strategy_file, missing_columns);
+                    if fixer::can_fix(&missing_columns) {
+                        fixer::fix_columns(&strategy_file, missing_columns);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
                     std::process::exit(1);
@@ -125,20 +126,6 @@ fn main() -> Result<(), std::io::Error> {
         }
     }
     Ok(())
-}
-
-fn fixable(missing_columns: &MissingColumns) -> bool {
-    !missing_columns.missing_from_strategy_file.is_empty()
-        || !missing_columns.missing_from_db.is_empty()
-}
-
-fn fix_columns(strategy_file: &str, missing_columns: MissingColumns) {
-    let missing = missing_columns.missing_from_strategy_file;
-
-    let redundant = missing_columns.missing_from_db;
-
-    strategy_file::sync_to_file(strategy_file, missing, redundant)
-        .expect("Unable to write to file :(");
 }
 
 fn format_missing_columns(strategy_file: &str, missing_columns: &MissingColumns) -> String {

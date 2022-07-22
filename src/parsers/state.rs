@@ -1,26 +1,26 @@
 use crate::parsers::copy_row::CurrentTableTransforms;
 use crate::parsers::types::Column;
+use crate::parsers::types::Type;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Types {
-    types: HashMap<String, HashMap<String, String>>,
+    types: HashMap<String, HashMap<String, Type>>,
 }
 
 impl Types {
-    pub fn new(initial: HashMap<String, HashMap<String, String>>) -> Self {
+    pub fn new(initial: HashMap<String, HashMap<String, Type>>) -> Self {
         Types { types: initial }
     }
 
-    pub fn insert(&mut self, table_name: &str, thing: HashMap<String, String>) {
+    pub fn insert(&mut self, table_name: &str, thing: HashMap<String, Type>) {
         self.types.insert(table_name.to_string(), thing);
     }
 
-    pub fn lookup(&self, table_name: &str, column_name: String) -> Option<String> {
+    pub fn lookup(&self, table_name: &str, column_name: String) -> Option<&Type> {
         self.types
             .get(table_name)
             .and_then(|table| table.get(&column_name))
-            .map(|column_type| column_type.to_string())
     }
 }
 
@@ -63,7 +63,7 @@ impl State {
                 table_types
                     .iter()
                     .map(|c| (c.name.clone(), c.data_type.clone()))
-                    .collect::<HashMap<String, String>>(),
+                    .collect::<HashMap<String, Type>>(),
             );
         }
 
@@ -107,11 +107,11 @@ mod tests {
                 types: vec![
                     Column {
                         name: "column".to_string(),
-                        data_type: "bigint".to_string(),
+                        data_type: Type::integer(),
                     },
                     Column {
                         name: "column_2".to_string(),
-                        data_type: "timestamp with time zone".to_string(),
+                        data_type: Type::date_or_time(),
                     },
                 ],
             },
@@ -126,11 +126,8 @@ mod tests {
             Types::new(HashMap::from([(
                 "table-mc-tableface".to_string(),
                 HashMap::from([
-                    ("column".to_string(), "bigint".to_string()),
-                    (
-                        "column_2".to_string(),
-                        "timestamp with time zone".to_string()
-                    )
+                    ("column".to_string(), Type::integer()),
+                    ("column_2".to_string(), Type::date_or_time())
                 ])
             )]))
         );
