@@ -22,68 +22,56 @@ mod tests {
 
     #[test]
     fn cannot_fix_if_no_missing_columns() {
-        assert_eq!(
-            false,
-            can_fix(&MissingColumns {
-                missing_from_db: Vec::new(),
-                missing_from_strategy_file: Vec::new(),
-                error_transformer_types: Vec::new(),
-                unanonymised_pii: Vec::new(),
-                unknown_data_categories: Vec::new()
-            })
-        );
+        assert!(!can_fix(&MissingColumns {
+            missing_from_db: Vec::new(),
+            missing_from_strategy_file: Vec::new(),
+            error_transformer_types: Vec::new(),
+            unanonymised_pii: Vec::new(),
+            unknown_data_categories: Vec::new()
+        }));
     }
     #[test]
     fn can_fix_if_missing_from_db_and_strategy() {
-        assert_eq!(
-            true,
-            can_fix(&MissingColumns {
-                missing_from_db: vec![SimpleColumn {
-                    column_name: "column".to_string(),
-                    table_name: "table".to_string()
-                }],
-                missing_from_strategy_file: vec![SimpleColumn {
-                    column_name: "column".to_string(),
-                    table_name: "table".to_string()
-                }],
-                error_transformer_types: Vec::new(),
-                unanonymised_pii: Vec::new(),
-                unknown_data_categories: Vec::new()
-            })
-        );
+        assert!(can_fix(&MissingColumns {
+            missing_from_db: vec![SimpleColumn {
+                column_name: "column".to_string(),
+                table_name: "table".to_string()
+            }],
+            missing_from_strategy_file: vec![SimpleColumn {
+                column_name: "column".to_string(),
+                table_name: "table".to_string()
+            }],
+            error_transformer_types: Vec::new(),
+            unanonymised_pii: Vec::new(),
+            unknown_data_categories: Vec::new()
+        }));
     }
 
     #[test]
     fn can_fix_if_missing_from_db_only() {
-        assert_eq!(
-            true,
-            can_fix(&MissingColumns {
-                missing_from_db: vec![SimpleColumn {
-                    column_name: "column".to_string(),
-                    table_name: "table".to_string()
-                }],
-                missing_from_strategy_file: Vec::new(),
-                error_transformer_types: Vec::new(),
-                unanonymised_pii: Vec::new(),
-                unknown_data_categories: Vec::new()
-            })
-        );
+        assert!(can_fix(&MissingColumns {
+            missing_from_db: vec![SimpleColumn {
+                column_name: "column".to_string(),
+                table_name: "table".to_string()
+            }],
+            missing_from_strategy_file: Vec::new(),
+            error_transformer_types: Vec::new(),
+            unanonymised_pii: Vec::new(),
+            unknown_data_categories: Vec::new()
+        }));
     }
 
     #[test]
     fn can_fix_if_missing_from_strategy_file_only() {
-        assert_eq!(
-            true,
-            can_fix(&MissingColumns {
-                missing_from_db: Vec::new(),
-                missing_from_strategy_file: vec![SimpleColumn {
-                    column_name: "column".to_string(),
-                    table_name: "table".to_string()
-                }],
-                error_transformer_types: Vec::new(),
-                unanonymised_pii: Vec::new(),
-                unknown_data_categories: Vec::new()
-            })
-        );
+        assert!(can_fix(&MissingColumns {
+            missing_from_db: Vec::new(),
+            missing_from_strategy_file: vec![SimpleColumn {
+                column_name: "column".to_string(),
+                table_name: "table".to_string()
+            }],
+            error_transformer_types: Vec::new(),
+            unanonymised_pii: Vec::new(),
+            unknown_data_categories: Vec::new()
+        }));
     }
 }

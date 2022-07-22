@@ -133,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn removes_quotes_around_column_names() {
+    fn doesnt_panic_with_quotes_around_column_names() {
         let strategies = HashMap::from([(
             "public.users".to_string(),
             HashMap::from([
@@ -149,8 +149,6 @@ mod tests {
         )]);
 
         let _parsed_copy_row = parse("COPY public.users (\"from\") FROM stdin;\n", &strategies);
-
-        assert!(true, "we didn't panic!");
     }
 
     fn create_column_info(name: TransformerType) -> ColumnInfo {
