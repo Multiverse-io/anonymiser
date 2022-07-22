@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  github-cli: circleci/github-cli@2.1.0
+
 commands:
   slack_notify_failure:
     steps:
@@ -69,11 +72,11 @@ jobs:
     steps:
       - checkout
       - run: cargo build --release --target=x86_64-unknown-linux-gnu
-      - run: mv target/x86_64-unknown-linux-gnu/release/anonymiser x86_64-unknown-linux-gnu
+      - run: mv target/x86_64-unknown-linux-gnu/release/anonymiser anonymiser-x86_64-unknown-linux-gnu
       - persist_to_workspace:
           root: .
           paths:
-            - x86_64-unknown-linux-gnu
+            - anonymiser-x86_64-unknown-linux-gnu
 
   build_release_alpine:
     docker:
@@ -84,11 +87,11 @@ jobs:
       - checkout
       - run: apk add --no-cache git musl-dev
       - run: cargo build --release --target=x86_64-unknown-linux-musl
-      - run: mv target/x86_64-unknown-linux-musl/release/anonymiser x86_64-unknown-linux-musl
+      - run: mv target/x86_64-unknown-linux-musl/release/anonymiser anonymiser-x86_64-unknown-linux-musl
       - persist_to_workspace:
           root: .
           paths:
-            - x86_64-unknown-linux-musl
+            - anonymiser-x86_64-unknown-linux-musl
 
   build_release_macos:
     macos:
@@ -101,13 +104,13 @@ jobs:
       - run: rustup target add aarch64-apple-darwin
       - run: cargo build --release --target=x86_64-apple-darwin
       - run: cargo build --release --target=aarch64-apple-darwin
-      - run: mv target/x86_64-apple-darwin/release/anonymiser x86_64-apple-darwin
-      - run: mv target/aarch64-apple-darwin/release/anonymiser aarch64-apple-darwin
+      - run: mv target/x86_64-apple-darwin/release/anonymiser anonymiser-x86_64-apple-darwin
+      - run: mv target/aarch64-apple-darwin/release/anonymiser anonymiser-aarch64-apple-darwin
       - persist_to_workspace:
           root: .
           paths:
-            - x86_64-apple-darwin
-            - aarch64-apple-darwin
+            - anonymiser-x86_64-apple-darwin
+            - anonymiser-aarch64-apple-darwin
 
   create_release:
     machine:
@@ -117,6 +120,8 @@ jobs:
       - attach_workspace:
           at: .
       - run: ls
+      - gh/install
+      # - run: gh release create "$CIRCLE_TAG" './anonymiser-x86_64-unknown-linux-gnu#General linux' './anonymiser-x86_64-unknown-linux-musl#Alpine linux' './anonymiser-x86_64-apple-darwin#Intel Mac' './anonymiser-aarch64-apple-darwin#Apple silicon mac'
 
 workflows:
   version: 2.4
@@ -140,6 +145,7 @@ workflows:
           context:
             - Default
           requires:
+            - test
             - build_release_linux
             - build_release_alpine
             - build_release_macos
