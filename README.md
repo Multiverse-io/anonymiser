@@ -3,30 +3,11 @@
 
 ## Creating releases
 
-### Pre-requisites for M1 Mac
-You must have rust and rustup installed:
-```
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-You will also need docker desktop installed - https://www.docker.com/products/docker-desktop/ - make sure you have a licence for it too!!
-
-Then install the other pre-requisites:
-```
-rustup target add x86_64-unknown-linux-gnu
-rustup target add x86_64-apple-darwin
-brew install gh
-gh auth login
-```
-
-### Creating the releases
-`./create_releases <version_number>` (replace <version_number> with the version to release) will create 3 releases:
-- anonymiser-aarch64-apple-darwin (for m1 macs)
-- anonymiser-x86_64-apple-darwin (for intel macs)
-- anonymiser-x86_64-unknown-linux-gnu (for debian)
-- anonymiser-x86_64-unknown-linux-musl (for alpine)
-in the root of the project, this will prompt you for input to create a github release
-if you just want to build for your current arch you can run `cargo build --release` and it will create an anonymiser binary in `targets/release/`
+1. Checkout the lastest main branch on your machine
+2. Create a git tag with the new version number `git tag v1.2.3`
+3. Push the tag `git push origin v1.2.3`
+4. Wait for CircleCI to create a draft release
+5. Review the draft release and publish
 
 
 ## Data Types
