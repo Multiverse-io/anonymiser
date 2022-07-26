@@ -7,13 +7,9 @@ use crate::parsers::strategy_structs::{
     MissingColumns, SimpleColumn, Strategies, TransformerOverrides,
 };
 use itertools::Itertools;
-use native_tls::{Certificate, TlsConnector};
+use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 use parsers::{db_schema, strategy_file_reader, strategy_validator};
-use postgres::tls::openssl::openssl::ssl::{SslConnectorBuilder, SslMethod};
-use postgres::tls::openssl::OpenSsl;
-use postgres::{Client, NoTls};
-use postgres::{Connection, TlsMode};
-use postgres_native_tls::MakeTlsConnector;
+use postgres_openssl::MakeTlsConnector;
 use std::collections::HashMap;
 use structopt::StructOpt;
 
@@ -176,7 +172,12 @@ fn missing_to_message(missing: &Vec<SimpleColumn>) -> String {
 }
 
 fn strategy_differences(strategies: &Strategies, db_url: String) -> Result<(), MissingColumns> {
-    let mut conn = Connection::connect(&db_url, NoTls).expect("expected connection to succeed");
-    let db_columns = db_schema::parse(&mut conn);
+    let mut builder =
+        SslConnector::builder(SslMethod::tls()).expect("expected to build tls connector!");
+    builder.set_verify(SslVerifyMode::PEER);
+    let connector = MakeTlsConnector::new(builder.build());
+
+    let mut client = postgres::Client::connect(&db_url, connector).expect("expected to connect!");
+    let db_columns = db_schema::parse(&mut client);
     return strategy_validator::validate(&strategies, db_columns);
 }
