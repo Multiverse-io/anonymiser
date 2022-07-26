@@ -1,5 +1,8 @@
+mod anonymiser;
 mod file_reader;
+mod opts;
 mod parsers;
+use crate::opts::{Anonymiser, Opts};
 use crate::parsers::strategy_structs::{
     MissingColumns, SimpleColumn, Strategies, TransformerOverrides,
 };
@@ -8,58 +11,6 @@ use parsers::{db_schema, strategy_file_reader, strategy_validator};
 use postgres::{Client, NoTls};
 use std::collections::HashMap;
 use structopt::StructOpt;
-
-#[derive(Debug, StructOpt)]
-#[structopt(name = "Anonymiser", about = "Anonymise your database backups!")]
-pub struct Opts {
-    #[structopt(subcommand)]
-    commands: Anonymiser,
-}
-
-#[derive(Debug, StructOpt)]
-#[structopt(name = "anonymiser")]
-enum Anonymiser {
-    Anonymise {
-        #[structopt(short, long, default_value = "./clear_text_dump.sql")]
-        input_file: String,
-        #[structopt(short, long, default_value = "./output.sql")]
-        output_file: String,
-        #[structopt(short, long, default_value = "./strategy.json")]
-        strategy_file: String,
-        /// Does not transform PotentiallPii data types
-        #[structopt(long)]
-        allow_potential_pii: bool,
-        /// Does not transform Commercially sensitive data types
-        #[structopt(long)]
-        allow_commercially_sensitive: bool,
-    },
-
-    ToCsv {
-        #[structopt(short, long, default_value = "./output.csv")]
-        output_file: String,
-        #[structopt(short, long, default_value = "./strategy.json")]
-        strategy_file: String,
-    },
-
-    CheckStrategies {
-        #[structopt(short, long, default_value = "./strategy.json")]
-        strategy_file: String,
-
-        #[structopt(short, long)]
-        fix: bool,
-
-        #[structopt(short, long, env = "DATABASE_URL")]
-        db_url: String,
-    },
-
-    GenerateStrategies {
-        #[structopt(short, long, default_value = "./strategy.json")]
-        strategy_file: String,
-
-        #[structopt(short, long, env = "DATABASE_URL")]
-        db_url: String,
-    },
-}
 
 fn main() -> Result<(), std::io::Error> {
     let opt = Opts::from_args();
@@ -76,23 +27,26 @@ fn main() -> Result<(), std::io::Error> {
                 allow_potential_pii: allow_potential_pii,
                 allow_commercially_sensitive: allow_commercially_sensitive,
             };
-
-            let strategies = strategy_file_reader::read(&strategy_file, transformer_overrides);
-            file_reader::read(input_file, output_file, &strategies)?;
+            return anonymiser::anonymise(
+                input_file,
+                output_file,
+                strategy_file,
+                transformer_overrides,
+            );
         }
         Anonymiser::ToCsv {
             output_file,
             strategy_file,
-        } => {
-            strategy_file_reader::to_csv(&strategy_file, &output_file)?;
-        }
+        } => strategy_file_reader::to_csv(&strategy_file, &output_file)?,
         Anonymiser::CheckStrategies {
             strategy_file,
             fix,
             db_url,
         } => {
             let transformer = TransformerOverrides::default();
-            let strategies = strategy_file_reader::read(&strategy_file, transformer);
+            let strategies = strategy_file_reader::read(&strategy_file, transformer)
+                .unwrap_or_else(|_| HashMap::new());
+
             match strategy_differences(&strategies, db_url) {
                 Ok(()) => println!("All up to date"),
                 Err(missing_columns) => {
