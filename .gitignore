@@ -5,6 +5,8 @@ results.xml
 *.csv
 *.json
 
+!/test_files/*
+
 anonymiser-aarch64-apple-darwin
 anonymiser-x86_64-apple-darwin
 anonymiser-x86_64-unknown-linux-gnu
