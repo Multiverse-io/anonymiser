@@ -7,8 +7,13 @@ use crate::parsers::strategy_structs::{
     MissingColumns, SimpleColumn, Strategies, TransformerOverrides,
 };
 use itertools::Itertools;
+use native_tls::{Certificate, TlsConnector};
 use parsers::{db_schema, strategy_file_reader, strategy_validator};
+use postgres::tls::openssl::openssl::ssl::{SslConnectorBuilder, SslMethod};
+use postgres::tls::openssl::OpenSsl;
 use postgres::{Client, NoTls};
+use postgres::{Connection, TlsMode};
+use postgres_native_tls::MakeTlsConnector;
 use std::collections::HashMap;
 use structopt::StructOpt;
 
@@ -171,7 +176,7 @@ fn missing_to_message(missing: &Vec<SimpleColumn>) -> String {
 }
 
 fn strategy_differences(strategies: &Strategies, db_url: String) -> Result<(), MissingColumns> {
-    let mut conn = Client::connect(&db_url, NoTls).expect("expected connection to succeed");
+    let mut conn = Connection::connect(&db_url, NoTls).expect("expected connection to succeed");
     let db_columns = db_schema::parse(&mut conn);
     return strategy_validator::validate(&strategies, db_columns);
 }

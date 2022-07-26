@@ -30,8 +30,8 @@ mod tests {
     #[should_panic(expected = "Strategy file 'non_existing_strategy_file.json' does not exist")]
     fn panics_if_strategy_file_is_missing() {
         assert!(anonymise(
-            "test_files/test_dump_file.sql".to_string(),
-            "test_files/test_results.sql".to_string(),
+            "test_files/dump_file.sql".to_string(),
+            "test_files/results.sql".to_string(),
             "non_existing_strategy_file.json".to_string(),
             TransformerOverrides::default(),
         )
@@ -43,8 +43,8 @@ mod tests {
     fn panics_if_input_file_is_missing() {
         assert!(anonymise(
             "non_existing_input_file.sql".to_string(),
-            "test_files/test_results.sql".to_string(),
-            "test_files/test_strategy.json".to_string(),
+            "test_files/results.sql".to_string(),
+            "test_files/strategy.json".to_string(),
             TransformerOverrides::default(),
         )
         .is_ok());
@@ -53,9 +53,9 @@ mod tests {
     #[test]
     fn successfully_transforms() {
         assert!(anonymise(
-            "test_files/test_dump_file.sql".to_string(),
-            "test_files/test_results.sql".to_string(),
-            "test_files/test_strategy.json".to_string(),
+            "test_files/dump_file.sql".to_string(),
+            "test_files/results.sql".to_string(),
+            "test_files/strategy.json".to_string(),
             TransformerOverrides::default(),
         )
         .is_ok());
@@ -63,13 +63,14 @@ mod tests {
         let db_url = "postgresql://postgres:postgres@localhost/postgres";
         let mut conn = Client::connect(&db_url, NoTls).expect("expected connection to succeed");
 
-        conn.query("drop database platform_dev;", &[]).unwrap();
-        conn.query("create database platform_dev;", &[]).unwrap();
+        conn.simple_query("drop database anonymiser_test").unwrap();
+        conn.simple_query("create database anonymiser_test")
+            .unwrap();
 
         let result = Command::new("psql")
-            .arg("platform_dev")
+            .arg("anonymiser_test")
             .arg("-f")
-            .arg("test_files/test_results.sql")
+            .arg("test_files/results.sql")
             .arg("-v")
             .arg("ON_ERROR_STOP=1")
             .output()
