@@ -63,7 +63,8 @@ mod tests {
         let db_url = "postgresql://postgres:postgres@localhost/postgres";
         let mut conn = Client::connect(&db_url, NoTls).expect("expected connection to succeed");
 
-        conn.simple_query("drop database anonymiser_test").unwrap();
+        conn.simple_query("drop database if exists anonymiser_test")
+            .unwrap();
         conn.simple_query("create database anonymiser_test")
             .unwrap();
 
