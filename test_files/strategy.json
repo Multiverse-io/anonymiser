@@ -1,0 +1,154 @@
+[
+  {
+    "table_name": "public.orders",
+    "description": "",
+    "columns": [
+      {
+        "data_type": "General",
+        "description": "",
+        "name": "id",
+        "transformer": {
+          "name": "Identity"
+        }
+      },
+      {
+        "data_type": "General",
+        "description": "",
+        "name": "product_id",
+        "transformer": {
+          "name": "Identity"
+        }
+      },
+      {
+        "data_type": "General",
+        "description": "",
+        "name": "user_id",
+        "transformer": {
+          "name": "Identity"
+        }
+      }
+    ]
+  },
+  {
+    "table_name": "public.products",
+    "description": "",
+    "columns": [
+      {
+        "data_type": "CommerciallySensitive",
+        "description": "",
+        "name": "description",
+        "transformer": {
+          "name": "Scramble"
+        }
+      },
+      {
+        "data_type": "General",
+        "description": "",
+        "name": "id",
+        "transformer": {
+          "name": "Identity"
+        }
+      },
+      {
+        "data_type": "General",
+        "description": "",
+        "name": "price",
+        "transformer": {
+          "name": "Identity"
+        }
+      }
+    ]
+  },
+  {
+    "table_name": "public.users",
+    "description": "",
+    "columns": [
+      {
+        "data_type": "General",
+        "description": "",
+        "name": "deactivated",
+        "transformer": {
+          "name": "Identity"
+        }
+      },
+      {
+        "data_type": "Pii",
+        "description": "",
+        "name": "email",
+        "transformer": {
+          "name": "FakeEmail",
+          "args": {
+            "unique": "true"
+          }
+        }
+      },
+      {
+        "data_type": "Pii",
+        "description": "",
+        "name": "first_name",
+        "transformer": {
+          "name": "FakeFirstName"
+        }
+      },
+      {
+        "data_type": "General",
+        "description": "",
+        "name": "id",
+        "transformer": {
+          "name": "Identity"
+        }
+      },
+      {
+        "data_type": "General",
+        "description": "",
+        "name": "inserted_at",
+        "transformer": {
+          "name": "Identity"
+        }
+      },
+      {
+        "data_type": "General",
+        "description": "",
+        "name": "last_login",
+        "transformer": {
+          "name": "Identity"
+        }
+      },
+      {
+        "data_type": "Pii",
+        "description": "",
+        "name": "last_name",
+        "transformer": {
+          "name": "FakeLastName"
+        }
+      },
+      {
+        "data_type": "Security",
+        "description": "",
+        "name": "password",
+        "transformer": {
+          "name": "Fixed",
+          "args": {
+            "value": "not a password"
+          }
+        }
+      },
+      {
+        "data_type": "Pii",
+        "description": "",
+        "name": "phone_number",
+        "transformer": {
+          "name": "FakePhoneNumber"
+        }
+      },
+      {
+        "data_type": "General",
+        "description": "",
+        "name": "updated_at",
+        "transformer": {
+          "name": "Identity"
+        }
+      }
+    ]
+  }
+]

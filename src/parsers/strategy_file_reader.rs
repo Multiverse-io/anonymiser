@@ -8,11 +8,12 @@ use serde_json;
 use std::collections::HashMap;
 use std::fs;
 
-pub fn read(file_name: &str, transformer_overrides: TransformerOverrides) -> Strategies {
-    match read_file(file_name) {
-        Ok(strategies) => strategy_file_parser::parse(strategies, transformer_overrides),
-        Err(error) => panic!("Unable to read strategy file: {:?}", error),
-    }
+pub fn read(
+    file_name: &str,
+    transformer_overrides: TransformerOverrides,
+) -> Result<Strategies, std::io::Error> {
+    read_file(file_name)
+        .map(|strategies| strategy_file_parser::parse(strategies, transformer_overrides))
 }
 
 pub fn sync_to_file(
@@ -20,7 +21,7 @@ pub fn sync_to_file(
     missing_columns: Vec<SimpleColumn>,
     redundant_columns: Vec<SimpleColumn>,
 ) -> std::io::Result<()> {
-    let current_file_contents = read_file(file_name).unwrap();
+    let current_file_contents = read_file(file_name).unwrap_or_else(|_| Vec::new());
 
     let file_contents_with_missing = add_missing(current_file_contents, &missing_columns);
     let new_file_contents = remove_redundant(file_contents_with_missing, &redundant_columns);
@@ -145,20 +146,23 @@ pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()>
     return Ok(());
 }
 
-fn read_file(file_name: &str) -> serde_json::Result<Vec<StrategyInFile>> {
-    match fs::read_to_string(file_name) {
-        Ok(file_contents) => {
-            let p: Vec<StrategyInFile> = serde_json::from_str(&file_contents)?;
-            return Ok(p);
-        }
+fn read_file(file_name: &str) -> Result<Vec<StrategyInFile>, std::io::Error> {
+    let result = fs::read_to_string(file_name).map(|file_contents| {
+        let p: Vec<StrategyInFile> = serde_json::from_str(&file_contents).expect(&format!(
+            "Invalid json found in strategy file at '{}'",
+            file_name
+        ));
+        return p;
+    });
 
-        Err(e) => match e.kind() {
-            std::io::ErrorKind::NotFound => Ok(vec![]),
-            _ => panic!("Unable to read strategy file at {}: {:?}", file_name, e),
+    match result {
+        Ok(_) => result,
+        Err(ref err) => match err.kind() {
+            std::io::ErrorKind::NotFound => result,
+            _ => panic!("Unable to read strategy file at {}: {:?}", file_name, err),
         },
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
