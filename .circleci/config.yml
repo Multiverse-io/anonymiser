@@ -46,8 +46,13 @@ jobs:
   test:
     docker:
       - image: cimg/rust:1.62
-    environment:
-      CARGO_NET_GIT_FETCH_WITH_CLI: true
+        environment:
+          CARGO_NET_GIT_FETCH_WITH_CLI: true
+      - image: postgres:13.4
+        command: postgres -c jit=off -c fsync=off # dangerously disable fsync since we don't care about the data
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
     steps:
       - checkout
       - run: echo 'export GIT_COMMIT_MSG="$(git log --format=oneline -n 1 $CIRCLE_SHA1)"' >> $BASH_ENV
