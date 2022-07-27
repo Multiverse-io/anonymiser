@@ -124,10 +124,10 @@ COPY public.orders (id, user_id, product_id) FROM stdin;
 --
 
 COPY public.products (id, description, price) FROM stdin;
-1	p nevzqtovo knyz rj rlyijzhz	24.9900
-2	n iaduget wymk wc wzxsedhc	34.9900
-3	i gbem ypwixr xvtd	44.9900
-4	amvnb	54.9900
+1	c wschxirfe obod rs enaymlln	24.9900
+2	r wcrpnyq znfd yb yxomvjim	34.9900
+3	w dkvf ljadsx lzug	44.9900
+4	xlntk	54.9900
 \.
 
 
@@ -136,13 +136,13 @@ COPY public.products (id, description, price) FROM stdin;
 --
 
 COPY public.users (id, email, password, last_login, inserted_at, updated_at, first_name, last_name, deactivated, phone_number) FROM stdin;
-1	19-abdul_hic@hotmail.com	not a password	2022-05-01 12:00:00	2020-01-06 11:22:00	2022-05-01 12:00:00	Dewitt	Prohaska	f	+447700903460
-2	25-bria_quo@yahoo.com	not a password	2022-05-02 12:00:00	2020-02-06 11:22:00	2022-05-02 12:00:00	Carleton	Heaney	f	+447700948711
-3	32-darron_nisi@yahoo.com	not a password	2022-05-03 12:00:00	2020-03-06 11:22:00	2022-05-03 12:00:00	Finn	Langworth	f	+447700955888
-4	37-grover_maxime@hotmail.com	not a password	2022-05-04 12:00:00	2020-04-06 11:22:00	2022-05-04 12:00:00	Addie	Schulist	f	+447700908621
-5	42-sven_quam@hotmail.com	not a password	2022-05-05 12:00:00	2020-05-06 11:22:00	2022-05-05 12:00:00	Maryam	Bednar	f	+447700955376
-6	49-helena_culpa@yahoo.com	not a password	2022-05-06 12:00:00	2020-06-06 11:22:00	2022-05-06 12:00:00	Weston	Marvin	f	+447700921160
-7	55-dessie_voluptatem@gmail.com	not a password	2022-05-07 12:00:00	2020-07-06 11:22:00	2022-05-07 12:00:00	Jefferey	Marks	f	+447700912898
+1	17-durward_quo@gmail.com	not a password	2022-05-01 12:00:00	2020-01-06 11:22:00	2022-05-01 12:00:00	Maye	Kris	f	+447700921522
+2	24-vida_nam@gmail.com	not a password	2022-05-02 12:00:00	2020-02-06 11:22:00	2022-05-02 12:00:00	Alberta	Hintz	f	+447700953977
+3	29-harmon_voluptatem@gmail.com	not a password	2022-05-03 12:00:00	2020-03-06 11:22:00	2022-05-03 12:00:00	Creola	Schneider	f	+447700904699
+4	37-seth_quis@hotmail.com	not a password	2022-05-04 12:00:00	2020-04-06 11:22:00	2022-05-04 12:00:00	Bertram	Brown	f	+447700916932
+5	42-laurie_perferendis@gmail.com	not a password	2022-05-05 12:00:00	2020-05-06 11:22:00	2022-05-05 12:00:00	Eula	Shanahan	f	+447700932275
+6	47-hanna_non@gmail.com	not a password	2022-05-06 12:00:00	2020-06-06 11:22:00	2022-05-06 12:00:00	Cordia	Walter	f	+447700944734
+7	52-reba_ipsam@yahoo.com	not a password	2022-05-07 12:00:00	2020-07-06 11:22:00	2022-05-07 12:00:00	Claudia	Beatty	f	+447700936851
 \.
 
 

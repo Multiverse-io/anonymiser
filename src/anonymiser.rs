@@ -60,8 +60,9 @@ mod tests {
         )
         .is_ok());
 
-        let db_url = "postgresql://postgres:postgres@localhost/postgres";
-        let mut conn = Client::connect(&db_url, NoTls).expect("expected connection to succeed");
+        let db_url = "postgresql://postgres:postgres@localhost";
+        let postgres = format!("{}/postgres", db_url);
+        let mut conn = Client::connect(&postgres, NoTls).expect("expected connection to succeed");
 
         conn.simple_query("drop database if exists anonymiser_test")
             .unwrap();
@@ -69,7 +70,7 @@ mod tests {
             .unwrap();
 
         let result = Command::new("psql")
-            .arg("anonymiser_test")
+            .arg(format!("{}/anonymiser_test", db_url))
             .arg("-f")
             .arg("test_files/results.sql")
             .arg("-v")
