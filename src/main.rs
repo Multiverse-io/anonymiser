@@ -1,16 +1,16 @@
 mod anonymiser;
 mod file_reader;
+use std::fmt::Write;
+mod fixer;
 mod opts;
 mod parsers;
 use crate::opts::{Anonymiser, Opts};
-use crate::parsers::strategy_structs::{
-    MissingColumns, SimpleColumn, Strategies, TransformerOverrides,
-};
+use crate::parsers::strategies::Strategies;
+use crate::parsers::strategy_structs::{MissingColumns, SimpleColumn, TransformerOverrides};
 use itertools::Itertools;
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
-use parsers::{db_schema, strategy_file_reader, strategy_validator};
+use parsers::{db_schema, strategy_file};
 use postgres_openssl::MakeTlsConnector;
-use std::collections::HashMap;
 use structopt::StructOpt;
 
 fn main() -> Result<(), std::io::Error> {
@@ -25,8 +25,8 @@ fn main() -> Result<(), std::io::Error> {
             allow_commercially_sensitive,
         } => {
             let transformer_overrides = TransformerOverrides {
-                allow_potential_pii: allow_potential_pii,
-                allow_commercially_sensitive: allow_commercially_sensitive,
+                allow_potential_pii,
+                allow_commercially_sensitive,
             };
             return anonymiser::anonymise(
                 input_file,
@@ -38,24 +38,26 @@ fn main() -> Result<(), std::io::Error> {
         Anonymiser::ToCsv {
             output_file,
             strategy_file,
-        } => strategy_file_reader::to_csv(&strategy_file, &output_file)?,
+        } => {
+            strategy_file::to_csv(&strategy_file, &output_file)?;
+        }
         Anonymiser::CheckStrategies {
+            fix: fix_flag,
             strategy_file,
-            fix,
             db_url,
         } => {
-            let transformer = TransformerOverrides::default();
-            let strategies = strategy_file_reader::read(&strategy_file, transformer)
-                .unwrap_or_else(|_| HashMap::new());
+            let transformer = TransformerOverrides::none();
+            let strategies = strategy_file::read(&strategy_file, transformer)
+                .unwrap_or_else(|_| Strategies::new());
 
             match strategy_differences(&strategies, db_url) {
                 Ok(()) => println!("All up to date"),
                 Err(missing_columns) => {
                     let message = format_missing_columns(&strategy_file, &missing_columns);
                     println!("{}", message);
-                    if fix && fixable(&missing_columns) {
+                    if fix_flag && fixer::can_fix(&missing_columns) {
                         println!("But the great news is that we're going to try and fix some of this!...");
-                        fix_columns(&strategy_file, missing_columns);
+                        fixer::fix_columns(&strategy_file, missing_columns);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
                     std::process::exit(1);
@@ -66,11 +68,11 @@ fn main() -> Result<(), std::io::Error> {
             strategy_file,
             db_url,
         } => {
-            match strategy_differences(&HashMap::new(), db_url) {
+            match strategy_differences(&Strategies::new(), db_url) {
                 Ok(()) => println!("All up to date"),
                 Err(missing_columns) => {
-                    if fixable(&missing_columns) {
-                        fix_columns(&strategy_file, missing_columns);
+                    if fixer::can_fix(&missing_columns) {
+                        fixer::fix_columns(&strategy_file, missing_columns);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
                     std::process::exit(1);
@@ -78,92 +80,58 @@ fn main() -> Result<(), std::io::Error> {
             }
         }
     }
-    return Ok(());
-}
-
-fn fixable(missing_columns: &MissingColumns) -> bool {
-    match missing_columns {
-        MissingColumns {
-            missing_from_strategy_file: Some(x),
-            missing_from_db: Some(y),
-            ..
-        } if matches!(x.as_slice(), []) && matches!(y.as_slice(), []) => false,
-        _ => true,
-    }
-}
-
-fn fix_columns(strategy_file: &str, missing_columns: MissingColumns) -> () {
-    let missing = missing_columns
-        .missing_from_strategy_file
-        .unwrap_or_default();
-
-    let redundant = missing_columns.missing_from_db.unwrap_or_default();
-
-    strategy_file_reader::sync_to_file(&strategy_file, missing, redundant)
-        .expect("Unable to write to file :(");
+    Ok(())
 }
 
 fn format_missing_columns(strategy_file: &str, missing_columns: &MissingColumns) -> String {
     let mut message = "".to_string();
 
-    match &missing_columns.unanonymised_pii {
-        Some(missing) => {
-            let missing_list = missing_to_message(&missing);
-            message.push_str(&format!(
+    if !missing_columns.unanonymised_pii.is_empty() {
+        let missing_list = missing_to_message(&missing_columns.unanonymised_pii);
+        write!(message,
                 "Some fields are tagged as being PII but do not have anonymising transformers set. ({})\n\t{}\nPlease add valid transformers!\n\n",
                 strategy_file, missing_list
-            ))
-        }
-        None => (),
+            ).unwrap()
     }
 
-    match &missing_columns.error_transformer_types {
-        Some(missing) => {
-            let missing_list = missing_to_message(&missing);
-            message.push_str(&format!(
-                "Some fields still have 'Error' transformer types ({})\n\t{}\nPlease add valid transformers!\n\n",
+    if !missing_columns.error_transformer_types.is_empty() {
+        let missing_list = missing_to_message(&missing_columns.error_transformer_types);
+        write!(message, "Some fields still have 'Error' transformer types ({})\n\t{}\nPlease add valid transformers!\n\n",
                 strategy_file, missing_list
-            ))
-        }
-        None => (),
+            ).unwrap()
     }
 
-    match &missing_columns.unknown_data_types {
-        Some(missing) => {
-            let missing_list = missing_to_message(&missing);
-            message.push_str(&format!(
+    if !missing_columns.unknown_data_categories.is_empty() {
+        let missing_list = missing_to_message(&missing_columns.unknown_data_categories);
+        write!(message,
                 "Some fields still have 'Unknown' data types ({})\n\t{}\nPlease add valid data types!\n\n",
                 strategy_file, missing_list
-            ))
-        }
-        None => (),
+            ).unwrap()
     }
-    match &missing_columns.missing_from_db {
-        Some(missing) => {
-            let missing_list = missing_to_message(&missing);
-            message.push_str(&format!(
-                "Some fields are in the strategies file ({}) but not the database!\n\t{}\n",
-                strategy_file, missing_list
-            ))
-        }
-        None => (),
+    if !missing_columns.missing_from_db.is_empty() {
+        let missing_list = missing_to_message(&missing_columns.missing_from_db);
+        write!(
+            message,
+            "Some fields are in the strategies file ({}) but not the database!\n\t{}\n",
+            strategy_file, missing_list
+        )
+        .unwrap()
     }
 
-    match &missing_columns.missing_from_strategy_file {
-        Some(missing) => {
-            let missing_list = missing_to_message(&missing);
-            message.push_str(&format!(
-                "Some fields are missing from strategies file ({})\n\t{}\n",
-                strategy_file, missing_list
-            ))
-        }
-        None => (),
+    if !missing_columns.missing_from_strategy_file.is_empty() {
+        let missing_list = missing_to_message(&missing_columns.missing_from_strategy_file);
+        write!(
+            message,
+            "Some fields are missing from strategies file ({})\n\t{}\n",
+            strategy_file, missing_list
+        )
+        .unwrap()
     }
 
-    return message;
+    message
 }
 
-fn missing_to_message(missing: &Vec<SimpleColumn>) -> String {
+fn missing_to_message(missing: &[SimpleColumn]) -> String {
     return missing
         .iter()
         .map(|c| format!("{} => {}", &c.table_name, &c.column_name))
@@ -179,5 +147,5 @@ fn strategy_differences(strategies: &Strategies, db_url: String) -> Result<(), M
 
     let mut client = postgres::Client::connect(&db_url, connector).expect("expected to connect!");
     let db_columns = db_schema::parse(&mut client);
-    return strategy_validator::validate(&strategies, db_columns);
+    strategies.validate(db_columns)
 }

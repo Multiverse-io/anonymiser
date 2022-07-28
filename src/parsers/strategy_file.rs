@@ -1,4 +1,5 @@
-use crate::parsers::strategy_file_parser;
+use crate::parsers::strategies::Strategies;
+use crate::parsers::strategies_parser;
 use crate::parsers::strategy_structs::*;
 use itertools::sorted;
 use itertools::Itertools;
@@ -13,7 +14,7 @@ pub fn read(
     transformer_overrides: TransformerOverrides,
 ) -> Result<Strategies, std::io::Error> {
     read_file(file_name)
-        .map(|strategies| strategy_file_parser::parse(strategies, transformer_overrides))
+        .map(|strategies| strategies_parser::parse(strategies, transformer_overrides))
 }
 
 pub fn sync_to_file(
@@ -37,12 +38,12 @@ pub fn sync_to_file(
     Ok(())
 }
 
-fn add_missing(present: Vec<StrategyInFile>, missing: &Vec<SimpleColumn>) -> Vec<StrategyInFile> {
+fn add_missing(present: Vec<StrategyInFile>, missing: &[SimpleColumn]) -> Vec<StrategyInFile> {
     let missing_columns_by_table = missing.iter().fold(HashMap::new(), |mut acc, column| {
         acc.entry(column.table_name.clone())
-            .or_insert_with(|| vec![])
+            .or_insert(Vec::new())
             .push(column.column_name.clone());
-        return acc;
+        acc
     });
 
     let mut new_strategies = present;
@@ -71,20 +72,20 @@ fn add_missing(present: Vec<StrategyInFile>, missing: &Vec<SimpleColumn>) -> Vec
 
     new_strategies.sort();
 
-    return new_strategies;
+    new_strategies
 }
 
 fn remove_redundant(
     existing: Vec<StrategyInFile>,
-    redundant_columns_to_remove: &Vec<SimpleColumn>,
+    redundant_columns_to_remove: &[SimpleColumn],
 ) -> Vec<StrategyInFile> {
     let table_names = redundant_columns_to_remove
         .iter()
         .fold(HashMap::new(), |mut acc, column| {
             acc.entry(column.table_name.clone())
-                .or_insert_with(|| vec![])
+                .or_insert(Vec::new())
                 .push(column.column_name.clone());
-            return acc;
+            acc
         });
 
     existing
@@ -99,12 +100,12 @@ fn remove_redundant(
                         .filter(|col| !columns_to_remove.contains(&col.name))
                         .collect();
 
-                    if new_columns.len() > 0 {
-                        let mut new_strategy = strategy.clone();
+                    if new_columns.is_empty() {
+                        None
+                    } else {
+                        let mut new_strategy = strategy;
                         new_strategy.columns = new_columns;
                         Some(new_strategy)
-                    } else {
-                        None
                     }
                 }
                 None => Some(strategy),
@@ -119,13 +120,15 @@ pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()>
         .iter()
         .flat_map(|strategy| {
             strategy.columns.iter().filter_map(|column| {
-                if column.data_type == DataType::Pii || column.data_type == DataType::PotentialPii {
-                    return Some(format!(
+                if column.data_category == DataCategory::Pii
+                    || column.data_category == DataCategory::PotentialPii
+                {
+                    Some(format!(
                         "{}, {}, {}",
                         strategy.table_name, column.name, column.description
-                    ));
+                    ))
                 } else {
-                    return None;
+                    None
                 }
             })
         })
@@ -143,16 +146,14 @@ pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()>
         .open(csv_output_file)?;
     file.write_all(to_write.as_bytes()).unwrap();
 
-    return Ok(());
+    Ok(())
 }
 
 fn read_file(file_name: &str) -> Result<Vec<StrategyInFile>, std::io::Error> {
     let result = fs::read_to_string(file_name).map(|file_contents| {
-        let p: Vec<StrategyInFile> = serde_json::from_str(&file_contents).expect(&format!(
-            "Invalid json found in strategy file at '{}'",
-            file_name
-        ));
-        return p;
+        let p: Vec<StrategyInFile> = serde_json::from_str(&file_contents)
+            .unwrap_or_else(|_| panic!("Invalid json found in strategy file at '{}'", file_name));
+        p
     });
 
     match result {
