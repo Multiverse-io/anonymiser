@@ -14,7 +14,9 @@ pub fn read(
     let output_file = File::create(output_file_path).unwrap();
     let mut file_writer = BufWriter::new(output_file);
 
-    let file_reader = File::open(input_file_path)?;
+    let file_reader = File::open(&input_file_path)
+        .expect(&format!("Input file '{}' does not exist", input_file_path));
+
     let mut reader = BufReader::new(file_reader);
     let mut line = String::new();
 

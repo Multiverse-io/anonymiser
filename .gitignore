@@ -5,6 +5,9 @@ results.xml
 *.csv
 *.json
 
+!/test_files/dump_file.sql
+!/test_files/strategy.json
+
 anonymiser-aarch64-apple-darwin
 anonymiser-x86_64-apple-darwin
 anonymiser-x86_64-unknown-linux-gnu
