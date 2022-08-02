@@ -248,6 +248,7 @@ mod tests {
                 "id".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
+                    name: "id".to_string(),
                     transformer: Transformer {
                         name: TransformerType::Identity,
                         args: None,
@@ -258,6 +259,7 @@ mod tests {
                 "first_name".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
+                    name: "first_name".to_string(),
                     transformer: Transformer {
                         name: TransformerType::FakeFirstName,
                         args: None,
@@ -268,6 +270,7 @@ mod tests {
                 "last_name".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
+                    name: "last_name".to_string(),
                     transformer: Transformer {
                         name: TransformerType::FakeLastName,
                         args: None,
@@ -311,6 +314,7 @@ mod tests {
                 "id".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
+                    name: "id".to_string(),
                     transformer: Transformer {
                         name: TransformerType::Identity,
                         args: None,
@@ -321,6 +325,7 @@ mod tests {
                 "first_name".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
+                    name: "first_name".to_string(),
                     transformer: Transformer {
                         name: TransformerType::FakeFirstName,
                         args: None,
@@ -331,6 +336,7 @@ mod tests {
                 "last_name".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
+                    name: "last_name".to_string(),
                     transformer: Transformer {
                         name: TransformerType::FakeLastName,
                         args: None,

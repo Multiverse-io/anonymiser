@@ -154,6 +154,7 @@ mod tests {
 
     fn create_column_info(name: TransformerType) -> ColumnInfo {
         ColumnInfo {
+            name: "column1".to_string(),
             transformer: create_transformer(name),
             data_category: DataCategory::General,
         }

@@ -102,6 +102,7 @@ mod tests {
     fn column_info() -> ColumnInfo {
         ColumnInfo {
             data_category: DataCategory::General,
+            name: "column1".to_string(),
             transformer: Transformer {
                 name: TransformerType::Identity,
                 args: None,

@@ -362,6 +362,7 @@ mod tests {
             column_name.to_string(),
             ColumnInfo {
                 data_category,
+                name: column_name.to_string(),
                 transformer: Transformer {
                     name: transformer_type,
                     args: None,

@@ -16,6 +16,7 @@ pub fn parse(
                     column.name.clone(),
                     ColumnInfo {
                         data_category: column.data_category.clone(),
+                        name: column.name.clone(),
                         transformer: transformer(column, &transformer_overrides),
                     },
                 )
@@ -75,6 +76,7 @@ mod tests {
             HashMap::from([(
                 column_name.to_string(),
                 ColumnInfo {
+                    name: "column1".to_string(),
                     data_category: DataCategory::Pii,
                     transformer: Transformer {
                         name: TransformerType::Scramble,
