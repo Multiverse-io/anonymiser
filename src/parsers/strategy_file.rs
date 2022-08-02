@@ -1,3 +1,4 @@
+use crate::parsers::strategies::Strategies;
 use crate::parsers::strategies_parser;
 use crate::parsers::strategy_structs::*;
 use itertools::sorted;
@@ -150,11 +151,9 @@ pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()>
 
 fn read_file(file_name: &str) -> Result<Vec<StrategyInFile>, std::io::Error> {
     let result = fs::read_to_string(file_name).map(|file_contents| {
-        let p: Vec<StrategyInFile> = serde_json::from_str(&file_contents).expect(&format!(
-            "Invalid json found in strategy file at '{}'",
-            file_name
-        ));
-        return p;
+        let p: Vec<StrategyInFile> = serde_json::from_str(&file_contents)
+            .unwrap_or_else(|_| panic!("Invalid json found in strategy file at '{}'", file_name));
+        p
     });
 
     match result {

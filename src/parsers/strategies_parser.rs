@@ -1,11 +1,11 @@
+use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_structs::*;
-use std::collections::HashMap;
 
 pub fn parse(
     strategies: Vec<StrategyInFile>,
     transformer_overrides: TransformerOverrides,
-) -> HashMap<String, HashMap<String, ColumnInfo>> {
-    let mut transformed_strategies: HashMap<String, HashMap<String, ColumnInfo>> = HashMap::new();
+) -> Strategies {
+    let mut transformed_strategies = Strategies::new();
     //TODO If all columns are none, lets not do any transforming?
     for strategy in strategies {
         let columns = strategy
@@ -16,6 +16,7 @@ pub fn parse(
                     column.name.clone(),
                     ColumnInfo {
                         data_category: column.data_category.clone(),
+                        name: column.name.clone(),
                         transformer: transformer(column, &transformer_overrides),
                     },
                 )
@@ -50,6 +51,7 @@ fn transformer(column: ColumnInFile, overrides: &TransformerOverrides) -> Transf
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     const TABLE_NAME: &str = "gert_lush_table";
     const PII_COLUMN_NAME: &str = "pii_column";
@@ -69,11 +71,12 @@ mod tests {
             )],
         }];
 
-        let expected = HashMap::from([(
+        let expected = Strategies::new_from(
             TABLE_NAME.to_string(),
             HashMap::from([(
                 column_name.to_string(),
                 ColumnInfo {
+                    name: "column1".to_string(),
                     data_category: DataCategory::Pii,
                     transformer: Transformer {
                         name: TransformerType::Scramble,
@@ -82,6 +85,7 @@ mod tests {
                 },
             )]),
         )]);
+        );
         let parsed = parse(strategies, TransformerOverrides::none());
         assert_eq!(expected, parsed);
     }
@@ -112,7 +116,6 @@ mod tests {
                 allow_commercially_sensitive: false,
             },
         );
-
         let pii_column_transformer = transformer_for_column(PII_COLUMN_NAME, &parsed);
         let commercially_sensitive_transformer =
             transformer_for_column(COMMERCIALLY_SENSITIVE_COLUMN_NAME, &parsed);
@@ -206,11 +209,10 @@ mod tests {
         assert_eq!(pii_column_transformer.name, TransformerType::Identity);
     }
 
-    fn transformer_for_column(
-        column_name: &str,
-        strategies: &HashMap<String, HashMap<String, ColumnInfo>>,
-    ) -> Transformer {
-        strategies[TABLE_NAME][column_name].transformer.clone()
+    fn transformer_for_column(column_name: &str, strategies: &Strategies) -> Transformer {
+        strategies
+            .transformer_for_column(TABLE_NAME, column_name)
+            .expect("expecting a transformer!")
     }
 
     fn column_in_file(

@@ -11,7 +11,7 @@ pub fn anonymise(
     match strategy_file::read(&strategy_file, transformer_overrides) {
         Ok(strategies) => {
             file_reader::read(input_file, output_file, &strategies)?;
-            return Ok(());
+            Ok(())
         }
         Err(_) => {
             panic!("Strategy file '{}' does not exist", strategy_file)

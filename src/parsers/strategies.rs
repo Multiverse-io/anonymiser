@@ -1,87 +1,133 @@
 use crate::parsers::strategy_structs::*;
+use std::collections::HashMap;
 use std::collections::HashSet;
+
+#[derive(Debug, PartialEq)]
+pub struct Strategies {
+    tables: HashMap<String, HashMap<String, ColumnInfo>>,
+}
+impl Strategies {
+    pub fn new() -> Strategies {
+        Strategies {
+            tables: HashMap::new(),
+        }
+    }
+
+    pub fn for_table(&self, table_name: &str) -> Option<&HashMap<String, ColumnInfo>> {
+        self.tables.get(table_name)
+    }
+
+    pub fn insert(&mut self, table_name: String, columns: HashMap<String, ColumnInfo>) {
+        self.tables.insert(table_name, columns);
+    }
+
+    pub fn validate(&self, columns_from_db: HashSet<SimpleColumn>) -> Result<(), MissingColumns> {
+        //TODO probably dont iterate over and over again!
+
+        let unanonymised_pii: Vec<SimpleColumn> = self
+            .tables
+            .iter()
+            .flat_map(|(table_name, columns)| {
+                return columns
+                    .iter()
+                    .filter(|(_, column_info)| {
+                        (column_info.data_category == DataCategory::PotentialPii
+                            || column_info.data_category == DataCategory::Pii)
+                            && column_info.transformer.name == TransformerType::Identity
+                    })
+                    .map(|(column_name, _)| create_simple_column(column_name, table_name));
+            })
+            .collect();
+        let unknown_data_categories: Vec<SimpleColumn> = self
+            .tables
+            .iter()
+            .flat_map(|(table_name, columns)| {
+                return columns
+                    .iter()
+                    .filter(|(_, column_info)| column_info.data_category == DataCategory::Unknown)
+                    .map(|(column_name, _)| create_simple_column(column_name, table_name));
+            })
+            .collect();
+
+        let error_transformer_types: Vec<SimpleColumn> = self
+            .tables
+            .iter()
+            .flat_map(|(table_name, columns)| {
+                return columns
+                    .iter()
+                    .filter(|(_, column_info)| {
+                        column_info.transformer.name == TransformerType::Error
+                    })
+                    .map(|(column_name, _)| create_simple_column(column_name, table_name));
+            })
+            .collect();
+
+        let columns_from_strategy_file: HashSet<SimpleColumn> = self
+            .tables
+            .iter()
+            .flat_map(|(table, columns)| {
+                return columns
+                    .iter()
+                    .map(|(column, _)| create_simple_column(column, table));
+            })
+            .collect();
+
+        let in_strategy_file_but_not_db: Vec<_> = columns_from_strategy_file
+            .difference(&columns_from_db)
+            .cloned()
+            .collect();
+
+        let in_db_but_not_strategy_file: Vec<_> = columns_from_db
+            .difference(&columns_from_strategy_file)
+            .cloned()
+            .collect();
+
+        if in_db_but_not_strategy_file.is_empty()
+            && in_strategy_file_but_not_db.is_empty()
+            && unknown_data_categories.is_empty()
+            && error_transformer_types.is_empty()
+            && unanonymised_pii.is_empty()
+        {
+            Ok(())
+        } else {
+            Err(MissingColumns {
+                missing_from_db: add_if_present(in_strategy_file_but_not_db),
+                missing_from_strategy_file: add_if_present(in_db_but_not_strategy_file),
+                unknown_data_categories: add_if_present(unknown_data_categories),
+                error_transformer_types: add_if_present(error_transformer_types),
+                unanonymised_pii: add_if_present(unanonymised_pii),
+            })
+        }
+    }
+
+    #[allow(dead_code)] //This is used in tests for convenience
+    pub fn transformer_for_column<'a>(
+        &self,
+        table_name: &'a str,
+        column_name: &'a str,
+    ) -> Option<Transformer> {
+        self.tables
+            .get(table_name)
+            .and_then(|table| table.get(column_name))
+            .map(|column| column.transformer.clone())
+    }
+
+    #[allow(dead_code)] //This is used in tests for convenience
+    pub fn new_from(table_name: String, columns: HashMap<String, ColumnInfo>) -> Strategies {
+        Strategies {
+            tables: HashMap::from([(table_name, columns)]),
+        }
+    }
+}
+
 fn create_simple_column(column_name: &str, table_name: &str) -> SimpleColumn {
     SimpleColumn {
         table_name: table_name.to_string(),
         column_name: column_name.to_string(),
     }
 }
-pub fn validate(
-    strategies: &Strategies,
-    columns_from_db: HashSet<SimpleColumn>,
-) -> Result<(), MissingColumns> {
-    //TODO probably dont iterate over and over again!
 
-    let unanonymised_pii: Vec<SimpleColumn> = strategies
-        .iter()
-        .flat_map(|(table_name, columns)| {
-            return columns
-                .iter()
-                .filter(|(_, column_info)| {
-                    (column_info.data_category == DataCategory::PotentialPii
-                        || column_info.data_category == DataCategory::Pii)
-                        && column_info.transformer.name == TransformerType::Identity
-                })
-                .map(|(column_name, _)| create_simple_column(column_name, table_name));
-        })
-        .collect();
-    let unknown_data_categories: Vec<SimpleColumn> = strategies
-        .iter()
-        .flat_map(|(table_name, columns)| {
-            return columns
-                .iter()
-                .filter(|(_, column_info)| column_info.data_category == DataCategory::Unknown)
-                .map(|(column_name, _)| create_simple_column(column_name, table_name));
-        })
-        .collect();
-
-    let error_transformer_types: Vec<SimpleColumn> = strategies
-        .iter()
-        .flat_map(|(table_name, columns)| {
-            return columns
-                .iter()
-                .filter(|(_, column_info)| column_info.transformer.name == TransformerType::Error)
-                .map(|(column_name, _)| create_simple_column(column_name, table_name));
-        })
-        .collect();
-
-    let columns_from_strategy_file: HashSet<SimpleColumn> = strategies
-        .iter()
-        .flat_map(|(table, columns)| {
-            return columns
-                .iter()
-                .map(|(column, _)| create_simple_column(column, table));
-        })
-        .collect();
-
-    let in_strategy_file_but_not_db: Vec<_> = columns_from_strategy_file
-        .difference(&columns_from_db)
-        .cloned()
-        .collect();
-
-    let in_db_but_not_strategy_file: Vec<_> = columns_from_db
-        .difference(&columns_from_strategy_file)
-        .cloned()
-        .collect();
-
-    if in_db_but_not_strategy_file.is_empty()
-        && in_strategy_file_but_not_db.is_empty()
-        && unknown_data_categories.is_empty()
-        && error_transformer_types.is_empty()
-        && unanonymised_pii.is_empty()
-    {
-        Ok(())
-    } else {
-        Err(MissingColumns {
-            missing_from_db: add_if_present(in_strategy_file_but_not_db),
-            missing_from_strategy_file: add_if_present(in_db_but_not_strategy_file),
-            unknown_data_categories: add_if_present(unknown_data_categories),
-            error_transformer_types: add_if_present(error_transformer_types),
-            unanonymised_pii: add_if_present(unanonymised_pii),
-        })
-    }
-}
-
+>>>>>>> read_column_types_from_create_table:src/parsers/strategies.rs
 fn add_if_present(list: Vec<SimpleColumn>) -> Vec<SimpleColumn> {
     if list.is_empty() {
         list
@@ -91,7 +137,6 @@ fn add_if_present(list: Vec<SimpleColumn>) -> Vec<SimpleColumn> {
         new_list
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,7 +159,7 @@ mod tests {
             create_simple_column("public.location", "postcode"),
         ]);
 
-        let result = validate(&strategies, columns_from_db);
+        let result = strategies.validate(columns_from_db);
 
         assert!(result.is_ok());
     }
@@ -129,7 +174,7 @@ mod tests {
             create_simple_column("public.location", "postcode"),
         ]);
 
-        let result = validate(&strategies, columns_from_db);
+        let result = strategies.validate(columns_from_db);
 
         let error = result.unwrap_err();
         assert!(error.missing_from_db.is_empty());
@@ -152,7 +197,7 @@ mod tests {
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
 
-        let result = validate(&strategies, columns_from_db);
+        let result = strategies.validate(columns_from_db);
 
         let error = result.unwrap_err();
         assert!(error.missing_from_strategy_file.is_empty());
@@ -169,7 +214,7 @@ mod tests {
 
         let columns_from_db = HashSet::from([create_simple_column("public.location", "postcode")]);
 
-        let result = validate(&strategies, columns_from_db);
+        let result = strategies.validate(columns_from_db);
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -195,7 +240,7 @@ mod tests {
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
 
-        let result = validate(&strategies, columns_from_db);
+        let result = strategies.validate(columns_from_db);
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -216,7 +261,7 @@ mod tests {
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
 
-        let result = validate(&strategies, columns_from_db);
+        let result = strategies.validate(columns_from_db);
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -251,7 +296,7 @@ mod tests {
             create_simple_column("public.person", "last_name"),
         ]);
 
-        let result = validate(&strategies, columns_from_db);
+        let result = strategies.validate(columns_from_db);
 
         let error = result.unwrap_err();
         println!("{:?}", error);
@@ -268,7 +313,13 @@ mod tests {
     where
         I: Iterator<Item = (String, ColumnInfo)>,
     {
+<<<<<<< HEAD:src/parsers/strategy_validator.rs
         HashMap::from([(table_name.to_string(), HashMap::from_iter(columns))])
+=======
+        let mut strategies = Strategies::new();
+        strategies.insert(table_name.to_string(), HashMap::from_iter(columns));
+        strategies
+>>>>>>> read_column_types_from_create_table:src/parsers/strategies.rs
     }
 
     fn add_table<I>(strategies: &mut Strategies, table_name: &str, columns: I)
@@ -316,6 +367,10 @@ mod tests {
             column_name.to_string(),
             ColumnInfo {
                 data_category,
+<<<<<<< HEAD:src/parsers/strategy_validator.rs
+=======
+                name: column_name.to_string(),
+>>>>>>> read_column_types_from_create_table:src/parsers/strategies.rs
                 transformer: Transformer {
                     name: transformer_type,
                     args: None,

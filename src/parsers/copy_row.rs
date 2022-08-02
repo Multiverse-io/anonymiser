@@ -1,4 +1,5 @@
-use crate::parsers::strategy_structs::{Strategies, Transformer};
+use crate::parsers::strategies::Strategies;
+use crate::parsers::strategy_structs::Transformer;
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -51,7 +52,7 @@ fn transforms_from_strategy(
     table_name: &str,
     column_list: &[String],
 ) -> Vec<Transformer> {
-    match strategies.get(table_name) {
+    match strategies.for_table(table_name) {
         Some(columns) => {
             return column_list
                 .iter()
@@ -96,7 +97,7 @@ mod tests {
                 create_column_info(TransformerType::FakeLastName),
             ),
         ]);
-        let strategies = HashMap::from([("public.users".to_string(), column_infos)]);
+        let strategies = Strategies::new_from("public.users".to_string(), column_infos);
         let parsed_copy_row = parse(
             "COPY public.users (id, first_name, last_name) FROM stdin;\n",
             &strategies,
@@ -119,13 +120,13 @@ mod tests {
 
     #[test]
     fn removes_quotes_around_table_names() {
-        let strategies = HashMap::from([(
+        let strategies = Strategies::new_from(
             "public.references".to_string(),
             HashMap::from([(
                 "id".to_string(),
                 create_column_info(TransformerType::Identity),
             )]),
-        )]);
+        );
 
         let parsed_copy_row = parse("COPY public.\"references\" (id) FROM stdin;\n", &strategies);
 
@@ -134,7 +135,11 @@ mod tests {
 
     #[test]
     fn doesnt_panic_with_quotes_around_column_names() {
+<<<<<<< HEAD
         let strategies = HashMap::from([(
+=======
+        let strategies = Strategies::new_from(
+>>>>>>> read_column_types_from_create_table
             "public.users".to_string(),
             HashMap::from([
                 (
@@ -146,13 +151,17 @@ mod tests {
                     create_column_info(TransformerType::Identity),
                 ),
             ]),
-        )]);
+        );
 
         let _parsed_copy_row = parse("COPY public.users (\"from\") FROM stdin;\n", &strategies);
     }
 
     fn create_column_info(name: TransformerType) -> ColumnInfo {
         ColumnInfo {
+<<<<<<< HEAD
+=======
+            name: "column1".to_string(),
+>>>>>>> read_column_types_from_create_table
             transformer: create_transformer(name),
             data_category: DataCategory::General,
         }
@@ -173,7 +182,7 @@ mod tests {
                 create_column_info(TransformerType::FakeLastName),
             ),
         ]);
-        let strategies = HashMap::from([("public.users".to_string(), expected_transforms)]);
+        let strategies = Strategies::new_from("public.users".to_string(), expected_transforms);
         parse("COPY public.users INTO THE SEA", &strategies);
     }
 
@@ -192,7 +201,7 @@ mod tests {
                 create_column_info(TransformerType::FakeLastName),
             ),
         ]);
-        let strategies = HashMap::from([("public.users".to_string(), expected_transforms)]);
+        let strategies = Strategies::new_from("public.users".to_string(), expected_transforms);
         parse(
             "COPY public.users (id, first_name, last_name) FROM stdin;\n",
             &strategies,
@@ -201,13 +210,13 @@ mod tests {
     #[test]
     #[should_panic(expected = "No transforms found for table: \"public.users\"")]
     fn panics_if_there_are_no_transforms_for_the_table() {
-        let strategies = HashMap::from([(
+        let strategies = Strategies::new_from(
             "public.something_unrelated".to_string(),
             HashMap::from([(
                 "id".to_string(),
                 create_column_info(TransformerType::Identity),
             )]),
-        )]);
+        );
         parse(
             "COPY public.users (id, first_name, last_name) FROM stdin;\n",
             &strategies,
