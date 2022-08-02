@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 #[derive(Clone, Debug, Eq, Serialize, Deserialize)]
 pub struct ColumnInFile {
-    pub data_type: DataType,
+    pub data_category: DataCategory,
     pub description: String,
     pub name: String,
     pub transformer: Transformer,
@@ -13,7 +13,7 @@ pub struct ColumnInFile {
 impl ColumnInFile {
     pub fn new(column_name: &str) -> Self {
         ColumnInFile {
-            data_type: DataType::Unknown,
+            data_category: DataCategory::Unknown,
             description: "".to_string(),
             name: column_name.to_string(),
             transformer: Transformer {
@@ -69,14 +69,14 @@ impl PartialEq for StrategyInFile {
 
 #[derive(Debug)]
 pub struct MissingColumns {
-    pub missing_from_strategy_file: Option<Vec<SimpleColumn>>,
-    pub missing_from_db: Option<Vec<SimpleColumn>>,
-    pub unknown_data_types: Option<Vec<SimpleColumn>>,
-    pub error_transformer_types: Option<Vec<SimpleColumn>>,
-    pub unanonymised_pii: Option<Vec<SimpleColumn>>,
+    pub missing_from_strategy_file: Vec<SimpleColumn>,
+    pub missing_from_db: Vec<SimpleColumn>,
+    pub unknown_data_categories: Vec<SimpleColumn>,
+    pub error_transformer_types: Vec<SimpleColumn>,
+    pub unanonymised_pii: Vec<SimpleColumn>,
 }
 
-#[derive(Clone, Debug, Hash, Eq)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct SimpleColumn {
     pub table_name: String,
     pub column_name: String,
@@ -94,21 +94,15 @@ impl PartialOrd for SimpleColumn {
     }
 }
 
-impl PartialEq for SimpleColumn {
-    fn eq(&self, other: &Self) -> bool {
-        format!("{}{}", self.table_name, self.column_name)
-            == format!("{}{}", other.table_name, other.column_name)
-    }
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub struct ColumnInfo {
-    pub data_type: DataType,
+    pub data_category: DataCategory,
+    pub name: String,
     pub transformer: Transformer,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum DataType {
+pub enum DataCategory {
     CommerciallySensitive,
     General,
     PotentialPii,
@@ -116,8 +110,6 @@ pub enum DataType {
     Security,
     Unknown,
 }
-
-pub type Strategies = HashMap<String, HashMap<String, ColumnInfo>>;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TransformerType {
@@ -159,8 +151,8 @@ pub struct TransformerOverrides {
     pub allow_commercially_sensitive: bool,
 }
 
-impl Default for TransformerOverrides {
-    fn default() -> Self {
+impl TransformerOverrides {
+    pub fn none() -> Self {
         Self {
             allow_potential_pii: false,
             allow_commercially_sensitive: false,

@@ -1,5 +1,5 @@
 use crate::file_reader;
-use crate::parsers::strategy_file_reader;
+use crate::parsers::strategy_file;
 use crate::parsers::strategy_structs::TransformerOverrides;
 
 pub fn anonymise(
@@ -8,10 +8,10 @@ pub fn anonymise(
     strategy_file: String,
     transformer_overrides: TransformerOverrides,
 ) -> Result<(), std::io::Error> {
-    match strategy_file_reader::read(&strategy_file, transformer_overrides) {
+    match strategy_file::read(&strategy_file, transformer_overrides) {
         Ok(strategies) => {
             file_reader::read(input_file, output_file, &strategies)?;
-            return Ok(());
+            Ok(())
         }
         Err(_) => {
             panic!("Strategy file '{}' does not exist", strategy_file)
@@ -33,7 +33,7 @@ mod tests {
             "test_files/dump_file.sql".to_string(),
             "test_files/results.sql".to_string(),
             "non_existing_strategy_file.json".to_string(),
-            TransformerOverrides::default(),
+            TransformerOverrides::none(),
         )
         .is_ok());
     }
@@ -45,7 +45,7 @@ mod tests {
             "non_existing_input_file.sql".to_string(),
             "test_files/results.sql".to_string(),
             "test_files/strategy.json".to_string(),
-            TransformerOverrides::default(),
+            TransformerOverrides::none(),
         )
         .is_ok());
     }
@@ -56,7 +56,7 @@ mod tests {
             "test_files/dump_file.sql".to_string(),
             "test_files/results.sql".to_string(),
             "test_files/strategy.json".to_string(),
-            TransformerOverrides::default(),
+            TransformerOverrides::none(),
         )
         .is_ok());
 

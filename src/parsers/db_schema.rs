@@ -26,12 +26,12 @@ where
         let table_name: String = row.get("table_name");
         let column_name: String = row.get("column_name");
         columns_from_db.insert(SimpleColumn {
-            table_name: table_name,
-            column_name: column_name,
+            table_name,
+            column_name,
         });
     }
 
-    return columns_from_db;
+    columns_from_db
 }
 
 #[cfg(test)]
@@ -82,9 +82,9 @@ mod tests {
         });
     }
 
-    fn run_test<T>(test: T) -> ()
+    fn run_test<T>(test: T)
     where
-        T: Fn(&mut Transaction) -> (),
+        T: Fn(&mut Transaction),
     {
         let mut conn = Client::connect(
             "postgresql://postgres:postgres@localhost:5432/postgres",
@@ -148,9 +148,8 @@ mod tests {
             )
             .unwrap();
 
-        let result = test(&mut transaction);
+        test(&mut transaction);
 
         transaction.rollback().unwrap();
-        return result;
     }
 }
