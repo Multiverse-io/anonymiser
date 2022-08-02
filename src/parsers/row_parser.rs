@@ -2,11 +2,7 @@ use crate::parsers::copy_row;
 use crate::parsers::copy_row::CurrentTableTransforms;
 use crate::parsers::create_row;
 use crate::parsers::state::*;
-<<<<<<< HEAD
-use crate::parsers::strategy_structs::Strategies;
-=======
 use crate::parsers::strategies::Strategies;
->>>>>>> read_column_types_from_create_table
 use crate::parsers::transformer;
 use crate::parsers::types;
 use crate::parsers::types::Column;
@@ -81,11 +77,7 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
             state.update_position(Position::InCopy {
                 current_table: current_table.clone(),
             });
-<<<<<<< HEAD
             transform_row(line, &current_table, &state.types)
-=======
-            transform_row(line, &current_table)
->>>>>>> read_column_types_from_create_table
         }
 
         (RowType::Normal, Position::Normal) => {
@@ -101,22 +93,15 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
     }
 }
 
-<<<<<<< HEAD
 fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Types) -> String {
-=======
-fn transform_row(line: &str, current_table: &CurrentTableTransforms) -> String {
->>>>>>> read_column_types_from_create_table
     match &current_table.transforms {
         Some(transforms) => {
             let column_values = split_row(line);
 
             let transformed = column_values.enumerate().map(|(i, value)| {
-<<<<<<< HEAD
                 //TODO sort this out
                 let _column_type = types.lookup(&current_table.table_name, "".to_string());
 
-=======
->>>>>>> read_column_types_from_create_table
                 transformer::transform(value, &transforms[i], &current_table.table_name)
             });
 
@@ -156,11 +141,7 @@ mod tests {
     #[test]
     fn create_table_start_row_is_parsed() {
         let create_table_row = "CREATE TABLE public.candidate_details (";
-<<<<<<< HEAD
-        let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
-=======
         let strategies = Strategies::new_from("public.users".to_string(), HashMap::from([]));
->>>>>>> read_column_types_from_create_table
 
         let mut state = State::new();
         let transformed_row = parse(create_table_row, &mut state, &strategies);
@@ -177,11 +158,7 @@ mod tests {
     #[test]
     fn create_table_mid_row_is_added_to_state() {
         let create_table_row = "password character varying(255)";
-<<<<<<< HEAD
-        let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
-=======
         let strategies = Strategies::new_from("public.users".to_string(), HashMap::from([]));
->>>>>>> read_column_types_from_create_table
 
         let mut state = State {
             position: Position::InCreateTable {
@@ -217,11 +194,7 @@ mod tests {
     #[test]
     fn non_type_create_table_row_is_ignored() {
         let create_table_row = "PARTITION BY something else";
-<<<<<<< HEAD
-        let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
-=======
         let strategies = Strategies::new_from("public.users".to_string(), HashMap::from([]));
->>>>>>> read_column_types_from_create_table
 
         let mut state = State {
             position: Position::InCreateTable {
@@ -245,11 +218,7 @@ mod tests {
     #[test]
     fn end_of_a_create_table_row_changes_state() {
         let create_table_row = ");";
-<<<<<<< HEAD
-        let strategies = HashMap::from([("public.users".to_string(), HashMap::from([]))]);
-=======
         let strategies = Strategies::new_from("public.users".to_string(), HashMap::from([]));
->>>>>>> read_column_types_from_create_table
 
         let mut state = State {
             position: Position::InCreateTable {
@@ -282,10 +251,7 @@ mod tests {
                 "id".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
-<<<<<<< HEAD
-=======
                     name: "id".to_string(),
->>>>>>> read_column_types_from_create_table
                     transformer: Transformer {
                         name: TransformerType::Identity,
                         args: None,
@@ -296,10 +262,7 @@ mod tests {
                 "first_name".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
-<<<<<<< HEAD
-=======
                     name: "first_name".to_string(),
->>>>>>> read_column_types_from_create_table
                     transformer: Transformer {
                         name: TransformerType::FakeFirstName,
                         args: None,
@@ -310,10 +273,7 @@ mod tests {
                 "last_name".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
-<<<<<<< HEAD
-=======
                     name: "last_name".to_string(),
->>>>>>> read_column_types_from_create_table
                     transformer: Transformer {
                         name: TransformerType::FakeLastName,
                         args: None,
@@ -357,10 +317,7 @@ mod tests {
                 "id".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
-<<<<<<< HEAD
-=======
                     name: "id".to_string(),
->>>>>>> read_column_types_from_create_table
                     transformer: Transformer {
                         name: TransformerType::Identity,
                         args: None,
@@ -371,10 +328,7 @@ mod tests {
                 "first_name".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
-<<<<<<< HEAD
-=======
                     name: "first_name".to_string(),
->>>>>>> read_column_types_from_create_table
                     transformer: Transformer {
                         name: TransformerType::FakeFirstName,
                         args: None,
@@ -385,10 +339,7 @@ mod tests {
                 "last_name".to_string(),
                 ColumnInfo {
                     data_category: DataCategory::General,
-<<<<<<< HEAD
-=======
                     name: "last_name".to_string(),
->>>>>>> read_column_types_from_create_table
                     transformer: Transformer {
                         name: TransformerType::FakeLastName,
                         args: None,

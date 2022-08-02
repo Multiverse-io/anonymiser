@@ -1,9 +1,6 @@
 mod anonymiser;
 mod file_reader;
-<<<<<<< HEAD
-=======
 use std::fmt::Write;
->>>>>>> read_column_types_from_create_table
 mod fixer;
 mod opts;
 mod parsers;
@@ -12,15 +9,8 @@ use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_structs::{MissingColumns, SimpleColumn, TransformerOverrides};
 use itertools::Itertools;
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
-<<<<<<< HEAD
-use parsers::{db_schema, strategy_file, strategy_validator};
-use postgres_openssl::MakeTlsConnector;
-use std::collections::HashMap;
-use std::fmt::Write;
-=======
 use parsers::{db_schema, strategy_file};
 use postgres_openssl::MakeTlsConnector;
->>>>>>> read_column_types_from_create_table
 use structopt::StructOpt;
 
 fn main() -> Result<(), std::io::Error> {
@@ -48,30 +38,15 @@ fn main() -> Result<(), std::io::Error> {
         Anonymiser::ToCsv {
             output_file,
             strategy_file,
-<<<<<<< HEAD
         } => strategy_file::to_csv(&strategy_file, &output_file)?,
-=======
-        } => {
-            strategy_file::to_csv(&strategy_file, &output_file)?;
-        }
->>>>>>> read_column_types_from_create_table
         Anonymiser::CheckStrategies {
             fix: fix_flag,
             strategy_file,
-<<<<<<< HEAD
-            fix: fix_flag,
-            db_url,
-        } => {
-            let transformer = TransformerOverrides::none();
-            let strategies =
-                strategy_file::read(&strategy_file, transformer).unwrap_or_else(|_| HashMap::new());
-=======
             db_url,
         } => {
             let transformer = TransformerOverrides::none();
             let strategies = strategy_file::read(&strategy_file, transformer)
                 .unwrap_or_else(|_| Strategies::new());
->>>>>>> read_column_types_from_create_table
 
             match strategy_differences(&strategies, db_url) {
                 Ok(()) => println!("All up to date"),
@@ -79,11 +54,7 @@ fn main() -> Result<(), std::io::Error> {
                     let message = format_missing_columns(&strategy_file, &missing_columns);
                     println!("{}", message);
                     if fix_flag && fixer::can_fix(&missing_columns) {
-<<<<<<< HEAD
-                        println!("But the great news is that we're going to try and fix_flag some of this!...");
-=======
                         println!("But the great news is that we're going to try and fix some of this!...");
->>>>>>> read_column_types_from_create_table
                         fixer::fix_columns(&strategy_file, missing_columns);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }

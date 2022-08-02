@@ -135,11 +135,7 @@ mod tests {
 
     #[test]
     fn doesnt_panic_with_quotes_around_column_names() {
-<<<<<<< HEAD
-        let strategies = HashMap::from([(
-=======
         let strategies = Strategies::new_from(
->>>>>>> read_column_types_from_create_table
             "public.users".to_string(),
             HashMap::from([
                 (
@@ -158,10 +154,7 @@ mod tests {
 
     fn create_column_info(name: TransformerType) -> ColumnInfo {
         ColumnInfo {
-<<<<<<< HEAD
-=======
             name: "column1".to_string(),
->>>>>>> read_column_types_from_create_table
             transformer: create_transformer(name),
             data_category: DataCategory::General,
         }

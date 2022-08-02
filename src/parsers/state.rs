@@ -16,15 +16,12 @@ impl Types {
     pub fn insert(&mut self, table_name: &str, thing: HashMap<String, Type>) {
         self.types.insert(table_name.to_string(), thing);
     }
-<<<<<<< HEAD
 
     pub fn lookup(&self, table_name: &str, column_name: String) -> Option<&Type> {
         self.types
             .get(table_name)
             .and_then(|table| table.get(&column_name))
     }
-=======
->>>>>>> read_column_types_from_create_table
 }
 
 pub struct State {

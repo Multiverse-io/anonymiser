@@ -1,10 +1,6 @@
 use crate::parsers::row_parser;
 use crate::parsers::state::State;
-<<<<<<< HEAD
-use crate::parsers::strategy_structs::Strategies;
-=======
 use crate::parsers::strategies::Strategies;
->>>>>>> read_column_types_from_create_table
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -32,12 +28,8 @@ pub fn read(
                 if bytes_read == 0 {
                     break;
                 }
-<<<<<<< HEAD
-                line = line.trim().to_string();
-=======
 
                 line = line.to_string();
->>>>>>> read_column_types_from_create_table
                 let transformed_row = row_parser::parse(&line, &mut row_parser_state, strategies);
                 file_writer.write_all(transformed_row.as_bytes())?;
                 line.clear();
@@ -48,8 +40,6 @@ pub fn read(
         }
     }
     Ok(())
-<<<<<<< HEAD
-=======
 }
 
 #[cfg(test)]
@@ -119,5 +109,4 @@ mod tests {
             },
         }
     }
->>>>>>> read_column_types_from_create_table
 }

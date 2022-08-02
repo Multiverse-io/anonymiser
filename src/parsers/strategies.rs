@@ -127,7 +127,6 @@ fn create_simple_column(column_name: &str, table_name: &str) -> SimpleColumn {
     }
 }
 
->>>>>>> read_column_types_from_create_table:src/parsers/strategies.rs
 fn add_if_present(list: Vec<SimpleColumn>) -> Vec<SimpleColumn> {
     if list.is_empty() {
         list
@@ -313,13 +312,9 @@ mod tests {
     where
         I: Iterator<Item = (String, ColumnInfo)>,
     {
-<<<<<<< HEAD:src/parsers/strategy_validator.rs
-        HashMap::from([(table_name.to_string(), HashMap::from_iter(columns))])
-=======
         let mut strategies = Strategies::new();
         strategies.insert(table_name.to_string(), HashMap::from_iter(columns));
         strategies
->>>>>>> read_column_types_from_create_table:src/parsers/strategies.rs
     }
 
     fn add_table<I>(strategies: &mut Strategies, table_name: &str, columns: I)
@@ -367,10 +362,7 @@ mod tests {
             column_name.to_string(),
             ColumnInfo {
                 data_category,
-<<<<<<< HEAD:src/parsers/strategy_validator.rs
-=======
                 name: column_name.to_string(),
->>>>>>> read_column_types_from_create_table:src/parsers/strategies.rs
                 transformer: Transformer {
                     name: transformer_type,
                     args: None,

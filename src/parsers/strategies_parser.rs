@@ -84,7 +84,6 @@ mod tests {
                     },
                 },
             )]),
-        )]);
         );
         let parsed = parse(strategies, TransformerOverrides::none());
         assert_eq!(expected, parsed);

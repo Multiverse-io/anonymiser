@@ -1,9 +1,6 @@
 pub fn parse(line: &str) -> String {
     let result = line
-<<<<<<< HEAD
-=======
         .trim()
->>>>>>> read_column_types_from_create_table
         .strip_prefix("CREATE TABLE ")
         .and_then(|s| s.strip_suffix(" ("));
 

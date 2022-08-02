@@ -98,10 +98,7 @@ impl PartialOrd for SimpleColumn {
 #[derive(Debug, Eq, PartialEq)]
 pub struct ColumnInfo {
     pub data_category: DataCategory,
-<<<<<<< HEAD
-=======
     pub name: String,
->>>>>>> read_column_types_from_create_table
     pub transformer: Transformer,
 }
 
