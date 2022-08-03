@@ -95,7 +95,7 @@ impl PartialOrd for SimpleColumn {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ColumnInfo {
     pub data_category: DataCategory,
     pub name: String,

@@ -192,8 +192,8 @@ fn fixed(args: &Option<HashMap<String, String>>, table_name: &str) -> String {
         .and_then(|a| a.get("value"))
         .unwrap_or_else(|| {
             panic!(
-                "Value must be present in args for a fixed transformer in table: {}",
-                table_name,
+                "'value' must be present in args for a fixed transformer in table: '{}'\ngot: '{:?}'",
+                table_name, args,
             )
         });
     value.to_string()
@@ -570,7 +570,7 @@ mod tests {
         assert_eq!(new_url, fixed_url);
     }
     #[test]
-    #[should_panic(expected = "Value must be present in args for a fixed transformer")]
+    #[should_panic(expected = "'value' must be present in args for a fixed transformer")]
     fn fixed_panics_if_value_not_provided() {
         let url = "any web address";
         transform(

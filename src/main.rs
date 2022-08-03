@@ -147,3 +147,6 @@ fn strategy_differences(strategies: &Strategies, db_url: String) -> Result<(), M
     let db_columns = db_schema::parse(&mut client);
     strategies.validate(db_columns)
 }
+
+#[cfg(test)]
+mod test_builders;

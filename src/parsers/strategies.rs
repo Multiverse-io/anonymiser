@@ -274,12 +274,12 @@ mod tests {
         let strategies = create_strategy(
             "public.person",
             [
-                create_column_with_data_and_transfromer_type(
+                create_column_with_data_and_transformer_type(
                     "first_name",
                     DataCategory::Pii,
                     TransformerType::Identity,
                 ),
-                create_column_with_data_and_transfromer_type(
+                create_column_with_data_and_transformer_type(
                     "last_name",
                     DataCategory::PotentialPii,
                     TransformerType::Identity,
@@ -325,7 +325,7 @@ mod tests {
     }
 
     fn create_column(column_name: &str) -> (String, ColumnInfo) {
-        create_column_with_data_and_transfromer_type(
+        create_column_with_data_and_transformer_type(
             column_name,
             DataCategory::General,
             TransformerType::Identity,
@@ -336,7 +336,7 @@ mod tests {
         column_name: &str,
         transformer_type: TransformerType,
     ) -> (String, ColumnInfo) {
-        create_column_with_data_and_transfromer_type(
+        create_column_with_data_and_transformer_type(
             column_name,
             DataCategory::General,
             transformer_type,
@@ -347,13 +347,13 @@ mod tests {
         column_name: &str,
         data_category: DataCategory,
     ) -> (String, ColumnInfo) {
-        create_column_with_data_and_transfromer_type(
+        create_column_with_data_and_transformer_type(
             column_name,
             data_category,
             TransformerType::Identity,
         )
     }
-    fn create_column_with_data_and_transfromer_type(
+    fn create_column_with_data_and_transformer_type(
         column_name: &str,
         data_category: DataCategory,
         transformer_type: TransformerType,

@@ -94,26 +94,23 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
 }
 
 fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Types) -> String {
-    match &current_table.transforms {
-        Some(transforms) => {
-            let column_values = split_row(line);
+    let column_values = split_row(line);
 
-            let transformed = column_values.enumerate().map(|(i, value)| {
-                //TODO sort this out
-                let _column_type = types.lookup(&current_table.table_name, "".to_string());
+    let transformed = column_values.enumerate().map(|(i, value)| {
+        //TODO sort this out
+        let current_column = &current_table.columns[i];
+        let _column_type = types.lookup(&current_table.table_name, "".to_string());
 
-                transformer::transform(value, &transforms[i], &current_table.table_name)
-            });
+        transformer::transform(
+            value,
+            &current_column.transformer,
+            &current_table.table_name,
+        )
+    });
 
-            let mut joined = join(transformed, "\t");
-            joined.push('\n');
-            joined
-        }
-        None => {
-            //TODO test carriage returns etc. here
-            line.to_string()
-        }
-    }
+    let mut joined = join(transformed, "\t");
+    joined.push('\n');
+    joined
 }
 
 fn add_create_table_row_to_types(line: &str, mut current_types: Vec<Column>) -> Vec<Column> {
@@ -136,6 +133,7 @@ mod tests {
         ColumnInfo, DataCategory, Transformer, TransformerType,
     };
     use crate::parsers::types::Type;
+    use crate::test_builders::*;
     use std::collections::HashMap;
 
     #[test]
@@ -245,66 +243,37 @@ mod tests {
     #[test]
     fn copy_row_sets_status_to_being_in_copy_and_adds_transforms_in_the_correct_order_for_the_columns(
     ) {
+        let id_column = ColumnInfo::builder().with_name("id").build();
+
+        let first_name_column = ColumnInfo::builder()
+            .with_name("first_name")
+            .with_transformer(TransformerType::FakeFirstName, None)
+            .build();
+        let last_name_column = ColumnInfo::builder()
+            .with_name("last_name")
+            .with_transformer(TransformerType::FakeLastName, None)
+            .build();
+
         let copy_row = "COPY public.users (id, first_name, last_name) FROM stdin;\n";
+
         let column_infos = HashMap::from([
-            (
-                "id".to_string(),
-                ColumnInfo {
-                    data_category: DataCategory::General,
-                    name: "id".to_string(),
-                    transformer: Transformer {
-                        name: TransformerType::Identity,
-                        args: None,
-                    },
-                },
-            ),
-            (
-                "first_name".to_string(),
-                ColumnInfo {
-                    data_category: DataCategory::General,
-                    name: "first_name".to_string(),
-                    transformer: Transformer {
-                        name: TransformerType::FakeFirstName,
-                        args: None,
-                    },
-                },
-            ),
-            (
-                "last_name".to_string(),
-                ColumnInfo {
-                    data_category: DataCategory::General,
-                    name: "last_name".to_string(),
-                    transformer: Transformer {
-                        name: TransformerType::FakeLastName,
-                        args: None,
-                    },
-                },
-            ),
+            ("last_name".to_string(), last_name_column.clone()),
+            ("id".to_string(), id_column.clone()),
+            ("first_name".to_string(), first_name_column.clone()),
         ]);
-        let strategies = Strategies::new_from("public.users".to_string(), column_infos);
+
+        let strategies = Strategies::new_from("public.users".to_string(), column_infos.clone());
 
         let mut state = State::new();
         let transformed_row = parse(copy_row, &mut state, &strategies);
+
         assert_eq!(copy_row, transformed_row);
 
         match state.position {
-            Position::InCopy { current_table } => assert_eq!(
-                Some(vec!(
-                    Transformer {
-                        name: TransformerType::Identity,
-                        args: None,
-                    },
-                    Transformer {
-                        name: TransformerType::FakeFirstName,
-                        args: None,
-                    },
-                    Transformer {
-                        name: TransformerType::FakeLastName,
-                        args: None,
-                    },
-                )),
-                current_table.transforms
-            ),
+            Position::InCopy { current_table } => {
+                let expected_columns = vec![id_column, first_name_column, last_name_column];
+                assert_eq!(expected_columns, current_table.columns)
+            }
             _other => unreachable!("Position is not InCopy!"),
         };
     }
@@ -375,23 +344,29 @@ mod tests {
             position: Position::InCopy {
                 current_table: CurrentTableTransforms {
                     table_name: "public.users".to_string(),
-                    transforms: Some(vec![
-                        Transformer {
-                            name: TransformerType::Fixed,
-                            args: Some(HashMap::from([("value".to_string(), "first".to_string())])),
-                        },
-                        Transformer {
-                            name: TransformerType::Fixed,
-                            args: Some(HashMap::from([(
-                                "value".to_string(),
-                                "second".to_string(),
-                            )])),
-                        },
-                        Transformer {
-                            name: TransformerType::Fixed,
-                            args: Some(HashMap::from([("value".to_string(), "third".to_string())])),
-                        },
-                    ]),
+                    columns: vec![
+                        ColumnInfo::builder()
+                            .with_name("column_1")
+                            .with_transformer(
+                                TransformerType::Fixed,
+                                Some(HashMap::from([("value".to_string(), "first".to_string())])),
+                            )
+                            .build(),
+                        ColumnInfo::builder()
+                            .with_name("column_2")
+                            .with_transformer(
+                                TransformerType::Fixed,
+                                Some(HashMap::from([("value".to_string(), "second".to_string())])),
+                            )
+                            .build(),
+                        ColumnInfo::builder()
+                            .with_name("column_3")
+                            .with_transformer(
+                                TransformerType::Fixed,
+                                Some(HashMap::from([("value".to_string(), "third".to_string())])),
+                            )
+                            .build(),
+                    ],
                 },
             },
             types: Types::new(HashMap::new()),
@@ -409,10 +384,9 @@ mod tests {
             position: Position::InCopy {
                 current_table: CurrentTableTransforms {
                     table_name: "public.users".to_string(),
-                    transforms: Some(vec![Transformer {
-                        name: TransformerType::Scramble,
-                        args: None,
-                    }]),
+                    columns: vec![ColumnInfo::builder()
+                        .with_transformer(TransformerType::Scramble, None)
+                        .build()],
                 },
             },
             types: Types::new(HashMap::new()),

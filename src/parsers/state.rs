@@ -90,7 +90,7 @@ mod tests {
         let new_position = Position::InCopy {
             current_table: CurrentTableTransforms {
                 table_name: "table-mc-tableface".to_string(),
-                transforms: None,
+                columns: Vec::new(),
             },
         };
 
