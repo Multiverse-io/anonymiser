@@ -41,8 +41,6 @@ mod tests {
     use postgres::{Client, NoTls};
 
     #[test]
-    #[ignore]
-    //TODO enable on CI!!!
     fn can_read_db_columns() {
         run_test(|connection| {
             let result = parse(connection);
@@ -50,11 +48,11 @@ mod tests {
                 result,
                 HashSet::from([
                     SimpleColumn {
-                        table_name: "archived.old_table".to_string(),
+                        table_name: "second_schema.old_table".to_string(),
                         column_name: "old_column".to_string()
                     },
                     SimpleColumn {
-                        table_name: "archived.old_table".to_string(),
+                        table_name: "second_schema.old_table".to_string(),
                         column_name: "id".to_string()
                     },
                     SimpleColumn {
@@ -86,25 +84,23 @@ mod tests {
     where
         T: Fn(&mut Transaction),
     {
-        let mut conn = Client::connect(
-            "postgresql://postgres:postgres@localhost:5432/postgres",
-            NoTls,
-        )
-        .expect("expected connection to succeed");
+        let mut conn = Client::connect("postgresql://postgres:postgres@localhost/postgres", NoTls)
+            .expect("expected connection to succeed");
 
-        conn.batch_execute("DROP DATABASE anonymiser_test").unwrap();
-        conn.batch_execute("CREATE DATABASE anonymiser_test")
+        conn.batch_execute("DROP DATABASE if exists db_schema_test")
+            .unwrap();
+        conn.batch_execute("CREATE DATABASE db_schema_test")
             .unwrap();
 
         let mut anonymiser_test_conn = Client::connect(
-            "postgresql://postgres:postgres@localhost:5432/anonymiser_test",
+            "postgresql://postgres:postgres@localhost/db_schema_test",
             NoTls,
         )
         .unwrap();
 
         let mut transaction = anonymiser_test_conn.transaction().unwrap();
         transaction
-            .batch_execute("CREATE SCHEMA IF NOT EXISTS archived")
+            .batch_execute("CREATE SCHEMA IF NOT EXISTS second_schema")
             .unwrap();
         transaction
             .batch_execute(
@@ -132,7 +128,7 @@ mod tests {
         transaction
             .batch_execute(
                 "
-            CREATE TABLE archived.old_table (
+            CREATE TABLE second_schema.old_table (
                 id          SERIAL PRIMARY KEY,
                 old_column  TEXT NOT NULL
             )
@@ -143,7 +139,7 @@ mod tests {
         transaction
             .batch_execute(
                 "
-            CREATE VIEW archived.location AS SELECT id, post_code FROM public.location
+            CREATE VIEW second_schema.location AS SELECT id, post_code FROM public.location
         ",
             )
             .unwrap();
