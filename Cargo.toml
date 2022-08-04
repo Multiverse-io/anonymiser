@@ -1,7 +1,7 @@
 # The version here is only used for builds in dev.. the create_release script will replace this for release builds
 [package]
 name = "anonymiser"
-version = "0.1.4"
+version = "0.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
