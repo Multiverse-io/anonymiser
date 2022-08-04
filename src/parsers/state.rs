@@ -13,14 +13,14 @@ impl Types {
         Types { types: initial }
     }
 
-    pub fn insert(&mut self, table_name: &str, thing: HashMap<String, Type>) {
-        self.types.insert(table_name.to_string(), thing);
+    pub fn insert(&mut self, table_name: &str, column_types: HashMap<String, Type>) {
+        self.types.insert(table_name.to_string(), column_types);
     }
 
-    pub fn lookup(&self, table_name: &str, column_name: String) -> Option<&Type> {
+    pub fn lookup(&self, table_name: &str, column_name: &str) -> Option<&Type> {
         self.types
             .get(table_name)
-            .and_then(|table| table.get(&column_name))
+            .and_then(|table| table.get(column_name))
     }
 }
 

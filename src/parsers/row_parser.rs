@@ -99,10 +99,18 @@ fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Typ
     let transformed = column_values.enumerate().map(|(i, value)| {
         //TODO sort this out
         let current_column = &current_table.columns[i];
-        let _column_type = types.lookup(&current_table.table_name, "".to_string());
+        let column_type = types
+            .lookup(&current_table.table_name, &current_column.name)
+            .unwrap_or_else(|| {
+                panic!(
+                    "No type found for {}.{}\nI did find: {:?}",
+                    current_table.table_name, current_column.name, types
+                )
+            });
 
         transformer::transform(
             value,
+            column_type,
             &current_column.transformer,
             &current_table.table_name,
         )
@@ -129,11 +137,8 @@ fn split_row(line: &str) -> std::str::Split<char> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::strategy_structs::{
-        ColumnInfo, DataCategory, Transformer, TransformerType,
-    };
-    use crate::parsers::types::Type;
-    use crate::test_builders::*;
+    use crate::parsers::strategy_structs::{ColumnInfo, DataCategory, TransformerType};
+    use crate::parsers::types::{SubType, Type};
     use std::collections::HashMap;
 
     #[test]
@@ -284,36 +289,27 @@ mod tests {
         let transforms = HashMap::from([
             (
                 "id".to_string(),
-                ColumnInfo {
-                    data_category: DataCategory::General,
-                    name: "id".to_string(),
-                    transformer: Transformer {
-                        name: TransformerType::Identity,
-                        args: None,
-                    },
-                },
+                ColumnInfo::builder()
+                    .with_data_category(DataCategory::General)
+                    .with_name("id")
+                    .with_transformer(TransformerType::Identity, None)
+                    .build(),
             ),
             (
                 "first_name".to_string(),
-                ColumnInfo {
-                    data_category: DataCategory::General,
-                    name: "first_name".to_string(),
-                    transformer: Transformer {
-                        name: TransformerType::FakeFirstName,
-                        args: None,
-                    },
-                },
+                ColumnInfo::builder()
+                    .with_data_category(DataCategory::General)
+                    .with_name("first_name")
+                    .with_transformer(TransformerType::FakeFirstName, None)
+                    .build(),
             ),
             (
                 "last_name".to_string(),
-                ColumnInfo {
-                    data_category: DataCategory::General,
-                    name: "last_name".to_string(),
-                    transformer: Transformer {
-                        name: TransformerType::FakeLastName,
-                        args: None,
-                    },
-                },
+                ColumnInfo::builder()
+                    .with_data_category(DataCategory::General)
+                    .with_name("last_name")
+                    .with_transformer(TransformerType::FakeLastName, None)
+                    .build(),
             ),
         ]);
         let strategies = Strategies::new_from("public.users".to_string(), transforms);
@@ -369,7 +365,11 @@ mod tests {
                     ],
                 },
             },
-            types: Types::new(HashMap::new()),
+            types: Types::builder()
+                .add_type("public.users", "column_1", SubType::Character)
+                .add_type("public.users", "column_2", SubType::Character)
+                .add_type("public.users", "column_3", SubType::Character)
+                .build(),
         };
         let transformed_row = parse(table_data_row, &mut state, &strategies);
         assert_eq!("first\tsecond\tthird\n", transformed_row);
@@ -385,11 +385,14 @@ mod tests {
                 current_table: CurrentTableTransforms {
                     table_name: "public.users".to_string(),
                     columns: vec![ColumnInfo::builder()
+                        .with_name("column_1")
                         .with_transformer(TransformerType::Scramble, None)
                         .build()],
                 },
             },
-            types: Types::new(HashMap::new()),
+            types: Types::builder()
+                .add_array_type("public.users", "column_1", SubType::Character)
+                .build(),
         };
         let processed_row = parse(table_data_row, &mut state, &strategies);
         println!("{}", processed_row);

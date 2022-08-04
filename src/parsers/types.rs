@@ -22,6 +22,7 @@ impl Type {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SubType {
+    //TODO JSON?!?
     Character,
     Integer,
     Unknown { underlying_type: String },
@@ -49,9 +50,10 @@ fn is_non_column_definition(first_word: &str) -> bool {
 }
 
 pub fn parse(line: &str) -> Option<Column> {
-    let trimmed_line = match line.strip_suffix(',') {
-        None => line,
-        Some(trimmed_line) => trimmed_line,
+    let mut trimmed_line = line.trim();
+    trimmed_line = match trimmed_line.strip_suffix(',') {
+        None => trimmed_line,
+        Some(stripped_line) => stripped_line,
     };
 
     let mut bits = trimmed_line.split(' ');
@@ -112,6 +114,14 @@ fn string_to_type(type_string: String) -> Type {
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn trims_whitespace() {
+        let row = "    password character varying(255),";
+        let parsed = parse(row).expect("Expected a column back! but got None");
+        assert_eq!(parsed.name, "password");
+        assert_eq!(parsed.data_type, Type::character());
+    }
 
     #[test]
     fn parses_character_type() {

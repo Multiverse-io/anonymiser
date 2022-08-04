@@ -76,9 +76,7 @@ fn capture_to_item<'a, 'b>(capture: &'a regex::Captures, name: &'b str) -> Optio
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::strategy_structs::{
-        ColumnInfo, DataCategory, Transformer, TransformerType,
-    };
+    use crate::parsers::strategy_structs::{ColumnInfo, TransformerType};
     use std::collections::HashMap;
 
     #[test]

@@ -75,14 +75,11 @@ mod tests {
             TABLE_NAME.to_string(),
             HashMap::from([(
                 column_name.to_string(),
-                ColumnInfo {
-                    name: "column1".to_string(),
-                    data_category: DataCategory::Pii,
-                    transformer: Transformer {
-                        name: TransformerType::Scramble,
-                        args: None,
-                    },
-                },
+                ColumnInfo::builder()
+                    .with_name(column_name)
+                    .with_data_category(DataCategory::Pii)
+                    .with_transformer(TransformerType::Scramble, None)
+                    .build(),
             )]),
         );
         let parsed = parse(strategies, TransformerOverrides::none());

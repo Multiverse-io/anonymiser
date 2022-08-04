@@ -139,7 +139,7 @@ fn add_if_present(list: Vec<SimpleColumn>) -> Vec<SimpleColumn> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::strategy_structs::{ColumnInfo, Transformer, TransformerType};
+    use crate::parsers::strategy_structs::{ColumnInfo, TransformerType};
     use std::collections::HashMap;
 
     #[test]
@@ -360,14 +360,11 @@ mod tests {
     ) -> (String, ColumnInfo) {
         (
             column_name.to_string(),
-            ColumnInfo {
-                data_category,
-                name: column_name.to_string(),
-                transformer: Transformer {
-                    name: transformer_type,
-                    args: None,
-                },
-            },
+            ColumnInfo::builder()
+                .with_name(column_name)
+                .with_data_category(data_category)
+                .with_transformer(transformer_type, None)
+                .build(),
         )
     }
 
