@@ -291,7 +291,7 @@ mod tests {
             ("first_name".to_string(), first_name_column.clone()),
         ]);
 
-        let strategies = Strategies::new_from("public.users".to_string(), column_infos.clone());
+        let strategies = Strategies::new_from("public.users".to_string(), column_infos);
 
         let mut state = State::new();
         let transformed_row = parse(copy_row, &mut state, &strategies);

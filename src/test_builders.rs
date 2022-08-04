@@ -1,5 +1,5 @@
 #[cfg(test)]
-pub mod test_builders {
+pub mod builders {
     use crate::parsers::state::Types;
     use crate::parsers::strategy_structs::ColumnInfo;
     use crate::parsers::strategy_structs::DataCategory;
@@ -46,12 +46,10 @@ pub mod test_builders {
         pub fn build(self) -> ColumnInfo {
             ColumnInfo {
                 name: self.name,
-                data_category: self.data_category.unwrap_or_else(|| DataCategory::General),
+                data_category: self.data_category.unwrap_or(DataCategory::General),
                 transformer: Transformer {
                     args: self.transformer_args,
-                    name: self
-                        .transformer_type
-                        .unwrap_or_else(|| TransformerType::Identity),
+                    name: self.transformer_type.unwrap_or(TransformerType::Identity),
                 },
             }
         }
