@@ -22,6 +22,10 @@ impl Types {
             .get(table_name)
             .and_then(|table| table.get(column_name))
     }
+
+    pub fn for_table(&self, table_name: &str) -> Option<&HashMap<String, Type>> {
+        self.types.get(table_name)
+    }
 }
 
 pub struct State {

@@ -1,3 +1,4 @@
+use crate::parsers::sanitiser;
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_structs::ColumnInfo;
 use lazy_static::lazy_static;
@@ -37,7 +38,7 @@ fn get_current_table_information(
     let table_name = table.replace('\"', "");
     let column_list: Vec<String> = unsplit_columns
         .split(", ")
-        .map(|s| s.replace('\"', ""))
+        .map(sanitiser::dequote_column_or_table_name_data)
         .collect();
     let columns = columns_from_strategy(strategies, &table_name, &column_list);
 

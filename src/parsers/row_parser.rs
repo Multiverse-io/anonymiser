@@ -1,6 +1,7 @@
 use crate::parsers::copy_row;
 use crate::parsers::copy_row::CurrentTableTransforms;
 use crate::parsers::create_row;
+use crate::parsers::sanitiser;
 use crate::parsers::state::*;
 use crate::parsers::strategies::Strategies;
 use crate::parsers::transformer;
@@ -20,7 +21,7 @@ enum RowType {
 }
 
 fn row_type(line: &str, state: &Position) -> RowType {
-    if line.starts_with("CREATE TABLE ") {
+    if create_row::is_create_row(line) {
         RowType::CreateTableStart
     } else if line.starts_with("COPY ") {
         RowType::CopyBlockStart
@@ -38,9 +39,13 @@ fn row_type(line: &str, state: &Position) -> RowType {
 }
 
 pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
-    match (row_type(line, &state.position), state.position.clone()) {
+    let sanitised_line = sanitiser::trim(line);
+    match (
+        row_type(sanitised_line, &state.position),
+        state.position.clone(),
+    ) {
         (RowType::CreateTableStart, _position) => {
-            let table_name = create_row::parse(line);
+            let table_name = create_row::parse(sanitised_line);
             state.update_position(Position::InCreateTable {
                 table_name,
                 types: Vec::new(),
@@ -56,7 +61,7 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
         ) => {
             state.update_position(Position::InCreateTable {
                 table_name,
-                types: add_create_table_row_to_types(line, current_types.to_vec()),
+                types: add_create_table_row_to_types(sanitised_line, current_types.to_vec()),
             });
             line.to_string()
         }
@@ -65,7 +70,7 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
             line.to_string()
         }
         (RowType::CopyBlockStart, _position) => {
-            let current_table = copy_row::parse(line, strategies);
+            let current_table = copy_row::parse(sanitised_line, strategies);
             state.update_position(Position::InCopy { current_table });
             line.to_string()
         }
@@ -77,7 +82,7 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
             state.update_position(Position::InCopy {
                 current_table: current_table.clone(),
             });
-            transform_row(line, &current_table, &state.types)
+            transform_row(sanitised_line, &current_table, &state.types)
         }
 
         (RowType::Normal, Position::Normal) => {
@@ -103,8 +108,10 @@ fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Typ
             .lookup(&current_table.table_name, &current_column.name)
             .unwrap_or_else(|| {
                 panic!(
-                    "No type found for {}.{}\nI did find: {:?}",
-                    current_table.table_name, current_column.name, types
+                    "No type found for {}.{}\nI did find these for the table: {:?}",
+                    current_table.table_name,
+                    current_column.name,
+                    types.for_table(&current_table.table_name)
                 )
             });
 
@@ -144,6 +151,23 @@ mod tests {
     #[test]
     fn create_table_start_row_is_parsed() {
         let create_table_row = "CREATE TABLE public.candidate_details (";
+        let strategies = Strategies::new_from("public.users".to_string(), HashMap::from([]));
+
+        let mut state = State::new();
+        let transformed_row = parse(create_table_row, &mut state, &strategies);
+        assert_eq!(
+            state.position,
+            Position::InCreateTable {
+                table_name: "public.candidate_details".to_string(),
+                types: Vec::new()
+            }
+        );
+        assert_eq!(create_table_row, transformed_row);
+    }
+
+    #[test]
+    fn create_unlogged_table_start_row_is_parsed() {
+        let create_table_row = "CREATE UNLOGGED TABLE public.candidate_details (";
         let strategies = Strategies::new_from("public.users".to_string(), HashMap::from([]));
 
         let mut state = State::new();
