@@ -102,7 +102,6 @@ fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Typ
     let column_values = split_row(line);
 
     let transformed = column_values.enumerate().map(|(i, value)| {
-        //TODO sort this out
         let current_column = &current_table.columns[i];
         let column_type = types
             .lookup(&current_table.table_name, &current_column.name)
