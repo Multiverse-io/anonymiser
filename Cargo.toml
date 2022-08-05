@@ -22,7 +22,6 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 structopt = "0.3"
 uuid = { version = "0.8", features = [ "v4"] }
-fnv = "1"
 mimalloc = "0.1.29"
 
 [dev-dependencies]

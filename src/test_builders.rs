@@ -6,7 +6,6 @@ pub mod builders {
     use crate::parsers::strategy_structs::Transformer;
     use crate::parsers::strategy_structs::TransformerType;
     use crate::parsers::types::{SubType, Type};
-    use fnv::FnvHashMap;
     use std::collections::HashMap;
 
     impl ColumnInfo {
@@ -64,7 +63,7 @@ pub mod builders {
 
     #[derive(Default)]
     pub struct TypesBuilder {
-        types: FnvHashMap<String, FnvHashMap<String, Type>>,
+        types: HashMap<String, HashMap<String, Type>>,
     }
 
     impl TypesBuilder {

@@ -1,20 +1,19 @@
 use crate::parsers::copy_row::CurrentTableTransforms;
 use crate::parsers::types::Column;
 use crate::parsers::types::Type;
-use fnv::FnvHashMap;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Types {
-    types: FnvHashMap<String, FnvHashMap<String, Type>>,
+    types: HashMap<String, HashMap<String, Type>>,
 }
 
 impl Types {
-    pub fn new(initial: FnvHashMap<String, FnvHashMap<String, Type>>) -> Self {
+    pub fn new(initial: HashMap<String, HashMap<String, Type>>) -> Self {
         Types { types: initial }
     }
 
-    pub fn insert(&mut self, table_name: &str, column_types: FnvHashMap<String, Type>) {
+    pub fn insert(&mut self, table_name: &str, column_types: HashMap<String, Type>) {
         self.types.insert(table_name.to_string(), column_types);
     }
 
@@ -24,7 +23,7 @@ impl Types {
             .and_then(|table| table.get(column_name))
     }
 
-    pub fn for_table(&self, table_name: &str) -> Option<&FnvHashMap<String, Type>> {
+    pub fn for_table(&self, table_name: &str) -> Option<&HashMap<String, Type>> {
         self.types.get(table_name)
     }
 }
@@ -68,7 +67,7 @@ impl State {
                 table_types
                     .iter()
                     .map(|c| (c.name.clone(), c.data_type.clone()))
-                    .collect::<FnvHashMap<String, Type>>(),
+                    .collect::<HashMap<String, Type>>(),
             );
         }
 
