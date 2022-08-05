@@ -13,6 +13,11 @@ use parsers::{db_schema, strategy_file};
 use postgres_openssl::MakeTlsConnector;
 use structopt::StructOpt;
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 fn main() -> Result<(), std::io::Error> {
     let opt = Opts::from_args();
 
@@ -28,12 +33,13 @@ fn main() -> Result<(), std::io::Error> {
                 allow_potential_pii,
                 allow_commercially_sensitive,
             };
-            return anonymiser::anonymise(
+
+            anonymiser::anonymise(
                 input_file,
                 output_file,
                 strategy_file,
                 transformer_overrides,
-            );
+            )?
         }
         Anonymiser::ToCsv {
             output_file,

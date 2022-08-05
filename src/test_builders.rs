@@ -6,6 +6,7 @@ pub mod builders {
     use crate::parsers::strategy_structs::Transformer;
     use crate::parsers::strategy_structs::TransformerType;
     use crate::parsers::types::{SubType, Type};
+    use fnv::FnvHashMap;
     use std::collections::HashMap;
 
     impl ColumnInfo {
@@ -63,7 +64,7 @@ pub mod builders {
 
     #[derive(Default)]
     pub struct TypesBuilder {
-        types: HashMap<String, HashMap<String, Type>>,
+        types: FnvHashMap<String, FnvHashMap<String, Type>>,
     }
 
     impl TypesBuilder {
@@ -90,6 +91,7 @@ pub mod builders {
             };
             self.common_add_type(table_name, column_name, column_type)
         }
+
         fn common_add_type(
             mut self,
             table_name: &str,
@@ -101,7 +103,7 @@ pub mod builders {
             } else {
                 self.types.insert(
                     table_name.to_string(),
-                    HashMap::from([(column_name.to_string(), column_type)]),
+                    HashMap::from_iter([(column_name.to_string(), column_type)]),
                 );
             }
 

@@ -12,7 +12,8 @@ use fake::faker::company::en::*;
 use fake::faker::internet::en::*;
 use fake::faker::name::en::*;
 use fake::Fake;
-use rand::{thread_rng, Rng};
+use rand::SeedableRng;
+use rand::{rngs::SmallRng, Rng};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
@@ -130,13 +131,18 @@ fn prepend_unique_if_present(
         new_value
     }
 }
+
 fn fake_base16_string() -> String {
-    let random_bytes = rand::thread_rng().gen::<[u8; 16]>();
+    let random_bytes = SmallRng::from_rng(rand::thread_rng())
+        .unwrap_or_else(|_| SmallRng::from_entropy())
+        .gen::<[u8; 16]>();
     base16::encode_lower(&random_bytes)
 }
 
 fn fake_base32_string() -> String {
-    let random_bytes = rand::thread_rng().gen::<[u8; 16]>();
+    let random_bytes = SmallRng::from_rng(rand::thread_rng())
+        .unwrap_or_else(|_| SmallRng::from_entropy())
+        .gen::<[u8; 16]>();
     base32::encode(Alphabet::RFC4648 { padding: true }, &random_bytes)
 }
 
@@ -180,7 +186,8 @@ fn fake_national_identity_number() -> String {
 static UK_FAKE_MOBILE_RANGE: Range<i32> = 900000..960999;
 
 fn fake_phone_number(current_value: &str) -> String {
-    let mut rng = rand::thread_rng();
+    let mut rng =
+        SmallRng::from_rng(rand::thread_rng()).unwrap_or_else(|_| SmallRng::from_entropy());
     if current_value.starts_with("+447") {
         let random = rng.gen_range(UK_FAKE_MOBILE_RANGE.clone());
         return format!("+447700{0}", random);
@@ -242,10 +249,10 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
 
 fn scramble(original_value: &str) -> String {
     let mut chars = original_value.chars();
-    let mut output_buf = Vec::new();
-    output_buf.reserve(chars.clone().count());
+    let mut output_buf = String::with_capacity(original_value.len());
 
-    let mut rng = thread_rng();
+    let mut rng =
+        SmallRng::from_rng(rand::thread_rng()).unwrap_or_else(|_| SmallRng::from_entropy());
 
     while let Some(current_char) = chars.next() {
         if current_char == '\\' {
@@ -265,7 +272,7 @@ fn scramble(original_value: &str) -> String {
         }
     }
 
-    return output_buf.iter().collect();
+    output_buf
 }
 
 #[cfg(test)]

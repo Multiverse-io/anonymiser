@@ -1,19 +1,20 @@
 use crate::parsers::copy_row::CurrentTableTransforms;
 use crate::parsers::types::Column;
 use crate::parsers::types::Type;
+use fnv::FnvHashMap;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Types {
-    types: HashMap<String, HashMap<String, Type>>,
+    types: FnvHashMap<String, FnvHashMap<String, Type>>,
 }
 
 impl Types {
-    pub fn new(initial: HashMap<String, HashMap<String, Type>>) -> Self {
+    pub fn new(initial: FnvHashMap<String, FnvHashMap<String, Type>>) -> Self {
         Types { types: initial }
     }
 
-    pub fn insert(&mut self, table_name: &str, column_types: HashMap<String, Type>) {
+    pub fn insert(&mut self, table_name: &str, column_types: FnvHashMap<String, Type>) {
         self.types.insert(table_name.to_string(), column_types);
     }
 
@@ -23,7 +24,7 @@ impl Types {
             .and_then(|table| table.get(column_name))
     }
 
-    pub fn for_table(&self, table_name: &str) -> Option<&HashMap<String, Type>> {
+    pub fn for_table(&self, table_name: &str) -> Option<&FnvHashMap<String, Type>> {
         self.types.get(table_name)
     }
 }
@@ -49,7 +50,7 @@ impl State {
     pub fn new() -> State {
         State {
             position: Position::Normal,
-            types: Types::new(HashMap::new()),
+            types: Types::new(HashMap::default()),
         }
     }
 
@@ -60,14 +61,14 @@ impl State {
                 types: table_types,
             },
             Position::Normal,
-        ) = (self.position.clone(), new_position.clone())
+        ) = (&self.position, &new_position)
         {
             self.types.insert(
-                &table_name,
+                table_name,
                 table_types
                     .iter()
                     .map(|c| (c.name.clone(), c.data_type.clone()))
-                    .collect::<HashMap<String, Type>>(),
+                    .collect::<FnvHashMap<String, Type>>(),
             );
         }
 
@@ -85,7 +86,7 @@ mod tests {
     fn new_creates_default_state() {
         let state = State::new();
         assert_eq!(state.position, Position::Normal);
-        assert_eq!(state.types, Types::new(HashMap::new()));
+        assert_eq!(state.types, Types::new(HashMap::default()));
     }
 
     #[test]
@@ -119,7 +120,7 @@ mod tests {
                     },
                 ],
             },
-            types: Types::new(HashMap::new()),
+            types: Types::new(HashMap::default()),
         };
 
         state.update_position(Position::Normal);
@@ -127,9 +128,9 @@ mod tests {
         assert_eq!(state.position, Position::Normal);
         assert_eq!(
             state.types,
-            Types::new(HashMap::from([(
+            Types::new(HashMap::from_iter([(
                 "table-mc-tableface".to_string(),
-                HashMap::from([
+                HashMap::from_iter([
                     ("column".to_string(), Type::integer()),
                     ("column_2".to_string(), Type::character())
                 ])
