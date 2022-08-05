@@ -419,7 +419,6 @@ mod tests {
                 .build(),
         };
         let processed_row = parse(table_data_row, &mut state, &strategies);
-        println!("{}", processed_row);
         assert!(table_data_row != processed_row);
     }
 }

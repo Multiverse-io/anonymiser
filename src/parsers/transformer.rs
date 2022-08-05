@@ -618,7 +618,6 @@ mod tests {
 
         assert!(new_user_name != user_name);
         let re = Regex::new(r"^[0-9]+-.*").unwrap();
-        print!("{}", new_user_name);
         assert!(
             re.is_match(&new_user_name),
             "Username {:?} does not have the unique prefix",
@@ -869,7 +868,6 @@ mod tests {
             TABLE_NAME,
         );
         assert!(new_value != initial_value);
-        println!("{}", new_value);
         let re = Regex::new(r#"^\{"[a-z]", "[a-z]"\}$"#).unwrap();
         assert!(
             re.is_match(&new_value),
@@ -911,7 +909,6 @@ mod tests {
             TABLE_NAME,
         );
         assert!(new_value != initial_value);
-        println!("{}", new_value);
         let re = Regex::new(r#"^\{[0-9], [0-9]\}$"#).unwrap();
         assert!(
             re.is_match(&new_value),

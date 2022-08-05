@@ -35,7 +35,7 @@ fn get_current_table_information(
     unsplit_columns: &str,
     strategies: &Strategies,
 ) -> CurrentTableTransforms {
-    let table_name = table.replace('\"', "");
+    let table_name = sanitiser::dequote_column_or_table_name_data(table);
     let column_list: Vec<String> = unsplit_columns
         .split(", ")
         .map(sanitiser::dequote_column_or_table_name_data)
@@ -115,33 +115,27 @@ mod tests {
                     .build(),
             ],
         };
+
         assert_eq!(expected.table_name, parsed_copy_row.table_name);
         assert_eq!(expected.columns, parsed_copy_row.columns);
     }
 
     #[test]
-    fn removes_quotes_around_table_names() {
+    fn removes_quotes_around_table_and_column_names() {
+        let expected_column = ColumnInfo::builder().with_name("from").build();
+
         let strategies = Strategies::new_from(
             "public.references".to_string(),
-            HashMap::from([("id".to_string(), ColumnInfo::builder().build())]),
+            HashMap::from([("from".to_string(), expected_column.clone())]),
         );
 
-        let parsed_copy_row = parse("COPY public.\"references\" (id) FROM stdin;\n", &strategies);
+        let parsed_copy_row = parse(
+            "COPY public.\"references\" (\"from\") FROM stdin;\n",
+            &strategies,
+        );
 
         assert_eq!("public.references", parsed_copy_row.table_name);
-    }
-
-    #[test]
-    fn doesnt_panic_with_quotes_around_column_names() {
-        let strategies = Strategies::new_from(
-            "public.users".to_string(),
-            HashMap::from([
-                ("id".to_string(), ColumnInfo::builder().build()),
-                ("from".to_string(), ColumnInfo::builder().build()),
-            ]),
-        );
-
-        let _parsed_copy_row = parse("COPY public.users (\"from\") FROM stdin;\n", &strategies);
+        assert_eq!(vec![expected_column], parsed_copy_row.columns);
     }
 
     #[test]

@@ -288,8 +288,6 @@ mod tests {
             .into_iter(),
         );
 
-        println!("{:?}", strategies);
-
         let columns_from_db = HashSet::from([
             create_simple_column("public.person", "first_name"),
             create_simple_column("public.person", "last_name"),
@@ -298,7 +296,7 @@ mod tests {
         let result = strategies.validate(columns_from_db);
 
         let error = result.unwrap_err();
-        println!("{:?}", error);
+
         assert_eq!(
             error.unanonymised_pii,
             vec!(
