@@ -58,33 +58,33 @@ mod tests {
         strategies.insert(
             "public.orders".to_string(),
             HashMap::from([
-                ("id".to_string(), column_info()),
-                ("user_id".to_string(), column_info()),
-                ("product_id".to_string(), column_info()),
+                strategy_tuple("id"),
+                strategy_tuple("user_id"),
+                strategy_tuple("product_id"),
             ]),
         );
         strategies.insert(
             "public.products".to_string(),
             HashMap::from([
-                ("id".to_string(), column_info()),
-                ("description".to_string(), column_info()),
-                ("price".to_string(), column_info()),
+                strategy_tuple("id"),
+                strategy_tuple("description"),
+                strategy_tuple("price"),
             ]),
         );
 
         strategies.insert(
             "public.users".to_string(),
             HashMap::from([
-                ("id".to_string(), column_info()),
-                ("email".to_string(), column_info()),
-                ("password".to_string(), column_info()),
-                ("last_login".to_string(), column_info()),
-                ("inserted_at".to_string(), column_info()),
-                ("updated_at".to_string(), column_info()),
-                ("first_name".to_string(), column_info()),
-                ("last_name".to_string(), column_info()),
-                ("deactivated".to_string(), column_info()),
-                ("phone_number".to_string(), column_info()),
+                strategy_tuple("id"),
+                strategy_tuple("email"),
+                strategy_tuple("password"),
+                strategy_tuple("last_login"),
+                strategy_tuple("inserted_at"),
+                strategy_tuple("updated_at"),
+                strategy_tuple("first_name"),
+                strategy_tuple("last_name"),
+                strategy_tuple("deactivated"),
+                strategy_tuple("phone_number"),
             ]),
         );
 
@@ -99,14 +99,10 @@ mod tests {
         assert_eq!(original, processed);
     }
 
-    fn column_info() -> ColumnInfo {
-        ColumnInfo {
-            data_category: DataCategory::General,
-            name: "column1".to_string(),
-            transformer: Transformer {
-                name: TransformerType::Identity,
-                args: None,
-            },
-        }
+    fn strategy_tuple(column_name: &str) -> (String, ColumnInfo) {
+        (
+            column_name.to_string(),
+            ColumnInfo::builder().with_name(column_name).build(),
+        )
     }
 }

@@ -7,6 +7,7 @@ pub struct ColumnInFile {
     pub data_category: DataCategory,
     pub description: String,
     pub name: String,
+
     pub transformer: Transformer,
 }
 
@@ -94,7 +95,7 @@ impl PartialOrd for SimpleColumn {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ColumnInfo {
     pub data_category: DataCategory,
     pub name: String,

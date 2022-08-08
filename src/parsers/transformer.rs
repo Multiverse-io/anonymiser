@@ -1,5 +1,8 @@
 use crate::parsers::national_insurance_number;
 use crate::parsers::strategy_structs::{Transformer, TransformerType};
+use crate::parsers::types::Type::Array;
+use crate::parsers::types::Type::SingleValue;
+use crate::parsers::types::*;
 use base16;
 use base32::Alphabet;
 use chrono::{Datelike, NaiveDate};
@@ -9,9 +12,7 @@ use fake::faker::company::en::*;
 use fake::faker::internet::en::*;
 use fake::faker::name::en::*;
 use fake::Fake;
-use lazy_static::lazy_static;
 use rand::{thread_rng, Rng};
-use regex::Regex;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
@@ -22,7 +23,12 @@ fn get_unique() -> usize {
     UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst)
 }
 
-pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name: &str) -> String {
+pub fn transform<'line>(
+    value: &'line str,
+    column_type: &Type,
+    transformer: &Transformer,
+    table_name: &str,
+) -> String {
     if ["\\N", "deleted"].contains(&value) {
         return value.to_string();
     }
@@ -31,8 +37,11 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
         return value.to_string();
     }
 
-    if value.starts_with('{') && value.ends_with('}') {
-        return transform_array(value, transformer, table_name);
+    if let Array {
+        sub_type: underlying_type,
+    } = column_type
+    {
+        return transform_array(value, underlying_type, transformer, table_name);
     }
 
     let unique = get_unique();
@@ -66,14 +75,18 @@ pub fn transform<'line>(value: &'line str, transformer: &Transformer, table_name
     }
 }
 
-fn transform_array(value: &str, transformer: &Transformer, table_name: &str) -> String {
-    lazy_static! {
-        static ref ARRAY_OF_STRINGS_REGEX: Regex = Regex::new(r#"^\{".+".*\}$"#).unwrap();
-    }
-
-    let is_string_array = ARRAY_OF_STRINGS_REGEX.is_match(value);
+fn transform_array(
+    value: &str,
+    underlying_type: &SubType,
+    transformer: &Transformer,
+    table_name: &str,
+) -> String {
+    let is_string_array = underlying_type == &SubType::Character;
     let mut unsplit_array = value.to_string();
 
+    let sub_type = SingleValue {
+        sub_type: underlying_type.clone(),
+    };
     unsplit_array.remove(0);
     unsplit_array.pop();
 
@@ -84,12 +97,16 @@ fn transform_array(value: &str, transformer: &Transformer, table_name: &str) -> 
                 let mut list_item_without_enclosing_quotes = list_item.to_string();
                 list_item_without_enclosing_quotes.remove(0);
                 list_item_without_enclosing_quotes.pop();
-                let transformed =
-                    transform(&list_item_without_enclosing_quotes, transformer, table_name);
+                let transformed = transform(
+                    &list_item_without_enclosing_quotes,
+                    &sub_type,
+                    transformer,
+                    table_name,
+                );
 
                 format!("\"{}\"", transformed)
             } else {
-                transform(list_item, transformer, table_name)
+                transform(list_item, &sub_type, transformer, table_name)
             }
         })
         .collect();
@@ -192,8 +209,8 @@ fn fixed(args: &Option<HashMap<String, String>>, table_name: &str) -> String {
         .and_then(|a| a.get("value"))
         .unwrap_or_else(|| {
             panic!(
-                "Value must be present in args for a fixed transformer in table: {}",
-                table_name,
+                "'value' must be present in args for a fixed transformer in table: '{}'\ngot: '{:?}'",
+                table_name, args,
             )
         });
     value.to_string()
@@ -263,6 +280,9 @@ mod tests {
         let null = "\\N";
         let new_null = transform(
             null,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -277,6 +297,9 @@ mod tests {
         let deleted = "deleted";
         let new_deleted = transform(
             deleted,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -291,6 +314,9 @@ mod tests {
         let first_name = "any first name";
         let new_first_name = transform(
             first_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Identity,
                 args: None,
@@ -305,6 +331,9 @@ mod tests {
         let verification_key = "1702a4eddd53d6fa79ed4a677e64c002";
         let new_verification_key = transform(
             verification_key,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeBase16String,
                 args: None,
@@ -320,6 +349,9 @@ mod tests {
         let verification_key = "EMVXWNTUKRVAODPQ7KIBBQQTWY======";
         let new_verification_key = transform(
             verification_key,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeBase32String,
                 args: None,
@@ -335,6 +367,9 @@ mod tests {
         let company_name = "any company name";
         let new_company_name = transform(
             company_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeCompanyName,
                 args: None,
@@ -348,6 +383,9 @@ mod tests {
         let company_name = "any company name";
         let new_company_name = transform(
             company_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeCompanyName,
                 args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
@@ -362,6 +400,9 @@ mod tests {
         let email = "any email";
         let new_email = transform(
             email,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeEmail,
                 args: None,
@@ -383,6 +424,9 @@ mod tests {
         let email = "rupert@example.com";
         let new_email = transform(
             email,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeEmail,
                 args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
@@ -403,6 +447,9 @@ mod tests {
         let first_name = "any first name";
         let new_first_name = transform(
             first_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeFirstName,
                 args: None,
@@ -417,6 +464,9 @@ mod tests {
         let full_name = "any full name";
         let new_full_name = transform(
             full_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeFullName,
                 args: None,
@@ -431,6 +481,9 @@ mod tests {
         let last_name = "any last name";
         let new_last_name = transform(
             last_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeLastName,
                 args: None,
@@ -445,6 +498,9 @@ mod tests {
         let street_address = "any street_address";
         let new_street_address = transform(
             street_address,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeFullAddress,
                 args: None,
@@ -459,6 +515,9 @@ mod tests {
         let national_identity_number = "JR 55 55 55 E";
         let new_national_identity_number = transform(
             national_identity_number,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeNationalIdentityNumber,
                 args: None,
@@ -475,6 +534,9 @@ mod tests {
         let phone_number = "+447822222222";
         let new_phone_number = transform(
             phone_number,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakePhoneNumber,
                 args: None,
@@ -491,6 +553,9 @@ mod tests {
         let phone_number = "+16505130514";
         let new_phone_number = transform(
             phone_number,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakePhoneNumber,
                 args: None,
@@ -507,6 +572,9 @@ mod tests {
         let postcode = "NW5 3QQ";
         let new_postcode = transform(
             postcode,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakePostCode,
                 args: None,
@@ -521,6 +589,9 @@ mod tests {
         let user_name = "any user_name";
         let new_user_name = transform(
             user_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeUsername,
                 args: None,
@@ -535,6 +606,9 @@ mod tests {
         let user_name = "any user_name";
         let new_user_name = transform(
             user_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::FakeUsername,
                 args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
@@ -544,7 +618,6 @@ mod tests {
 
         assert!(new_user_name != user_name);
         let re = Regex::new(r"^[0-9]+-.*").unwrap();
-        print!("{}", new_user_name);
         assert!(
             re.is_match(&new_user_name),
             "Username {:?} does not have the unique prefix",
@@ -558,6 +631,9 @@ mod tests {
         let fixed_url = "a very fixed web address";
         let new_url = transform(
             url,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Fixed,
                 args: Some(HashMap::from([(
@@ -570,11 +646,14 @@ mod tests {
         assert_eq!(new_url, fixed_url);
     }
     #[test]
-    #[should_panic(expected = "Value must be present in args for a fixed transformer")]
+    #[should_panic(expected = "'value' must be present in args for a fixed transformer")]
     fn fixed_panics_if_value_not_provided() {
         let url = "any web address";
         transform(
             url,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Fixed,
                 args: None,
@@ -588,6 +667,11 @@ mod tests {
         let date = "2020-12-12";
         let obfuscated_date = transform(
             date,
+            &Type::SingleValue {
+                sub_type: SubType::Unknown {
+                    underlying_type: "some date or another".to_string(),
+                },
+            },
             &Transformer {
                 name: TransformerType::ObfuscateDay,
                 args: None,
@@ -605,6 +689,11 @@ mod tests {
         let date = "2020-OHMYGOSH-12";
         transform(
             date,
+            &Type::SingleValue {
+                sub_type: SubType::Unknown {
+                    underlying_type: "some sort of date".to_string(),
+                },
+            },
             &Transformer {
                 name: TransformerType::ObfuscateDay,
                 args: None,
@@ -618,6 +707,11 @@ mod tests {
         let date = "0001-08-04 BC";
         let result = transform(
             date,
+            &Type::SingleValue {
+                sub_type: SubType::Unknown {
+                    underlying_type: "some sort of date".to_string(),
+                },
+            },
             &Transformer {
                 name: TransformerType::ObfuscateDay,
                 args: None,
@@ -634,6 +728,9 @@ mod tests {
 
         let new_value = transform(
             initial_value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -654,6 +751,9 @@ mod tests {
 
         let new_value = transform(
             initial_value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -674,6 +774,9 @@ mod tests {
 
         let new_value = transform(
             initial_value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -694,6 +797,9 @@ mod tests {
 
         let new_value = transform(
             initial_value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -710,6 +816,9 @@ mod tests {
 
         let new_value = transform(
             initial_value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -726,6 +835,9 @@ mod tests {
 
         let new_value = transform(
             initial_value,
+            &Type::SingleValue {
+                sub_type: SubType::Integer,
+            },
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -746,6 +858,9 @@ mod tests {
         let initial_value = "{\"A\", \"B\"}";
         let new_value = transform(
             initial_value,
+            &Type::Array {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -753,7 +868,6 @@ mod tests {
             TABLE_NAME,
         );
         assert!(new_value != initial_value);
-        println!("{}", new_value);
         let re = Regex::new(r#"^\{"[a-z]", "[a-z]"\}$"#).unwrap();
         assert!(
             re.is_match(&new_value),
@@ -768,6 +882,9 @@ mod tests {
         let initial_value = "{\"A, B\", \"C\"}";
         let new_value = transform(
             initial_value,
+            &Type::Array {
+                sub_type: SubType::Character,
+            },
             &Transformer {
                 name: TransformerType::Identity,
                 args: None,
@@ -782,6 +899,9 @@ mod tests {
         let initial_value = "{1, 2}";
         let new_value = transform(
             initial_value,
+            &Type::Array {
+                sub_type: SubType::Integer,
+            },
             &Transformer {
                 name: TransformerType::Scramble,
                 args: None,
@@ -789,12 +909,28 @@ mod tests {
             TABLE_NAME,
         );
         assert!(new_value != initial_value);
-        println!("{}", new_value);
         let re = Regex::new(r#"^\{[0-9], [0-9]\}$"#).unwrap();
         assert!(
             re.is_match(&new_value),
             "new value: \"{}\" does not contain same digit / alphabet structure as input",
             new_value
         );
+    }
+
+    #[test]
+    fn empty_json() {
+        let json = "{\"foo\": \"bar\"}";
+        let new_json = transform(
+            json,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::EmptyJson,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert_eq!(new_json, "{}");
     }
 }

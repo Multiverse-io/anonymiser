@@ -38,9 +38,7 @@ fn main() -> Result<(), std::io::Error> {
         Anonymiser::ToCsv {
             output_file,
             strategy_file,
-        } => {
-            strategy_file::to_csv(&strategy_file, &output_file)?;
-        }
+        } => strategy_file::to_csv(&strategy_file, &output_file)?,
         Anonymiser::CheckStrategies {
             fix: fix_flag,
             strategy_file,
@@ -149,3 +147,6 @@ fn strategy_differences(strategies: &Strategies, db_url: String) -> Result<(), M
     let db_columns = db_schema::parse(&mut client);
     strategies.validate(db_columns)
 }
+
+#[cfg(test)]
+mod test_builders;

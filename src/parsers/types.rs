@@ -1,3 +1,5 @@
+use crate::parsers::sanitiser;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Column {
     pub name: String,
@@ -22,6 +24,7 @@ impl Type {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SubType {
+    //TODO JSON?!?
     Character,
     Integer,
     Unknown { underlying_type: String },
@@ -51,15 +54,17 @@ fn is_non_column_definition(first_word: &str) -> bool {
 pub fn parse(line: &str) -> Option<Column> {
     let trimmed_line = match line.strip_suffix(',') {
         None => line,
-        Some(trimmed_line) => trimmed_line,
+        Some(stripped_line) => stripped_line,
     };
 
     let mut bits = trimmed_line.split(' ');
-    let name = bits
+    let dirty_name = bits
         .next()
         .expect("Not expecting an empty row inside a CREATE TABLE statement!");
 
-    if !is_non_column_definition(name) {
+    let name = sanitiser::dequote_column_or_table_name_data(dirty_name);
+
+    if !is_non_column_definition(&name) {
         let rest: String = bits
             .take_while(|w| {
                 !matches!(
@@ -82,7 +87,7 @@ pub fn parse(line: &str) -> Option<Column> {
             .join(" ");
 
         Some(Column {
-            name: name.to_string(),
+            name,
             data_type: string_to_type(rest),
         })
     } else {
@@ -93,7 +98,7 @@ pub fn parse(line: &str) -> Option<Column> {
 fn string_to_type(type_string: String) -> Type {
     let sub_type = if type_string.starts_with("character") {
         SubType::Character
-    } else if type_string.starts_with("bigint") {
+    } else if type_string.starts_with("bigint") || type_string.starts_with("integer") {
         SubType::Integer
     } else {
         SubType::Unknown {
@@ -112,6 +117,14 @@ fn string_to_type(type_string: String) -> Type {
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn can_deal_with_quoted_column_names() {
+        let row = "\"order\" integer NOT NULL,";
+        let parsed = parse(row).expect("Expected a column back! but got None");
+        assert_eq!(parsed.name, "order");
+        assert_eq!(parsed.data_type, Type::integer());
+    }
 
     #[test]
     fn parses_character_type() {
