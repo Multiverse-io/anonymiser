@@ -86,7 +86,7 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
-      - run: apk add --no-cache git musl-dev bash
+      - run: apk add --no-cache git musl-dev bash openssl-dev
       - run: ./update_version $CIRCLE_TAG
       - run: cargo build --release --target=x86_64-unknown-linux-musl
       - run: mv target/x86_64-unknown-linux-musl/release/anonymiser anonymiser-x86_64-unknown-linux-musl
@@ -102,6 +102,7 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
+      - run: brew install openssl@1.1
       - run: ./update_version $CIRCLE_TAG
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - run: rustup target add aarch64-apple-darwin
