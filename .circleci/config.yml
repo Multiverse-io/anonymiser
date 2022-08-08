@@ -84,6 +84,7 @@ jobs:
       - image: rust:1.62-alpine
     environment:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
+      RUSTFLAGS: -Ctarget-feature=-crt-static
     steps:
       - checkout
       - run: apk add --no-cache git musl-dev bash openssl-dev
