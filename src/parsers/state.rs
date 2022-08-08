@@ -49,7 +49,7 @@ impl State {
     pub fn new() -> State {
         State {
             position: Position::Normal,
-            types: Types::new(HashMap::new()),
+            types: Types::new(HashMap::default()),
         }
     }
 
@@ -60,10 +60,10 @@ impl State {
                 types: table_types,
             },
             Position::Normal,
-        ) = (self.position.clone(), new_position.clone())
+        ) = (&self.position, &new_position)
         {
             self.types.insert(
-                &table_name,
+                table_name,
                 table_types
                     .iter()
                     .map(|c| (c.name.clone(), c.data_type.clone()))
@@ -85,7 +85,7 @@ mod tests {
     fn new_creates_default_state() {
         let state = State::new();
         assert_eq!(state.position, Position::Normal);
-        assert_eq!(state.types, Types::new(HashMap::new()));
+        assert_eq!(state.types, Types::new(HashMap::default()));
     }
 
     #[test]
@@ -119,7 +119,7 @@ mod tests {
                     },
                 ],
             },
-            types: Types::new(HashMap::new()),
+            types: Types::new(HashMap::default()),
         };
 
         state.update_position(Position::Normal);
@@ -127,9 +127,9 @@ mod tests {
         assert_eq!(state.position, Position::Normal);
         assert_eq!(
             state.types,
-            Types::new(HashMap::from([(
+            Types::new(HashMap::from_iter([(
                 "table-mc-tableface".to_string(),
-                HashMap::from([
+                HashMap::from_iter([
                     ("column".to_string(), Type::integer()),
                     ("column_2".to_string(), Type::character())
                 ])

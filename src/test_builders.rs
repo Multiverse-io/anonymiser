@@ -90,6 +90,7 @@ pub mod builders {
             };
             self.common_add_type(table_name, column_name, column_type)
         }
+
         fn common_add_type(
             mut self,
             table_name: &str,
@@ -101,7 +102,7 @@ pub mod builders {
             } else {
                 self.types.insert(
                     table_name.to_string(),
-                    HashMap::from([(column_name.to_string(), column_type)]),
+                    HashMap::from_iter([(column_name.to_string(), column_type)]),
                 );
             }
 
