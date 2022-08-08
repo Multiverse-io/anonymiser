@@ -8,9 +8,10 @@ use crate::opts::{Anonymiser, Opts};
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_structs::{MissingColumns, SimpleColumn, TransformerOverrides};
 use itertools::Itertools;
-use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
+use native_tls::TlsConnector;
+use postgres_native_tls::MakeTlsConnector;
+
 use parsers::{db_schema, strategy_file};
-use postgres_openssl::MakeTlsConnector;
 use structopt::StructOpt;
 
 use mimalloc::MiMalloc;
@@ -144,10 +145,9 @@ fn missing_to_message(missing: &[SimpleColumn]) -> String {
 }
 
 fn strategy_differences(strategies: &Strategies, db_url: String) -> Result<(), MissingColumns> {
-    let mut builder =
-        SslConnector::builder(SslMethod::tls()).expect("expected to build tls connector!");
-    builder.set_verify(SslVerifyMode::PEER);
-    let connector = MakeTlsConnector::new(builder.build());
+    let builder = TlsConnector::builder();
+    let connector =
+        MakeTlsConnector::new(builder.build().expect("should be able to create builder!"));
 
     let mut client = postgres::Client::connect(&db_url, connector).expect("expected to connect!");
     let db_columns = db_schema::parse(&mut client);
