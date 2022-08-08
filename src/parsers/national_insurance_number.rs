@@ -1,11 +1,12 @@
 use rand::seq::SliceRandom;
 
 pub fn random() -> String {
-    return NATIONAL_INSURANCE_NUMBERS
+    NATIONAL_INSURANCE_NUMBERS
         .choose(&mut rand::thread_rng())
         .unwrap()
-        .to_string();
+        .to_string()
 }
+
 pub const NATIONAL_INSURANCE_NUMBERS: [&str; 1001] = [
     "MQ938548A",
     "IG994441D",

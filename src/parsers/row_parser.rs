@@ -7,7 +7,7 @@ use crate::parsers::strategies::Strategies;
 use crate::parsers::transformer;
 use crate::parsers::types;
 use crate::parsers::types::Column;
-use itertools::join;
+use itertools::Itertools;
 
 #[derive(Debug, PartialEq)]
 enum RowType {
@@ -101,7 +101,7 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
 fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Types) -> String {
     let column_values = split_row(line);
 
-    let transformed = column_values.enumerate().map(|(i, value)| {
+    let mut transformed = column_values.enumerate().map(|(i, value)| {
         let current_column = &current_table.columns[i];
         let column_type = types
             .lookup(&current_table.table_name, &current_column.name)
@@ -122,7 +122,7 @@ fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Typ
         )
     });
 
-    let mut joined = join(transformed, "\t");
+    let mut joined = transformed.join("\t");
     joined.push('\n');
     joined
 }
@@ -137,7 +137,7 @@ fn add_create_table_row_to_types(line: &str, mut current_types: Vec<Column>) -> 
 }
 
 fn split_row(line: &str) -> std::str::Split<char> {
-    return line.strip_suffix('\n').unwrap_or(line).split('\t');
+    line.strip_suffix('\n').unwrap_or(line).split('\t')
 }
 
 #[cfg(test)]
@@ -194,7 +194,7 @@ mod tests {
                     data_type: Type::integer(),
                 }],
             },
-            types: Types::new(HashMap::new()),
+            types: Types::new(HashMap::default()),
         };
         let transformed_row = parse(create_table_row, &mut state, &strategies);
 
@@ -227,7 +227,7 @@ mod tests {
                 table_name: "public.users".to_string(),
                 types: vec![],
             },
-            types: Types::new(HashMap::new()),
+            types: Types::new(HashMap::default()),
         };
         let transformed_row = parse(create_table_row, &mut state, &strategies);
 
@@ -254,15 +254,15 @@ mod tests {
                     data_type: Type::integer(),
                 }],
             },
-            types: Types::new(HashMap::new()),
+            types: Types::new(HashMap::default()),
         };
         let transformed_row = parse(create_table_row, &mut state, &strategies);
 
         assert_eq!(state.position, Position::Normal);
 
-        let expected_types = Types::new(HashMap::from([(
+        let expected_types = Types::new(HashMap::from_iter([(
             "public.users".to_string(),
-            HashMap::from([("id".to_string(), Type::integer())]),
+            HashMap::from_iter([("id".to_string(), Type::integer())]),
         )]));
         assert_eq!(state.types, expected_types);
         assert_eq!(create_table_row, transformed_row);
