@@ -12,7 +12,6 @@ use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
 
 use parsers::{db_schema, strategy_file};
-//use postgres_openssl::MakeTlsConnector;
 use structopt::StructOpt;
 
 fn main() -> Result<(), std::io::Error> {
