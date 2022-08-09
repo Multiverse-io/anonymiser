@@ -81,14 +81,11 @@ jobs:
 
   build_release_alpine:
     docker:
-      - image: rust:1.62-alpine
+      - image: clux/muslrust:1.62.1
     environment:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
-      RUSTFLAGS: -Ctarget-feature=+crt-static
-      PKG_CONFIG_ALL_STATIC: true
     steps:
       - checkout
-      - run: apk add --no-cache git musl-dev bash openssl-dev openssl-libs-static pkgconf
       - run: ./update_version $CIRCLE_TAG
       - run: cargo build --release --target=x86_64-unknown-linux-musl
       - run: mv target/x86_64-unknown-linux-musl/release/anonymiser anonymiser-x86_64-unknown-linux-musl
