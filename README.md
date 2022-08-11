@@ -10,9 +10,9 @@
 5. Review the draft release and publish
 
 
-## Data Types
+## Data Categories
 
-The following data types are supported
+The following data categories are supported
 
 - CommerciallySensitive - Client names, addresses, anything that we might want to obfuscate for commercial reasons
 - General - Normal data, not sensitive
@@ -52,7 +52,7 @@ Some transformers support option args. e.g. Fixed
 
 ```
   {
-    "data_type": "Pii",
+    "data_category": "Pii",
     "description": "",
     "name": "naughty_field",
     "transformer": {
@@ -70,7 +70,7 @@ Transformers with a * support the arg `unique` which will append an incrementing
 
 ```
   {
-    "data_type": "Pii",
+    "data_category": "Pii",
     "description": "user email address",
     "name": "email",
     "transformer": {

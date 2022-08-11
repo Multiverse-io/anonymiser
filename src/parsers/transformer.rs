@@ -790,9 +790,9 @@ mod tests {
             },
             TABLE_NAME,
         );
-        let re = Regex::new(r"^[a-z][a-z][a-z] [0-9][0-9][0-9] [a-z][0-9][a-z][0-9]").unwrap();
+        let re = Regex::new(r"^[a-z]{2} [0-9]{2} [a-z][0-9][a-z][0-9]").unwrap();
         assert!(
-            !re.is_match(&new_value),
+            re.is_match(&new_value),
             "new value: \"{}\" does not contain same digit / alphabet structure as input",
             new_value
         );
@@ -903,10 +903,7 @@ mod tests {
 
     #[test]
     fn can_scramble_array_integer_fields() {
-        //TODO this example breaks with an array that's too long??!
-        //let initial_value = "{1, 2, 4, 6, 9, 123, 11}";
-
-        let initial_value = "{1, 2, 4, 6, 9, 4, 8}";
+        let initial_value = "{1, 22, 444, 5656}";
         let new_value = transform(
             initial_value,
             &Type::Array {
@@ -919,7 +916,7 @@ mod tests {
             TABLE_NAME,
         );
         assert!(new_value != initial_value);
-        let re = Regex::new(r#"^\{[0-9], [0-9], [0-9], [0-9], [0-9], [0-9], [0-9]\}$"#).unwrap();
+        let re = Regex::new(r#"^\{[0-9], [0-9]{2}, [0-9]{3}, [0-9]{4}\}$"#).unwrap();
         assert!(
             re.is_match(&new_value),
             "new value: \"{}\" does not contain same digit / alphabet structure as input",
