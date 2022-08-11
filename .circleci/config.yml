@@ -208,7 +208,6 @@ jobs:
       - checkout
       - attach_workspace:
           at: .
-      - run: ls
       - gh/setup:
           version: 2.14.2
       - run: gh release create --draft --generate-notes "$CIRCLE_TAG" './anonymiser-x86_64-unknown-linux-musl#Linux' './anonymiser-x86_64-apple-darwin#Intel Mac' './anonymiser-aarch64-apple-darwin#Apple silicon mac'
@@ -293,6 +292,7 @@ workflows:
             - Default
             - github-deployer
           requires:
+            - build_release_macos
             - test_in_alpine
             - test_in_amazon_linux
           filters:
