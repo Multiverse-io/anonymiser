@@ -142,7 +142,7 @@ jobs:
     steps:
       - run:
           name: Install tar utility
-          command: yum install -y tar gzip
+          command: yum install -y tar gzip wget
 
       - attach_workspace:
           at: .
