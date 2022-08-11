@@ -4,6 +4,11 @@ orbs:
   gh: circleci/github-cli@2.1.0
   slack: circleci/slack@4.5.1
 
+parameters:
+   cache-key:
+     type: string
+     default: v2
+
 commands:
   slack_notify_failure:
     steps:
@@ -55,60 +60,111 @@ jobs:
           POSTGRES_PASSWORD: postgres
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - << pipeline.parameters.cache-key >>-cargo-debug-cache-{{ checksum "Cargo.lock" }}
       - run: echo 'export GIT_COMMIT_MSG="$(git log --format=oneline -n 1 $CIRCLE_SHA1)"' >> $BASH_ENV
       - run:
           name: Wait for db
           command: dockerize -wait tcp://localhost:5432 -timeout 1m
       - run: ./build_and_test
+      - save_cache:
+          paths:
+            - ~/.cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          key: << pipeline.parameters.cache-key >>-cargo-debug-cache-{{ checksum "Cargo.lock" }}
+
       - slack_notify_failure
       - store_test_results:
           path: results.xml
 
-  build_release_linux:
-    docker:
-      - image: cimg/rust:1.62
-    environment:
-      CARGO_NET_GIT_FETCH_WITH_CLI: true
-    steps:
-      - checkout
-      - run: ./update_version $CIRCLE_TAG
-      - run: cargo build --release --target=x86_64-unknown-linux-gnu
-      - run: mv target/x86_64-unknown-linux-gnu/release/anonymiser anonymiser-x86_64-unknown-linux-gnu
-      - persist_to_workspace:
-          root: .
-          paths:
-            - anonymiser-x86_64-unknown-linux-gnu
-
-  build_release_alpine:
+  build_release_linux_universal:
     docker:
       - image: clux/muslrust:1.62.1
     environment:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
-      - run: ./update_version $CIRCLE_TAG
+      - restore_cache:
+          keys:
+            - << pipeline.parameters.cache-key >>-cargo-linux-release-cache-{{ checksum "Cargo.lock" }}
+      - run: TAG="${CIRCLE_TAG:-v0.0.0}"; ./update_version $TAG
       - run: cargo build --release --target=x86_64-unknown-linux-musl
       - run: mv target/x86_64-unknown-linux-musl/release/anonymiser anonymiser-x86_64-unknown-linux-musl
+      - save_cache:
+          paths:
+            - ~/.cargo/registry
+            - target/release/.fingerprint
+            - target/release/build
+            - target/release/deps
+
+            - target/x86_64-unknown-linux-musl/release/.fingerprint
+            - target/x86_64-unknown-linux-musl/release/build
+            - target/x86_64-unknown-linux-musl/release/deps
+          key: << pipeline.parameters.cache-key >>-cargo-linux-release-cache-{{ checksum "Cargo.lock" }}
       - persist_to_workspace:
           root: .
           paths:
             - anonymiser-x86_64-unknown-linux-musl
 
+  test_in_alpine:
+    docker:
+      - image: ghcr.io/multiverse-io/elixir-ci:1.13.4-erlang-25.0.2-alpine-3.16.0
+    steps:
+      - attach_workspace:
+          at: .
+      - run: ./anonymiser-x86_64-unknown-linux-musl --help
+
+  test_in_amazon_linux:
+    docker:
+      - image: public.ecr.aws/amazonlinux/amazonlinux:latest
+    steps:
+      - run:
+          name: Install tar utility
+          command: yum install -y tar gzip
+
+      - attach_workspace:
+          at: .
+
+      - run: ./anonymiser-x86_64-unknown-linux-musl --help
+
+
   build_release_macos:
     macos:
-      xcode: 13.4.0
+      xcode: 13.4.1
     environment:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
-      - run: brew install openssl@1.1
-      - run: ./update_version $CIRCLE_TAG
+      - restore_cache:
+          keys:
+            - << pipeline.parameters.cache-key >>-cargo-mac-release-cache-{{ checksum "Cargo.lock" }}
+      - run: TAG="${CIRCLE_TAG:-v0.0.0}"; ./update_version $TAG
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - run: rustup target add aarch64-apple-darwin
       - run: cargo build --release --target=x86_64-apple-darwin
       - run: cargo build --release --target=aarch64-apple-darwin
       - run: mv target/x86_64-apple-darwin/release/anonymiser anonymiser-x86_64-apple-darwin
       - run: mv target/aarch64-apple-darwin/release/anonymiser anonymiser-aarch64-apple-darwin
+      - run:
+          name: Test x86 executable
+          command: ./anonymiser-x86_64-apple-darwin --help
+
+      - save_cache:
+          paths:
+            - ~/.cargo/registry
+            - target/release/.fingerprint
+            - target/release/build
+            - target/release/deps
+            - target/x86_64-apple-darwin/release/.fingerprint
+            - target/x86_64-apple-darwin/release/build
+            - target/x86_64-apple-darwin/release/deps
+            - target/aarch64-apple-darwin/release/.fingerprint
+            - target/aarch64-apple-darwin/release/build
+            - target/aarch64-apple-darwin/release/deps
+          key: << pipeline.parameters.cache-key >>-cargo-mac-release-cache-{{ checksum "Cargo.lock" }}
       - persist_to_workspace:
           root: .
           paths:
@@ -136,34 +192,28 @@ workflows:
           context:
             - Default
 
-  release:
-    jobs:
-      - test:
+      - build_release_linux_universal:
           context:
             - Default
-          filters: &filters-release
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v.*/
-
-      - build_release_linux:
-          context:
-            - Default
-          filters:
-            <<: *filters-release
-
-      - build_release_alpine:
-          context:
-            - Default
-          filters:
-            <<: *filters-release
+              #requires:
+              #  - test
 
       - build_release_macos:
           context:
             - Default
-          filters:
-            <<: *filters-release
+
+
+      - test_in_alpine:
+          context:
+            - Default
+          requires:
+            - build_release_linux_universal
+
+      - test_in_amazon_linux:
+          context:
+            - Default
+          requires:
+            - build_release_linux_universal
 
       - create_release:
           context:
@@ -171,8 +221,10 @@ workflows:
             - github-deployer
           requires:
             - test
-            - build_release_linux
-            - build_release_alpine
-            - build_release_macos
+            - build_release_linux_universal
+            #- build_release_macos
           filters:
-            <<: *filters-release
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
