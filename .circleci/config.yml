@@ -224,13 +224,14 @@ workflows:
       - build_release_linux_universal:
           context:
             - Default
-              #requires:
-              #  - test
+          requires:
+            - test
 
       - build_release_macos:
           context:
             - Default
-
+          requires:
+            - test
 
       - test_in_alpine:
           context:
@@ -244,16 +245,55 @@ workflows:
           requires:
             - build_release_linux_universal
 
+  release:
+    jobs:
+      - test:
+          context:
+            - Default
+          filters: &filters-release
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+
+      - build_release_linux_universal:
+          context:
+            - Default
+          requires:
+            - test
+          filters:
+            <<: *filters-release
+
+      - build_release_macos:
+          context:
+            - Default
+          requires:
+            - test
+          filters:
+            <<: *filters-release
+
+      - test_in_alpine:
+          context:
+            - Default
+          requires:
+            - build_release_linux_universal
+          filters:
+            <<: *filters-release
+
+      - test_in_amazon_linux:
+          context:
+            - Default
+          requires:
+            - build_release_linux_universal
+          filters:
+            <<: *filters-release
+
       - create_release:
           context:
             - Default
             - github-deployer
           requires:
-            - test
-            - build_release_linux_universal
-            #- build_release_macos
+            - test_in_alpine
+            - test_in_amazon_linux
           filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v.*/
+            <<: *filters-release
