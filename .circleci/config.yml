@@ -54,7 +54,6 @@ jobs:
         environment:
           CARGO_NET_GIT_FETCH_WITH_CLI: true
       - image: postgres:13.4
-        command: postgres -c jit=off -c fsync=off # dangerously disable fsync since we don't care about the data
         environment:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -112,24 +111,54 @@ jobs:
   test_in_alpine:
     docker:
       - image: ghcr.io/multiverse-io/elixir-ci:1.13.4-erlang-25.0.2-alpine-3.16.0
+      - image: postgres:13.4
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
     steps:
       - attach_workspace:
           at: .
-      - run: ./anonymiser-x86_64-unknown-linux-musl --help
+
+      - run:
+          name: install dockerize
+          command: wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+
+          environment:
+            DOCKERIZE_VERSION: v0.3.0
+
+      - run:
+          name: Wait for db
+          command: dockerize -wait tcp://localhost:5432 -timeout 1m
+
+      - run: ./anonymiser-x86_64-unknown-linux-musl generate-strategies --db-url postgresql://postgres:postgres@localhost
 
   test_in_amazon_linux:
     docker:
       - image: public.ecr.aws/amazonlinux/amazonlinux:latest
+      - image: postgres:13.4
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
     steps:
       - run:
           name: Install tar utility
-          command: yum install -y tar gzip
+          command: yum install -y tar gzip wget
 
       - attach_workspace:
           at: .
 
-      - run: ./anonymiser-x86_64-unknown-linux-musl --help
+      - run:
+          name: install dockerize
+          command: wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
+          environment:
+            DOCKERIZE_VERSION: v0.3.0
+
+      - run:
+          name: Wait for db
+          command: dockerize -wait tcp://localhost:5432 -timeout 1m
+
+      - run: ./anonymiser-x86_64-unknown-linux-musl generate-strategies --db-url postgresql://postgres:postgres@localhost
 
   build_release_macos:
     macos:
