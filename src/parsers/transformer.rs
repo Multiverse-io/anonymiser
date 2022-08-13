@@ -52,36 +52,35 @@ pub fn transform<'line>(
     }
 
     let unique = get_unique();
-    let transformed_string = match transformer.name {
+
+    match transformer.name {
         TransformerType::Error => {
             panic!("Error transform still in place for table: {}", table_name)
         }
-        TransformerType::EmptyJson => "{}".to_string(),
-        TransformerType::FakeBase16String => fake_base16_string(),
-        TransformerType::FakeBase32String => fake_base32_string(),
-        TransformerType::FakeCity => CityName().fake(),
-        TransformerType::FakeCompanyName => fake_company_name(&transformer.args, unique),
-        TransformerType::FakeEmail => fake_email(&transformer.args, unique),
-        TransformerType::FakeFirstName => FirstName().fake(),
-        TransformerType::FakeFullAddress => fake_full_address(),
-        TransformerType::FakeFullName => fake_full_name(),
-        TransformerType::FakeIPv4 => IPv4().fake(),
-        TransformerType::FakeLastName => LastName().fake(),
-        TransformerType::FakeNationalIdentityNumber => fake_national_identity_number(),
-        TransformerType::FakePostCode => fake_postcode(value),
-        TransformerType::FakePhoneNumber => fake_phone_number(value),
-        TransformerType::FakeStreetAddress => fake_street_address(),
-        TransformerType::FakeState => StateName().fake(),
-        TransformerType::FakeUsername => fake_username(&transformer.args, unique),
+        TransformerType::EmptyJson => Cow::from("{}"),
+        TransformerType::FakeBase16String => Cow::from(fake_base16_string()),
+        TransformerType::FakeBase32String => Cow::from(fake_base32_string()),
+        TransformerType::FakeCity => Cow::from(CityName().fake::<String>()),
+        TransformerType::FakeCompanyName => Cow::from(fake_company_name(&transformer.args, unique)),
+        TransformerType::FakeEmail => Cow::from(fake_email(&transformer.args, unique)),
+        TransformerType::FakeFirstName => Cow::from(FirstName().fake::<String>()),
+        TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
+        TransformerType::FakeFullName => Cow::from(fake_full_name()),
+        TransformerType::FakeIPv4 => Cow::from(IPv4().fake::<String>()),
+        TransformerType::FakeLastName => Cow::from(LastName().fake::<String>()),
+        TransformerType::FakeNationalIdentityNumber => Cow::from(fake_national_identity_number()),
+        TransformerType::FakePostCode => Cow::from(fake_postcode(value)),
+        TransformerType::FakePhoneNumber => Cow::from(fake_phone_number(value)),
+        TransformerType::FakeStreetAddress => Cow::from(fake_street_address()),
+        TransformerType::FakeState => Cow::from(StateName().fake::<String>()),
+        TransformerType::FakeUsername => Cow::from(fake_username(&transformer.args, unique)),
         //TODO not tested VV
-        TransformerType::FakeUUID => Uuid::new_v4().to_string(),
-        TransformerType::Fixed => fixed(&transformer.args, table_name),
-        TransformerType::Identity => value.to_string(),
-        TransformerType::ObfuscateDay => obfuscate_day(value, table_name),
-        TransformerType::Scramble => scramble(value),
-    };
-
-    Cow::from(transformed_string)
+        TransformerType::FakeUUID => Cow::from(Uuid::new_v4().to_string()),
+        TransformerType::Fixed => Cow::from(fixed(&transformer.args, table_name)),
+        TransformerType::Identity => Cow::from(value),
+        TransformerType::ObfuscateDay => Cow::from(obfuscate_day(value, table_name)),
+        TransformerType::Scramble => Cow::from(scramble(value)),
+    }
 }
 
 fn transform_array<'a>(
@@ -101,9 +100,7 @@ fn transform_array<'a>(
         .split(", ")
         .map(|list_item| {
             if is_string_array {
-                let mut list_item_without_enclosing_quotes = list_item.to_string();
-                list_item_without_enclosing_quotes.remove(0);
-                list_item_without_enclosing_quotes.pop();
+                let list_item_without_enclosing_quotes = &list_item[1..list_item.len() - 1];
                 let transformed = transform(
                     &list_item_without_enclosing_quotes,
                     &sub_type,
