@@ -8,6 +8,7 @@ use crate::parsers::transformer;
 use crate::parsers::types;
 use crate::parsers::types::Column;
 use itertools::Itertools;
+use std::borrow::Cow;
 
 #[derive(Debug, PartialEq)]
 enum RowType {
@@ -38,7 +39,11 @@ fn row_type(line: &str, state: &Position) -> RowType {
     }
 }
 
-pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
+pub fn parse<'a, 'b, 'c>(
+    line: &'a str,
+    state: &'b mut State,
+    strategies: &'c Strategies,
+) -> Cow<'a, str> {
     let sanitised_line = sanitiser::trim(line);
     match (
         row_type(sanitised_line, &state.position),
@@ -50,7 +55,7 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
                 table_name,
                 types: Vec::new(),
             });
-            line.to_string()
+            Cow::from(line)
         }
         (
             RowType::CreateTableRow,
@@ -63,31 +68,31 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
                 table_name,
                 types: add_create_table_row_to_types(sanitised_line, current_types.to_vec()),
             });
-            line.to_string()
+            Cow::from(line)
         }
         (RowType::CreateTableEnd, _position) => {
             state.update_position(Position::Normal);
-            line.to_string()
+            Cow::from(line)
         }
         (RowType::CopyBlockStart, _position) => {
             let current_table = copy_row::parse(sanitised_line, strategies);
             state.update_position(Position::InCopy { current_table });
-            line.to_string()
+            Cow::from(line)
         }
         (RowType::CopyBlockEnd, _position) => {
             state.update_position(Position::Normal);
-            line.to_string()
+            Cow::from(line)
         }
         (RowType::CopyBlockRow, Position::InCopy { current_table }) => {
             state.update_position(Position::InCopy {
                 current_table: current_table.clone(),
             });
-            transform_row(sanitised_line, &current_table, &state.types)
+            Cow::from(transform_row(sanitised_line, &current_table, &state.types))
         }
 
         (RowType::Normal, Position::Normal) => {
             state.update_position(Position::Normal);
-            line.to_string()
+            Cow::from(line)
         }
         (row_type, position) => {
             panic!(
