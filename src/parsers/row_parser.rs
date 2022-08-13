@@ -39,11 +39,7 @@ fn row_type(line: &str, state: &Position) -> RowType {
     }
 }
 
-pub fn parse<'a, 'b, 'c>(
-    line: &'a str,
-    state: &'b mut State,
-    strategies: &'c Strategies,
-) -> Cow<'a, str> {
+pub fn parse<'a>(line: &'a str, state: &mut State, strategies: &Strategies) -> Cow<'a, str> {
     let sanitised_line = sanitiser::trim(line);
     match (
         row_type(sanitised_line, &state.position),

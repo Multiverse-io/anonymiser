@@ -14,6 +14,7 @@ use fake::faker::name::en::*;
 use fake::Fake;
 use rand::SeedableRng;
 use rand::{rngs::SmallRng, Rng};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
@@ -29,24 +30,29 @@ pub fn transform<'line>(
     column_type: &Type,
     transformer: &Transformer,
     table_name: &str,
-) -> String {
+) -> Cow<'line, str> {
     if ["\\N", "deleted"].contains(&value) {
-        return value.to_string();
+        return Cow::from(value);
     }
 
     if transformer.name == TransformerType::Identity {
-        return value.to_string();
+        return Cow::from(value);
     }
 
     if let Array {
         sub_type: underlying_type,
     } = column_type
     {
-        return transform_array(value, underlying_type, transformer, table_name);
+        return Cow::from(transform_array(
+            value,
+            underlying_type,
+            transformer,
+            table_name,
+        ));
     }
 
     let unique = get_unique();
-    match transformer.name {
+    let transformed_string = match transformer.name {
         TransformerType::Error => {
             panic!("Error transform still in place for table: {}", table_name)
         }
@@ -73,25 +79,25 @@ pub fn transform<'line>(
         TransformerType::Identity => value.to_string(),
         TransformerType::ObfuscateDay => obfuscate_day(value, table_name),
         TransformerType::Scramble => scramble(value),
-    }
+    };
+
+    Cow::from(transformed_string)
 }
 
-fn transform_array(
-    value: &str,
+fn transform_array<'a>(
+    value: &'a str,
     underlying_type: &SubType,
     transformer: &Transformer,
     table_name: &str,
-) -> String {
+) -> Cow<'a, str> {
     let is_string_array = underlying_type == &SubType::Character;
-    let mut unsplit_array = value.to_string();
+    let unsplit_array = &value[1..value.len() - 1];
 
     let sub_type = SingleValue {
         sub_type: underlying_type.clone(),
     };
-    unsplit_array.remove(0);
-    unsplit_array.pop();
 
-    let array: Vec<String> = unsplit_array
+    let array: Vec<_> = unsplit_array
         .split(", ")
         .map(|list_item| {
             if is_string_array {
@@ -105,14 +111,14 @@ fn transform_array(
                     table_name,
                 );
 
-                format!("\"{}\"", transformed)
+                Cow::from(format!("\"{}\"", transformed))
             } else {
                 transform(list_item, &sub_type, transformer, table_name)
             }
         })
         .collect();
 
-    return format!("{{{}}}", array.join(", "));
+    Cow::from(format!("{{{}}}", array.join(", ")))
 }
 
 fn prepend_unique_if_present(
