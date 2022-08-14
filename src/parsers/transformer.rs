@@ -1,4 +1,5 @@
 use crate::parsers::national_insurance_number;
+use crate::parsers::rng;
 use crate::parsers::strategy_structs::{Transformer, TransformerType};
 use crate::parsers::types::Type::Array;
 use crate::parsers::types::Type::SingleValue;
@@ -26,6 +27,7 @@ fn get_unique() -> usize {
 }
 
 pub fn transform<'line>(
+    rng: &mut SmallRng,
     value: &'line str,
     column_type: &Type,
     transformer: &Transformer,
@@ -44,6 +46,7 @@ pub fn transform<'line>(
     } = column_type
     {
         return Cow::from(transform_array(
+            rng,
             value,
             underlying_type,
             transformer,
@@ -79,11 +82,12 @@ pub fn transform<'line>(
         TransformerType::Fixed => Cow::from(fixed(&transformer.args, table_name)),
         TransformerType::Identity => Cow::from(value),
         TransformerType::ObfuscateDay => Cow::from(obfuscate_day(value, table_name)),
-        TransformerType::Scramble => Cow::from(scramble(value)),
+        TransformerType::Scramble => Cow::from(scramble(rng, value)),
     }
 }
 
 fn transform_array<'a>(
+    rng: &mut SmallRng,
     value: &'a str,
     underlying_type: &SubType,
     transformer: &Transformer,
@@ -102,6 +106,7 @@ fn transform_array<'a>(
             if is_string_array {
                 let list_item_without_enclosing_quotes = &list_item[1..list_item.len() - 1];
                 let transformed = transform(
+                    rng,
                     &list_item_without_enclosing_quotes,
                     &sub_type,
                     transformer,
@@ -110,7 +115,7 @@ fn transform_array<'a>(
 
                 Cow::from(format!("\"{}\"", transformed))
             } else {
-                transform(list_item, &sub_type, transformer, table_name)
+                transform(rng, list_item, &sub_type, transformer, table_name)
             }
         })
         .collect();
@@ -250,12 +255,9 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
     }
 }
 
-fn scramble(original_value: &str) -> String {
+fn scramble(rng: &mut SmallRng, original_value: &str) -> String {
     let mut chars = original_value.chars();
     let mut output_buf = String::with_capacity(original_value.len());
-
-    let mut rng =
-        SmallRng::from_rng(rand::thread_rng()).unwrap_or_else(|_| SmallRng::from_entropy());
 
     while let Some(current_char) = chars.next() {
         if current_char == '\\' {
@@ -288,7 +290,9 @@ mod tests {
     #[test]
     fn null_is_not_transformed() {
         let null = "\\N";
+        let mut rng = rng::get();
         let new_null = transform(
+            &mut rng,
             null,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -305,7 +309,9 @@ mod tests {
     #[test]
     fn deleted_is_not_transformed() {
         let deleted = "deleted";
+        let mut rng = rng::get();
         let new_deleted = transform(
+            &mut rng,
             deleted,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -322,7 +328,9 @@ mod tests {
     #[test]
     fn identity() {
         let first_name = "any first name";
+        let mut rng = rng::get();
         let new_first_name = transform(
+            &mut rng,
             first_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -339,7 +347,9 @@ mod tests {
     #[test]
     fn fake_base16_string() {
         let verification_key = "1702a4eddd53d6fa79ed4a677e64c002";
+        let mut rng = rng::get();
         let new_verification_key = transform(
+            &mut rng,
             verification_key,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -357,7 +367,9 @@ mod tests {
     #[test]
     fn fake_base32_string() {
         let verification_key = "EMVXWNTUKRVAODPQ7KIBBQQTWY======";
+        let mut rng = rng::get();
         let new_verification_key = transform(
+            &mut rng,
             verification_key,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -375,7 +387,9 @@ mod tests {
     #[test]
     fn fake_company_name() {
         let company_name = "any company name";
+        let mut rng = rng::get();
         let new_company_name = transform(
+            &mut rng,
             company_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -391,7 +405,9 @@ mod tests {
     #[test]
     fn fake_company_name_with_unique_arg() {
         let company_name = "any company name";
+        let mut rng = rng::get();
         let new_company_name = transform(
+            &mut rng,
             company_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -408,7 +424,9 @@ mod tests {
     #[test]
     fn fake_email() {
         let email = "any email";
+        let mut rng = rng::get();
         let new_email = transform(
+            &mut rng,
             email,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -432,7 +450,9 @@ mod tests {
     #[test]
     fn fake_email_with_unique_arg() {
         let email = "rupert@example.com";
+        let mut rng = rng::get();
         let new_email = transform(
+            &mut rng,
             email,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -455,7 +475,9 @@ mod tests {
     #[test]
     fn fake_first_name() {
         let first_name = "any first name";
+        let mut rng = rng::get();
         let new_first_name = transform(
+            &mut rng,
             first_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -472,7 +494,9 @@ mod tests {
     #[test]
     fn fake_full_name() {
         let full_name = "any full name";
+        let mut rng = rng::get();
         let new_full_name = transform(
+            &mut rng,
             full_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -489,7 +513,9 @@ mod tests {
     #[test]
     fn fake_last_name() {
         let last_name = "any last name";
+        let mut rng = rng::get();
         let new_last_name = transform(
+            &mut rng,
             last_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -506,7 +532,9 @@ mod tests {
     #[test]
     fn fake_full_address() {
         let street_address = "any street_address";
+        let mut rng = rng::get();
         let new_street_address = transform(
+            &mut rng,
             street_address,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -523,7 +551,9 @@ mod tests {
     #[test]
     fn fake_national_identity_number() {
         let national_identity_number = "JR 55 55 55 E";
+        let mut rng = rng::get();
         let new_national_identity_number = transform(
+            &mut rng,
             national_identity_number,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -542,7 +572,9 @@ mod tests {
     #[test]
     fn fake_phone_number_gb() {
         let phone_number = "+447822222222";
+        let mut rng = rng::get();
         let new_phone_number = transform(
+            &mut rng,
             phone_number,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -561,7 +593,9 @@ mod tests {
     #[test]
     fn fake_phone_number_us() {
         let phone_number = "+16505130514";
+        let mut rng = rng::get();
         let new_phone_number = transform(
+            &mut rng,
             phone_number,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -580,7 +614,9 @@ mod tests {
     #[test]
     fn fake_postcode() {
         let postcode = "NW5 3QQ";
+        let mut rng = rng::get();
         let new_postcode = transform(
+            &mut rng,
             postcode,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -597,7 +633,9 @@ mod tests {
     #[test]
     fn fake_user_name() {
         let user_name = "any user_name";
+        let mut rng = rng::get();
         let new_user_name = transform(
+            &mut rng,
             user_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -614,7 +652,9 @@ mod tests {
     #[test]
     fn fake_user_name_supports_unique_arg() {
         let user_name = "any user_name";
+        let mut rng = rng::get();
         let new_user_name = transform(
+            &mut rng,
             user_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -639,7 +679,9 @@ mod tests {
     fn fixed() {
         let url = "any web address";
         let fixed_url = "a very fixed web address";
+        let mut rng = rng::get();
         let new_url = transform(
+            &mut rng,
             url,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -658,8 +700,10 @@ mod tests {
     #[test]
     #[should_panic(expected = "'value' must be present in args for a fixed transformer")]
     fn fixed_panics_if_value_not_provided() {
+        let mut rng = rng::get();
         let url = "any web address";
         transform(
+            &mut rng,
             url,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -675,7 +719,9 @@ mod tests {
     #[test]
     fn obfuscate_day() {
         let date = "2020-12-12";
+        let mut rng = rng::get();
         let obfuscated_date = transform(
+            &mut rng,
             date,
             &Type::SingleValue {
                 sub_type: SubType::Unknown {
@@ -697,7 +743,9 @@ mod tests {
     )]
     fn obfuscate_day_panics_with_invalid_date() {
         let date = "2020-OHMYGOSH-12";
+        let mut rng = rng::get();
         transform(
+            &mut rng,
             date,
             &Type::SingleValue {
                 sub_type: SubType::Unknown {
@@ -715,7 +763,9 @@ mod tests {
     #[test]
     fn can_deal_with_dates_from_before_christ_because_obviously_we_should_have_to() {
         let date = "0001-08-04 BC";
+        let mut rng = rng::get();
         let result = transform(
+            &mut rng,
             date,
             &Type::SingleValue {
                 sub_type: SubType::Unknown {
@@ -736,7 +786,9 @@ mod tests {
         let initial_value =
             "Now this is a story all about how my life got flipped turned upside down";
 
+        let mut rng = rng::get();
         let new_value = transform(
+            &mut rng,
             initial_value,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -759,7 +811,9 @@ mod tests {
     fn scramble_ignores_punctuation() {
         let initial_value = "ab.?";
 
+        let mut rng = rng::get();
         let new_value = transform(
+            &mut rng,
             initial_value,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -782,7 +836,9 @@ mod tests {
     fn scramble_replaces_digits_with_digits() {
         let initial_value = "ab 12 a1b2";
 
+        let mut rng = rng::get();
         let new_value = transform(
+            &mut rng,
             initial_value,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -805,7 +861,9 @@ mod tests {
     fn scramble_calculates_unicode_length_correctly() {
         let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
 
+        let mut rng = rng::get();
         let new_value = transform(
+            &mut rng,
             initial_value,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -824,7 +882,9 @@ mod tests {
     fn scramble_deals_with_tabs() {
         let initial_value = "this is a tab\t and another \t.";
 
+        let mut rng = rng::get();
         let new_value = transform(
+            &mut rng,
             initial_value,
             &Type::SingleValue {
                 sub_type: SubType::Character,
@@ -843,7 +903,9 @@ mod tests {
     fn scramble_changes_integers_into_integers_only() {
         let initial_value = "123456789";
 
+        let mut rng = rng::get();
         let new_value = transform(
+            &mut rng,
             initial_value,
             &Type::SingleValue {
                 sub_type: SubType::Integer,
@@ -866,7 +928,9 @@ mod tests {
     #[test]
     fn can_scramble_array_string_fields() {
         let initial_value = "{\"A\", \"B\"}";
+        let mut rng = rng::get();
         let new_value = transform(
+            &mut rng,
             initial_value,
             &Type::Array {
                 sub_type: SubType::Character,
@@ -890,7 +954,9 @@ mod tests {
     fn ignores_arrays_if_identity() {
         //TODO currently we have a couple of bugs in parsing around commas inside strings
         let initial_value = "{\"A, B\", \"C\"}";
+        let mut rng = rng::get();
         let new_value = transform(
+            &mut rng,
             initial_value,
             &Type::Array {
                 sub_type: SubType::Character,
@@ -907,7 +973,9 @@ mod tests {
     #[test]
     fn can_scramble_array_integer_fields() {
         let initial_value = "{1, 22, 444, 5656}";
+        let mut rng = rng::get();
         let new_value = transform(
+            &mut rng,
             initial_value,
             &Type::Array {
                 sub_type: SubType::Integer,
@@ -930,7 +998,9 @@ mod tests {
     #[test]
     fn empty_json() {
         let json = "{\"foo\": \"bar\"}";
+        let mut rng = rng::get();
         let new_json = transform(
+            &mut rng,
             json,
             &Type::SingleValue {
                 sub_type: SubType::Character,

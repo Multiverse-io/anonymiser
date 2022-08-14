@@ -1,3 +1,4 @@
+use crate::parsers::rng;
 use crate::parsers::row_parser;
 use crate::parsers::state::State;
 use crate::parsers::strategies::Strategies;
@@ -22,6 +23,8 @@ pub fn read(
 
     let mut row_parser_state = State::new();
 
+    let mut rng = rng::get();
+
     loop {
         match reader.read_line(&mut line) {
             Ok(bytes_read) => {
@@ -30,7 +33,8 @@ pub fn read(
                 }
 
                 line = line.to_string();
-                let transformed_row = row_parser::parse(&line, &mut row_parser_state, strategies);
+                let transformed_row =
+                    row_parser::parse(&mut rng, &line, &mut row_parser_state, strategies);
                 file_writer.write_all(transformed_row.as_bytes())?;
                 line.clear();
             }

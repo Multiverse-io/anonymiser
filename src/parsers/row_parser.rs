@@ -1,6 +1,7 @@
 use crate::parsers::copy_row;
 use crate::parsers::copy_row::CurrentTableTransforms;
 use crate::parsers::create_row;
+use crate::parsers::rng;
 use crate::parsers::sanitiser;
 use crate::parsers::state::*;
 use crate::parsers::strategies::Strategies;
@@ -8,6 +9,7 @@ use crate::parsers::transformer;
 use crate::parsers::types;
 use crate::parsers::types::Column;
 use itertools::Itertools;
+use rand::rngs::SmallRng;
 use std::borrow::Cow;
 
 #[derive(Debug, PartialEq)]
@@ -39,7 +41,12 @@ fn row_type(line: &str, state: &Position) -> RowType {
     }
 }
 
-pub fn parse<'a>(line: &'a str, state: &mut State, strategies: &Strategies) -> Cow<'a, str> {
+pub fn parse<'a>(
+    rng: &mut SmallRng,
+    line: &'a str,
+    state: &mut State,
+    strategies: &Strategies,
+) -> Cow<'a, str> {
     let sanitised_line = sanitiser::trim(line);
     match (
         row_type(sanitised_line, &state.position),
@@ -83,7 +90,12 @@ pub fn parse<'a>(line: &'a str, state: &mut State, strategies: &Strategies) -> C
             state.update_position(Position::InCopy {
                 current_table: current_table.clone(),
             });
-            Cow::from(transform_row(sanitised_line, &current_table, &state.types))
+            Cow::from(transform_row(
+                rng,
+                sanitised_line,
+                &current_table,
+                &state.types,
+            ))
         }
 
         (RowType::Normal, Position::Normal) => {
@@ -99,7 +111,12 @@ pub fn parse<'a>(line: &'a str, state: &mut State, strategies: &Strategies) -> C
     }
 }
 
-fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Types) -> String {
+fn transform_row(
+    rng: &mut SmallRng,
+    line: &str,
+    current_table: &CurrentTableTransforms,
+    types: &Types,
+) -> String {
     let column_values = split_row(line);
 
     let mut transformed = column_values.enumerate().map(|(i, value)| {
@@ -116,6 +133,7 @@ fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Typ
             });
 
         transformer::transform(
+            rng,
             value,
             column_type,
             &current_column.transformer,
@@ -154,7 +172,8 @@ mod tests {
         let strategies = Strategies::new_from("public.users".to_string(), HashMap::from([]));
 
         let mut state = State::new();
-        let transformed_row = parse(create_table_row, &mut state, &strategies);
+        let mut rng = rng::get();
+        let transformed_row = parse(&mut rng, create_table_row, &mut state, &strategies);
         assert_eq!(
             state.position,
             Position::InCreateTable {
@@ -171,7 +190,8 @@ mod tests {
         let strategies = Strategies::new_from("public.users".to_string(), HashMap::from([]));
 
         let mut state = State::new();
-        let transformed_row = parse(create_table_row, &mut state, &strategies);
+        let mut rng = rng::get();
+        let transformed_row = parse(&mut rng, create_table_row, &mut state, &strategies);
         assert_eq!(
             state.position,
             Position::InCreateTable {
@@ -197,7 +217,8 @@ mod tests {
             },
             types: Types::new(HashMap::default()),
         };
-        let transformed_row = parse(create_table_row, &mut state, &strategies);
+        let mut rng = rng::get();
+        let transformed_row = parse(&mut rng, create_table_row, &mut state, &strategies);
 
         assert_eq!(
             state.position,
@@ -230,7 +251,8 @@ mod tests {
             },
             types: Types::new(HashMap::default()),
         };
-        let transformed_row = parse(create_table_row, &mut state, &strategies);
+        let mut rng = rng::get();
+        let transformed_row = parse(&mut rng, create_table_row, &mut state, &strategies);
 
         assert_eq!(
             state.position,
@@ -257,7 +279,8 @@ mod tests {
             },
             types: Types::new(HashMap::default()),
         };
-        let transformed_row = parse(create_table_row, &mut state, &strategies);
+        let mut rng = rng::get();
+        let transformed_row = parse(&mut rng, create_table_row, &mut state, &strategies);
 
         assert_eq!(state.position, Position::Normal);
 
@@ -294,7 +317,8 @@ mod tests {
         let strategies = Strategies::new_from("public.users".to_string(), column_infos);
 
         let mut state = State::new();
-        let transformed_row = parse(copy_row, &mut state, &strategies);
+        let mut rng = rng::get();
+        let transformed_row = parse(&mut rng, copy_row, &mut state, &strategies);
 
         assert_eq!(copy_row, transformed_row);
 
@@ -339,7 +363,8 @@ mod tests {
         let strategies = Strategies::new_from("public.users".to_string(), transforms);
 
         let mut state = State::new();
-        let transformed_row = parse(end_copy_row, &mut state, &strategies);
+        let mut rng = rng::get();
+        let transformed_row = parse(&mut rng, end_copy_row, &mut state, &strategies);
         assert!(state.position == Position::Normal);
         assert_eq!(end_copy_row, transformed_row);
     }
@@ -350,7 +375,8 @@ mod tests {
         let strategies = Strategies::new_from("public.users".to_string(), HashMap::new());
 
         let mut state = State::new();
-        let transformed_row = parse(non_table_data_row, &mut state, &strategies);
+        let mut rng = rng::get();
+        let transformed_row = parse(&mut rng, non_table_data_row, &mut state, &strategies);
         assert!(state.position == Position::Normal);
         assert_eq!(non_table_data_row, transformed_row);
     }
@@ -395,7 +421,8 @@ mod tests {
                 .add_type("public.users", "column_3", SubType::Character)
                 .build(),
         };
-        let transformed_row = parse(table_data_row, &mut state, &strategies);
+        let mut rng = rng::get();
+        let transformed_row = parse(&mut rng, table_data_row, &mut state, &strategies);
         assert_eq!("first\tsecond\tthird\n", transformed_row);
     }
 
@@ -418,7 +445,8 @@ mod tests {
                 .add_array_type("public.users", "column_1", SubType::Character)
                 .build(),
         };
-        let processed_row = parse(table_data_row, &mut state, &strategies);
+        let mut rng = rng::get();
+        let processed_row = parse(&mut rng, table_data_row, &mut state, &strategies);
         assert!(table_data_row != processed_row);
     }
 }
