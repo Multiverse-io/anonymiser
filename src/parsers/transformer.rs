@@ -86,13 +86,13 @@ pub fn transform<'line>(
     }
 }
 
-fn transform_array<'a>(
+fn transform_array<'value>(
     rng: &mut SmallRng,
-    value: &'a str,
+    value: &'value str,
     underlying_type: &SubType,
     transformer: &Transformer,
     table_name: &str,
-) -> Cow<'a, str> {
+) -> Cow<'value, str> {
     let is_string_array = underlying_type == &SubType::Character;
     let unsplit_array = &value[1..value.len() - 1];
 
