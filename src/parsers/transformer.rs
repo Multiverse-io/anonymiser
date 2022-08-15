@@ -256,28 +256,27 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
 }
 
 fn scramble(rng: &mut SmallRng, original_value: &str) -> String {
-    let mut chars = original_value.chars();
-    let mut output_buf = String::with_capacity(original_value.len());
-
-    while let Some(current_char) = chars.next() {
-        if current_char == '\\' {
-            //The string contains a control character like \t \r \n
-            output_buf.push(current_char);
-            if let Some(c) = chars.next() {
-                output_buf.push(c);
+    let mut last_was_backslash = false;
+    original_value
+        .chars()
+        .map(|c| {
+            if last_was_backslash {
+                return c;
             }
-        } else if current_char == ' ' {
-            output_buf.push(current_char);
-        } else if current_char.is_ascii_digit() {
-            let new_char = rng.gen_range(b'0'..=b'9') as char;
-            output_buf.push(new_char);
-        } else {
-            let new_char = rng.gen_range(b'a'..=b'z') as char;
-            output_buf.push(new_char);
-        }
-    }
 
-    output_buf
+            last_was_backslash = false;
+            if c == '\\' {
+                last_was_backslash = true;
+                c
+            } else if c == ' ' {
+                c
+            } else if c.is_ascii_digit() {
+                rng.gen_range(b'0'..=b'9') as char
+            } else {
+                rng.gen_range(b'a'..=b'z') as char
+            }
+        })
+        .collect::<String>()
 }
 
 #[cfg(test)]
