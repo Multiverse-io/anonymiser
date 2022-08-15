@@ -1,4 +1,3 @@
-use crate::parsers::copy_row;
 use crate::parsers::copy_row::CurrentTableTransforms;
 use crate::parsers::create_row;
 use crate::parsers::sanitiser;
@@ -7,6 +6,7 @@ use crate::parsers::strategies::Strategies;
 use crate::parsers::transformer;
 use crate::parsers::types;
 use crate::parsers::types::Column;
+use crate::parsers::{copy_row, data_row};
 use itertools::Itertools;
 
 #[derive(Debug, PartialEq)]
@@ -99,7 +99,7 @@ pub fn parse(line: &str, state: &mut State, strategies: &Strategies) -> String {
 }
 
 fn transform_row(line: &str, current_table: &CurrentTableTransforms, types: &Types) -> String {
-    let column_values = split_row(line);
+    let column_values = data_row::split(line);
 
     let mut transformed = column_values.enumerate().map(|(i, value)| {
         let current_column = &current_table.columns[i];
@@ -134,10 +134,6 @@ fn add_create_table_row_to_types(line: &str, mut current_types: Vec<Column>) -> 
     }
 
     current_types
-}
-
-fn split_row(line: &str) -> std::str::Split<char> {
-    line.strip_suffix('\n').unwrap_or(line).split('\t')
 }
 
 #[cfg(test)]
@@ -352,6 +348,32 @@ mod tests {
         let transformed_row = parse(non_table_data_row, &mut state, &strategies);
         assert!(state.position == Position::Normal);
         assert_eq!(non_table_data_row, transformed_row);
+    }
+
+    #[test]
+    fn table_data_with_empty_final_column() {
+        let table_data_row = "123\tPeter\t\n";
+        let strategies = Strategies::new_from("public.users".to_string(), HashMap::new());
+
+        let mut state = State {
+            position: Position::InCopy {
+                current_table: CurrentTableTransforms {
+                    table_name: "public.users".to_string(),
+                    columns: vec![
+                        ColumnInfo::builder().with_name("column_1").build(),
+                        ColumnInfo::builder().with_name("column_2").build(),
+                        ColumnInfo::builder().with_name("column_3").build(),
+                    ],
+                },
+            },
+            types: Types::builder()
+                .add_type("public.users", "column_1", SubType::Character)
+                .add_type("public.users", "column_2", SubType::Character)
+                .add_type("public.users", "column_3", SubType::Character)
+                .build(),
+        };
+        let transformed_row = parse(table_data_row, &mut state, &strategies);
+        assert_eq!("123\tPeter\t\n", transformed_row);
     }
 
     #[test]
