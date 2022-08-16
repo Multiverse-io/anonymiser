@@ -86,7 +86,7 @@ pub fn parse<'line>(
             let transformed = Cow::from(transform_row(
                 rng,
                 sanitised_line,
-                &current_table,
+                current_table,
                 &state.types,
             ));
             state.update_position(Position::InCopy {
