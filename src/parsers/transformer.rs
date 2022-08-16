@@ -1,5 +1,4 @@
 use crate::parsers::national_insurance_number;
-use crate::parsers::rng;
 use crate::parsers::strategy_structs::{Transformer, TransformerType};
 use crate::parsers::types::Type::Array;
 use crate::parsers::types::Type::SingleValue;
@@ -45,13 +44,7 @@ pub fn transform<'line>(
         sub_type: underlying_type,
     } = column_type
     {
-        return Cow::from(transform_array(
-            rng,
-            value,
-            underlying_type,
-            transformer,
-            table_name,
-        ));
+        return transform_array(rng, value, underlying_type, transformer, table_name);
     }
 
     let unique = get_unique();
@@ -107,7 +100,7 @@ fn transform_array<'value>(
                 let list_item_without_enclosing_quotes = &list_item[1..list_item.len() - 1];
                 let transformed = transform(
                     rng,
-                    &list_item_without_enclosing_quotes,
+                    list_item_without_enclosing_quotes,
                     &sub_type,
                     transformer,
                     table_name,
@@ -283,6 +276,7 @@ fn scramble(rng: &mut SmallRng, original_value: &str) -> String {
 mod tests {
     use super::*;
     use crate::parsers::national_insurance_number;
+    use crate::parsers::rng;
     use regex::Regex;
 
     const TABLE_NAME: &str = "gert_lush_table";

@@ -1,7 +1,6 @@
 use crate::parsers::copy_row;
 use crate::parsers::copy_row::CurrentTableTransforms;
 use crate::parsers::create_row;
-use crate::parsers::rng;
 use crate::parsers::sanitiser;
 use crate::parsers::state::*;
 use crate::parsers::strategies::Strategies;
@@ -162,6 +161,7 @@ fn split_row(line: &str) -> std::str::Split<char> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parsers::rng;
     use crate::parsers::strategy_structs::{ColumnInfo, DataCategory, TransformerType};
     use crate::parsers::types::{SubType, Type};
     use std::collections::HashMap;
