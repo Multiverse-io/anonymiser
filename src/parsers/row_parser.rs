@@ -47,10 +47,7 @@ pub fn parse<'line>(
     strategies: &Strategies,
 ) -> Cow<'line, str> {
     let sanitised_line = sanitiser::trim(line);
-    match (
-        row_type(sanitised_line, &state.position),
-        state.position.clone(),
-    ) {
+    match (row_type(sanitised_line, &state.position), &state.position) {
         (RowType::CreateTableStart, _position) => {
             let table_name = create_row::parse(sanitised_line);
             state.update_position(Position::InCreateTable {
@@ -67,7 +64,7 @@ pub fn parse<'line>(
             },
         ) => {
             state.update_position(Position::InCreateTable {
-                table_name,
+                table_name: table_name.clone(),
                 types: add_create_table_row_to_types(sanitised_line, current_types.to_vec()),
             });
             Cow::from(line)
@@ -85,16 +82,17 @@ pub fn parse<'line>(
             state.update_position(Position::Normal);
             Cow::from(line)
         }
-        (RowType::CopyBlockRow, Position::InCopy { current_table }) => {
-            state.update_position(Position::InCopy {
-                current_table: current_table.clone(),
-            });
-            Cow::from(transform_row(
+        (RowType::CopyBlockRow, Position::InCopy { ref current_table }) => {
+            let transformed = Cow::from(transform_row(
                 rng,
                 sanitised_line,
                 &current_table,
                 &state.types,
-            ))
+            ));
+            state.update_position(Position::InCopy {
+                current_table: current_table.clone(),
+            });
+            transformed
         }
 
         (RowType::Normal, Position::Normal) => {
