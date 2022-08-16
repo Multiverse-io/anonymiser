@@ -30,7 +30,7 @@ pub fn transform<'line>(
     rng: &mut SmallRng,
     value: &'line str,
     column_type: &Type,
-    transformer: &Transformer,
+    transformer: &'line Transformer,
     table_name: &str,
 ) -> Cow<'line, str> {
     if ["\\N", "deleted"].contains(&value) {
@@ -79,7 +79,7 @@ pub fn transform<'line>(
         TransformerType::FakeUsername => Cow::from(fake_username(&transformer.args, unique)),
         //TODO not tested VV
         TransformerType::FakeUUID => Cow::from(Uuid::new_v4().to_string()),
-        TransformerType::Fixed => Cow::from(fixed(&transformer.args, table_name)),
+        TransformerType::Fixed => fixed(&transformer.args, table_name),
         TransformerType::Identity => Cow::from(value),
         TransformerType::ObfuscateDay => Cow::from(obfuscate_day(value, table_name)),
         TransformerType::Scramble => Cow::from(scramble(rng, value)),
@@ -218,7 +218,7 @@ fn fake_username(args: &Option<HashMap<String, String>>, unique: usize) -> Strin
     prepend_unique_if_present(username, args, unique)
 }
 
-fn fixed(args: &Option<HashMap<String, String>>, table_name: &str) -> String {
+fn fixed<'a>(args: &'a Option<HashMap<String, String>>, table_name: &str) -> Cow<'a, str> {
     let value = args
         .as_ref()
         .and_then(|a| a.get("value"))
@@ -228,7 +228,7 @@ fn fixed(args: &Option<HashMap<String, String>>, table_name: &str) -> String {
                 table_name, args,
             )
         });
-    value.to_string()
+    Cow::from(value)
 }
 
 fn obfuscate_day(value: &str, table_name: &str) -> String {
@@ -405,16 +405,17 @@ mod tests {
     fn fake_company_name_with_unique_arg() {
         let company_name = "any company name";
         let mut rng = rng::get();
+        let transformer = &Transformer {
+            name: TransformerType::FakeCompanyName,
+            args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
+        };
         let new_company_name = transform(
             &mut rng,
             company_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &Transformer {
-                name: TransformerType::FakeCompanyName,
-                args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
-            },
+            transformer,
             TABLE_NAME,
         );
         assert!(new_company_name != company_name);
@@ -450,16 +451,17 @@ mod tests {
     fn fake_email_with_unique_arg() {
         let email = "rupert@example.com";
         let mut rng = rng::get();
+        let transformer = &Transformer {
+            name: TransformerType::FakeEmail,
+            args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
+        };
         let new_email = transform(
             &mut rng,
             email,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &Transformer {
-                name: TransformerType::FakeEmail,
-                args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
-            },
+            transformer,
             TABLE_NAME,
         );
         assert!(new_email != email);
@@ -652,16 +654,17 @@ mod tests {
     fn fake_user_name_supports_unique_arg() {
         let user_name = "any user_name";
         let mut rng = rng::get();
+        let transformer = &Transformer {
+            name: TransformerType::FakeUsername,
+            args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
+        };
         let new_user_name = transform(
             &mut rng,
             user_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &Transformer {
-                name: TransformerType::FakeUsername,
-                args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
-            },
+            transformer,
             TABLE_NAME,
         );
 
@@ -679,19 +682,20 @@ mod tests {
         let url = "any web address";
         let fixed_url = "a very fixed web address";
         let mut rng = rng::get();
+        let transformer = &Transformer {
+            name: TransformerType::Fixed,
+            args: Some(HashMap::from([(
+                "value".to_string(),
+                fixed_url.to_string(),
+            )])),
+        };
         let new_url = transform(
             &mut rng,
             url,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &Transformer {
-                name: TransformerType::Fixed,
-                args: Some(HashMap::from([(
-                    "value".to_string(),
-                    fixed_url.to_string(),
-                )])),
-            },
+            transformer,
             TABLE_NAME,
         );
         assert_eq!(new_url, fixed_url);
