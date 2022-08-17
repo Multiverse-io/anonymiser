@@ -24,7 +24,7 @@ impl Type {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SubType {
-    //TODO JSON?!?
+    Json,
     Character,
     Integer,
     Unknown { underlying_type: String },
@@ -100,6 +100,8 @@ fn string_to_type(type_string: String) -> Type {
         SubType::Character
     } else if type_string.starts_with("bigint") || type_string.starts_with("integer") {
         SubType::Integer
+    } else if type_string.starts_with("jsonb") {
+        SubType::Json
     } else {
         SubType::Unknown {
             underlying_type: type_string.clone(),
@@ -159,6 +161,14 @@ mod tests {
         let parsed = parse(row).expect("Expected a column back! but got None");
         assert_eq!(parsed.name, "password");
         assert_eq!(parsed.data_type, Type::array(SubType::Character));
+    }
+
+    #[test]
+    fn parses_array_of_jsonb_type() {
+        let row = "errors jsonb[] DEFAULT ARRAY[]::jsonb[] NOT NULL,";
+        let parsed = parse(row).expect("Expected a column back! but got None");
+        assert_eq!(parsed.name, "errors");
+        assert_eq!(parsed.data_type, Type::array(SubType::Json));
     }
 
     //These are written based on the BNF here: https://www.postgresql.org/docs/current/sql-createtable.html

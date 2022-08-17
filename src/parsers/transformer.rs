@@ -1,4 +1,6 @@
 use crate::parsers::national_insurance_number;
+use lazy_static::lazy_static;
+
 use crate::parsers::strategy_structs::{Transformer, TransformerType};
 use crate::parsers::types::Type::Array;
 use crate::parsers::types::Type::SingleValue;
@@ -14,6 +16,7 @@ use fake::faker::name::en::*;
 use fake::Fake;
 use rand::SeedableRng;
 use rand::{rngs::SmallRng, Rng};
+use regex::Regex;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
@@ -82,7 +85,8 @@ fn transform_array(
     transformer: &Transformer,
     table_name: &str,
 ) -> String {
-    let is_string_array = underlying_type == &SubType::Character;
+    let quoted_types = vec![SubType::Character, SubType::Json];
+    let requires_quotes = quoted_types.contains(underlying_type);
     let mut unsplit_array = value.to_string();
 
     let sub_type = SingleValue {
@@ -91,11 +95,16 @@ fn transform_array(
     unsplit_array.remove(0);
     unsplit_array.pop();
 
-    let array: Vec<String> = unsplit_array
-        .split(", ")
-        .map(|list_item| {
-            if is_string_array {
-                let mut list_item_without_enclosing_quotes = list_item.to_string();
+    println!("{:?}", unsplit_array);
+
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r#"("[^"\\]*(?:\\.[^"\\]*)*")"#).unwrap();
+    }
+    let array: Vec<String> = if requires_quotes {
+        RE.find_iter(&unsplit_array)
+            .map(|list_item| {
+                println!("POPOP {:?}", list_item);
+                let mut list_item_without_enclosing_quotes = list_item.as_str().to_string();
                 list_item_without_enclosing_quotes.remove(0);
                 list_item_without_enclosing_quotes.pop();
                 let transformed = transform(
@@ -106,11 +115,14 @@ fn transform_array(
                 );
 
                 format!("\"{}\"", transformed)
-            } else {
-                transform(list_item, &sub_type, transformer, table_name)
-            }
-        })
-        .collect();
+            })
+            .collect()
+    } else {
+        unsplit_array
+            .split(", ")
+            .map(|list_item| transform(list_item, &sub_type, transformer, table_name))
+            .collect()
+    };
 
     return format!("{{{}}}", array.join(", "));
 }
@@ -884,6 +896,29 @@ mod tests {
     }
 
     #[test]
+    fn can_deal_with_commas_inside_values() {
+        let initial_value = "{\"A, or B\", \"C\"}";
+        let new_value = transform(
+            initial_value,
+            &Type::Array {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_value != initial_value);
+        let re = Regex::new(r#"^\{"[a-z]{2} [a-z]{2} [a-z]", "[a-z]"\}$"#).unwrap();
+        assert!(
+            re.is_match(&new_value),
+            "new value: \"{}\" does not contain same digit / alphabet structure as input",
+            new_value
+        );
+    }
+
+    #[test]
     fn ignores_arrays_if_identity() {
         //TODO currently we have a couple of bugs in parsing around commas inside strings
         let initial_value = "{\"A, B\", \"C\"}";
@@ -925,12 +960,31 @@ mod tests {
     }
 
     #[test]
+    fn json_array() {
+        let json = "{\"{\\\"foo\\\": \\\"bar\\\"}, {\\\"another\\\": \\\"one\\\"}\"}";
+        let new_json = transform(
+            json,
+            &Type::Array {
+                sub_type: SubType::Json,
+            },
+            &Transformer {
+                name: TransformerType::EmptyJson,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert_eq!(new_json, "{\"{}\", \"{}\"}");
+    }
+
+    #[test]
     fn empty_json() {
         let json = "{\"foo\": \"bar\"}";
         let new_json = transform(
             json,
             &Type::SingleValue {
-                sub_type: SubType::Character,
+                sub_type: SubType::Unknown {
+                    underlying_type: "jsonb".to_string(),
+                },
             },
             &Transformer {
                 name: TransformerType::EmptyJson,
