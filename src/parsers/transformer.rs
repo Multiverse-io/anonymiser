@@ -91,7 +91,6 @@ fn transform_array<'value>(
 ) -> Cow<'value, str> {
     let quoted_types = vec![SubType::Character, SubType::Json];
     let requires_quotes = quoted_types.contains(underlying_type);
-    let is_string_array = underlying_type == &SubType::Character;
     let unsplit_array = &value[1..value.len() - 1];
 
     let sub_type = SingleValue {
@@ -101,13 +100,11 @@ fn transform_array<'value>(
     lazy_static! {
         static ref RE: Regex = Regex::new(r#"("[^"\\]*(?:\\.[^"\\]*)*")"#).unwrap();
     }
-    let array: Vec<String> = if requires_quotes {
+    let array: Vec<_> = if requires_quotes {
         RE.find_iter(&unsplit_array)
             .map(|list_item| {
-                println!("POPOP {:?}", list_item);
-                let mut list_item_without_enclosing_quotes = list_item.as_str().to_string();
-                list_item_without_enclosing_quotes.remove(0);
-                list_item_without_enclosing_quotes.pop();
+                let list_item_str = list_item.as_str();
+                let list_item_without_enclosing_quotes = &list_item_str[1..list_item_str.len() - 1];
                 let transformed = transform(
                     rng,
                     list_item_without_enclosing_quotes,
