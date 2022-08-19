@@ -72,6 +72,8 @@ mod tests {
                 strategy_tuple("id"),
                 strategy_tuple("description"),
                 strategy_tuple("price"),
+                strategy_tuple("details"),
+                strategy_tuple("tags"),
             ]),
         );
 
