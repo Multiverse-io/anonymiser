@@ -11,9 +11,13 @@ pub fn read(
     input_file_path: String,
     output_file_path: String,
     strategies: &Strategies,
+    compress_output: bool,
 ) -> Result<(), std::io::Error> {
-    let output_file = File::create(output_file_path).unwrap();
-    let mut file_writer = BufWriter::new(output_file);
+    let output_file = File::create(output_file_path)?;
+    let mut file_writer: Box<dyn Write> = match compress_output {
+        true => Box::new(zstd::Encoder::new(output_file, 1)?.auto_finish()),
+        false => Box::new(BufWriter::new(output_file)),
+    };
 
     let file_reader = File::open(&input_file_path)
         .unwrap_or_else(|_| panic!("Input file '{}' does not exist", input_file_path));
@@ -26,21 +30,14 @@ pub fn read(
     let mut rng = rng::get();
 
     loop {
-        match reader.read_line(&mut line) {
-            Ok(bytes_read) => {
-                if bytes_read == 0 {
-                    break;
-                }
-
-                let transformed_row =
-                    row_parser::parse(&mut rng, &line, &mut row_parser_state, strategies);
-                file_writer.write_all(transformed_row.as_bytes())?;
-                line.clear();
-            }
-            Err(err) => {
-                return Err(err);
-            }
+        let bytes_read = reader.read_line(&mut line)?;
+        if bytes_read == 0 {
+            break;
         }
+
+        let transformed_row = row_parser::parse(&mut rng, &line, &mut row_parser_state, strategies);
+        file_writer.write_all(transformed_row.as_bytes())?;
+        line.clear();
     }
     Ok(())
 }
@@ -91,7 +88,7 @@ mod tests {
             ]),
         );
 
-        assert!(read(input_file.clone(), output_file.clone(), &strategies).is_ok());
+        assert!(read(input_file.clone(), output_file.clone(), &strategies, false).is_ok());
 
         let original =
             fs::read_to_string(&input_file).expect("Something went wrong reading the file");

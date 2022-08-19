@@ -6,11 +6,12 @@ pub fn anonymise(
     input_file: String,
     output_file: String,
     strategy_file: String,
+    compress_output: bool,
     transformer_overrides: TransformerOverrides,
 ) -> Result<(), std::io::Error> {
     match strategy_file::read(&strategy_file, transformer_overrides) {
         Ok(strategies) => {
-            file_reader::read(input_file, output_file, &strategies)?;
+            file_reader::read(input_file, output_file, &strategies, compress_output)?;
             Ok(())
         }
         Err(_) => {
@@ -33,6 +34,7 @@ mod tests {
             "test_files/dump_file.sql".to_string(),
             "test_files/results.sql".to_string(),
             "non_existing_strategy_file.json".to_string(),
+            false,
             TransformerOverrides::none(),
         )
         .is_ok());
@@ -45,6 +47,7 @@ mod tests {
             "non_existing_input_file.sql".to_string(),
             "test_files/results.sql".to_string(),
             "test_files/strategy.json".to_string(),
+            false,
             TransformerOverrides::none(),
         )
         .is_ok());
@@ -56,6 +59,7 @@ mod tests {
             "test_files/dump_file.sql".to_string(),
             "test_files/results.sql".to_string(),
             "test_files/strategy.json".to_string(),
+            false,
             TransformerOverrides::none(),
         )
         .is_ok());
