@@ -52,7 +52,9 @@ ALTER TABLE public.orders ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 CREATE TABLE public.products (
     id bigint NOT NULL,
     description text NOT NULL,
-    price numeric(15,4) NOT NULL
+    price numeric(15,4) NOT NULL,
+    details jsonb[] DEFAULT ARRAY[]::jsonb[] NOT NULL,
+    tags character varying(255)[] DEFAULT (ARRAY[]::character varying[])::character varying(255)[] NOT NULL
 );
 
 
@@ -123,11 +125,11 @@ COPY public.orders (id, user_id, product_id) FROM stdin;
 -- Data for Name: products; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.products (id, description, price) FROM stdin;
-1	a wonderful pair of trousers	24.9900
-2	a kicking pair of trainers	34.9900
-3	a warm winter coat	44.9900
-4	crocs	54.9900
+COPY public.products (id, description, price, details, tags) FROM stdin;
+1	a wonderful pair of trousers	24.9900	{"{\\"sender\\": \\"pablo\\"}","{\\"sender\\": \\"barry\\"}"}	{amazing,glam,"ugly as sin"}
+2	a kicking pair of trainers	34.9900	{"{\\"sender\\": \\"pablo\\"}","{\\"sender\\": \\"barry\\"}"}	{amazing,glam,"ugly as sin"}
+3	a warm winter coat	44.9900	{"{\\"sender\\": \\"pablo\\"}","{\\"sender\\": \\"barry\\"}"}	{amazing,glam,"ugly as sin"}
+4	crocs	54.9900	{"{\\"sender\\": \\"pablo\\"}","{\\"sender\\": \\"barry\\"}"}	{amazing,glam,"ugly as sin"}
 \.
 
 

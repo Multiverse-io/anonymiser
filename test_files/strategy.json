@@ -56,6 +56,22 @@
         "transformer": {
           "name": "Identity"
         }
+      },
+      {
+        "data_category": "General",
+        "description": "",
+        "name": "details",
+        "transformer": {
+          "name": "EmptyJson"
+        }
+      },
+      {
+        "data_category": "General",
+        "description": "",
+        "name": "tags",
+        "transformer": {
+          "name": "Scramble"
+        }
       }
     ]
   },

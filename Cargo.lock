@@ -21,6 +21,7 @@ dependencies = [
  "fake",
  "itertools",
  "lazy_static",
+ "log",
  "mimalloc",
  "native-tls",
  "postgres",

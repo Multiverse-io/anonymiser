@@ -12,10 +12,12 @@ use fake::faker::company::en::*;
 use fake::faker::internet::en::*;
 use fake::faker::name::en::*;
 use fake::Fake;
+use log::trace;
 use rand::SeedableRng;
 use rand::{rngs::SmallRng, Rng};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
 
@@ -49,6 +51,9 @@ pub fn transform<'line>(
 
     let unique = get_unique();
 
+    //TODO error if inappropriate transformer for type is used e.g. scramble for json should give
+    //nice error rather than making invalid sql
+
     match transformer.name {
         TransformerType::Error => {
             panic!("Error transform still in place for table: {}", table_name)
@@ -70,12 +75,12 @@ pub fn transform<'line>(
         TransformerType::FakeStreetAddress => Cow::from(fake_street_address()),
         TransformerType::FakeState => Cow::from(StateName().fake::<String>()),
         TransformerType::FakeUsername => Cow::from(fake_username(&transformer.args, unique)),
-        //TODO not tested VV
-        TransformerType::FakeUUID => Cow::from(Uuid::new_v4().to_string()),
+        TransformerType::Scramble => Cow::from(scramble(rng, value)),
+        TransformerType::ObfuscateDay => Cow::from(obfuscate_day(value, table_name)),
         TransformerType::Fixed => fixed(&transformer.args, table_name),
         TransformerType::Identity => Cow::from(value),
-        TransformerType::ObfuscateDay => Cow::from(obfuscate_day(value, table_name)),
-        TransformerType::Scramble => Cow::from(scramble(rng, value)),
+        //TODO not tested VV
+        TransformerType::FakeUUID => Cow::from(Uuid::new_v4().to_string()),
     }
 }
 
@@ -86,34 +91,80 @@ fn transform_array<'value>(
     transformer: &Transformer,
     table_name: &str,
 ) -> Cow<'value, str> {
-    let is_string_array = underlying_type == &SubType::Character;
-    let unsplit_array = &value[1..value.len() - 1];
+    let quoted_types = vec![SubType::Character, SubType::Json];
+    let requires_quotes = quoted_types.contains(underlying_type);
 
     let sub_type = SingleValue {
         sub_type: underlying_type.clone(),
     };
 
-    let array: Vec<_> = unsplit_array
-        .split(", ")
-        .map(|list_item| {
-            if is_string_array {
-                let list_item_without_enclosing_quotes = &list_item[1..list_item.len() - 1];
-                let transformed = transform(
-                    rng,
-                    list_item_without_enclosing_quotes,
-                    &sub_type,
-                    transformer,
-                    table_name,
-                );
+    let transformed_array = if requires_quotes {
+        transform_quoted_array(rng, value, &sub_type, transformer, table_name)
+    } else {
+        let unsplit_array = &value[1..value.len() - 1];
+        unsplit_array
+            .split(", ")
+            .map(|list_item| transform(rng, list_item, &sub_type, transformer, table_name))
+            .collect::<Vec<Cow<str>>>()
+            .join(",")
+    };
+    Cow::from(format!("{{{}}}", transformed_array))
+}
 
-                Cow::from(format!("\"{}\"", transformed))
-            } else {
-                transform(rng, list_item, &sub_type, transformer, table_name)
-            }
-        })
-        .collect();
+fn transform_quoted_array<'value>(
+    rng: &mut SmallRng,
+    value: &'value str,
+    sub_type: &Type,
+    transformer: &Transformer,
+    table_name: &str,
+) -> String {
+    let mut inside_word = false;
+    let mut word_is_quoted = false;
+    let mut current_word: String = "".to_string();
+    let mut word_acc: String = "".to_string();
+    let mut last_char_seen: char = 'a';
+    let last_char_index = value.len() - 1;
+    for (i, c) in value.chars().enumerate() {
+        trace!("-----------");
+        trace!("current value is '{}'", c);
+        if i == 0 {
+            continue;
+        } else if !inside_word && c == '"' {
+            word_is_quoted = true;
+            continue;
+        } else if !inside_word && c == ',' {
+            continue;
+        } else if inside_word
+            && ((word_is_quoted && c == '"' && last_char_seen != '\\')
+                || (!word_is_quoted && c == ',')
+                || (!word_is_quoted && c == '}'))
+        {
+            inside_word = false;
+            word_is_quoted = false;
+            let transformed = transform(rng, &current_word, sub_type, transformer, table_name);
+            write!(word_acc, "\"{}\",", &transformed)
+                .expect("Should be able to apppend to word_acc");
+            current_word = "".to_string();
+            trace!("its the end of a word");
+        } else {
+            inside_word = true;
+            current_word.push(c);
+        }
 
-    Cow::from(format!("{{{}}}", array.join(", ")))
+        last_char_seen = c;
+        trace!(
+            "current_word: '{}', inside_word: '{}', last_char_seen: '{}', index: '{}/{}'",
+            current_word,
+            inside_word,
+            last_char_seen,
+            i,
+            last_char_index
+        );
+    }
+    trace!("\noutput - {:?}", word_acc);
+    //Remove the trailing comma from line: 145!
+    word_acc.pop();
+    word_acc
 }
 
 fn prepend_unique_if_present(
@@ -275,7 +326,6 @@ fn scramble(rng: &mut SmallRng, original_value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::national_insurance_number;
     use crate::parsers::rng;
     use regex::Regex;
 
@@ -924,7 +974,7 @@ mod tests {
 
     #[test]
     fn can_scramble_array_string_fields() {
-        let initial_value = "{\"A\", \"B\"}";
+        let initial_value = r#"{a,b,"c or d"}"#;
         let mut rng = rng::get();
         let new_value = transform(
             &mut rng,
@@ -939,7 +989,32 @@ mod tests {
             TABLE_NAME,
         );
         assert!(new_value != initial_value);
-        let re = Regex::new(r#"^\{"[a-z]", "[a-z]"\}$"#).unwrap();
+        let re = Regex::new(r#"^\{"[a-z]","[a-z]","[a-z] [a-z]{2} [a-z]"\}$"#).unwrap();
+        assert!(
+            re.is_match(&new_value),
+            "new value: \"{}\" does not contain same digit / alphabet structure as input",
+            new_value
+        );
+    }
+
+    #[test]
+    fn can_deal_with_commas_inside_values() {
+        let initial_value = r#"{"A, or B",C}"#;
+        let mut rng = rng::get();
+        let new_value = transform(
+            &mut rng,
+            initial_value,
+            &Type::Array {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_value != initial_value);
+        let re = Regex::new(r#"^\{"[a-z]{2} [a-z]{2} [a-z]","[a-z]"\}$"#).unwrap();
         assert!(
             re.is_match(&new_value),
             "new value: \"{}\" does not contain same digit / alphabet structure as input",
@@ -984,12 +1059,31 @@ mod tests {
             TABLE_NAME,
         );
         assert!(new_value != initial_value);
-        let re = Regex::new(r#"^\{[0-9], [0-9]{2}, [0-9]{3}, [0-9]{4}\}$"#).unwrap();
+        let re = Regex::new(r#"^\{[0-9],[0-9]{2},[0-9]{3},[0-9]{4}\}$"#).unwrap();
         assert!(
             re.is_match(&new_value),
             "new value: \"{}\" does not contain same digit / alphabet structure as input",
             new_value
         );
+    }
+
+    #[test]
+    fn json_array() {
+        let json = r#"{"{\\"sender\\": \\"pablo\\"}","{\\"sender\\": \\"barry\\"}"}"#;
+        let mut rng = rng::get();
+        let new_json = transform(
+            &mut rng,
+            json,
+            &Type::Array {
+                sub_type: SubType::Json,
+            },
+            &Transformer {
+                name: TransformerType::EmptyJson,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert_eq!(new_json, "{\"{}\",\"{}\"}");
     }
 
     #[test]
@@ -1000,7 +1094,9 @@ mod tests {
             &mut rng,
             json,
             &Type::SingleValue {
-                sub_type: SubType::Character,
+                sub_type: SubType::Unknown {
+                    underlying_type: "jsonb".to_string(),
+                },
             },
             &Transformer {
                 name: TransformerType::EmptyJson,
