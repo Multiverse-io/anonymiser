@@ -1,6 +1,4 @@
 use crate::parsers::national_insurance_number;
-use log::trace;
-
 use crate::parsers::strategy_structs::{Transformer, TransformerType};
 use crate::parsers::types::Type::Array;
 use crate::parsers::types::Type::SingleValue;
@@ -14,10 +12,12 @@ use fake::faker::company::en::*;
 use fake::faker::internet::en::*;
 use fake::faker::name::en::*;
 use fake::Fake;
+use log::trace;
 use rand::SeedableRng;
 use rand::{rngs::SmallRng, Rng};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
 
@@ -142,7 +142,8 @@ fn transform_quoted_array<'value>(
             inside_word = false;
             word_is_quoted = false;
             let transformed = transform(rng, &current_word, sub_type, transformer, table_name);
-            word_acc = format!("{}\"{}\",", word_acc, transformed);
+            write!(word_acc, "\"{}\",", &transformed)
+                .expect("Should be able to apppend to word_acc");
             current_word = "".to_string();
             trace!("its the end of a word");
         } else {
@@ -162,7 +163,8 @@ fn transform_quoted_array<'value>(
     }
     trace!("\noutput - {:?}", word_acc);
     //Remove the trailing comma from line: 145!
-    word_acc[0..word_acc.len() - 1].to_string()
+    word_acc.pop();
+    word_acc
 }
 
 fn prepend_unique_if_present(
