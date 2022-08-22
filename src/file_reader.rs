@@ -46,14 +46,13 @@ pub fn read(
 mod tests {
     use super::*;
     use crate::parsers::strategy_structs::*;
+    use crate::uncompress::uncompress;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
     use std::fs;
+    use std::path::PathBuf;
 
-    #[test]
-    fn can_read() {
-        let input_file = "test_files/dump_file.sql".to_string();
-        let output_file = "test_files/file_reader_test_results.sql".to_string();
+    fn default_strategies() -> Strategies {
         let mut strategies = Strategies::new();
         strategies.insert(
             "public.orders".to_string(),
@@ -87,6 +86,15 @@ mod tests {
                 strategy_tuple("phone_number"),
             ]),
         );
+        strategies
+    }
+
+    #[test]
+    fn can_read() {
+        let input_file = "test_files/dump_file.sql".to_string();
+        let output_file = "test_files/file_reader_test_results.sql".to_string();
+        let _ = fs::remove_file(&output_file).ok();
+        let strategies = default_strategies();
 
         assert!(read(input_file.clone(), output_file.clone(), &strategies, false).is_ok());
 
@@ -95,6 +103,40 @@ mod tests {
 
         let processed =
             fs::read_to_string(&output_file).expect("Something went wrong reading the file");
+
+        assert_eq!(original, processed);
+    }
+
+    #[test]
+    fn can_read_and_output_compressed() {
+        let input_file = "test_files/dump_file.sql".to_string();
+        let compressed_file = "test_files/compressed_file_reader_test_results.sql".to_string();
+        let uncompressed_file_name = "test_files/uncompressed_file_reader_test_results.sql";
+
+        let _ = fs::remove_file(&compressed_file);
+        let _ = fs::remove_file(&uncompressed_file_name);
+
+        let strategies = default_strategies();
+
+        assert!(read(
+            input_file.clone(),
+            compressed_file.clone(),
+            &strategies,
+            true
+        )
+        .is_ok());
+
+        uncompress(
+            PathBuf::from(&compressed_file),
+            Some(PathBuf::from(uncompressed_file_name)),
+        )
+        .expect("Should not fail to uncompress!");
+
+        let original =
+            fs::read_to_string(&input_file).expect("Something went wrong reading the file");
+
+        let processed = fs::read_to_string(&uncompressed_file_name)
+            .expect("Something went wrong reading the file");
 
         assert_eq!(original, processed);
     }
