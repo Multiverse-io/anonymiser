@@ -1,4 +1,6 @@
 use crate::parsers::national_insurance_number;
+use log::trace;
+
 use crate::parsers::strategy_structs::{Transformer, TransformerType};
 use crate::parsers::types::Type::Array;
 use crate::parsers::types::Type::SingleValue;
@@ -95,37 +97,36 @@ fn transform_array<'value>(
     let sub_type = SingleValue {
         sub_type: underlying_type.clone(),
     };
-    let array: Vec<_> = if requires_quotes {
-        array_string_to_vec(value)
-            .iter()
-            .map(|list_item| {
-                let list_item_str = list_item.as_str();
-                let transformed = transform(rng, list_item, &sub_type, transformer, table_name);
 
-                Cow::from(format!("\"{}\"", transformed))
-            })
-            .collect()
+    let transformed_array = if requires_quotes {
+        transform_quoted_array(rng, value, &sub_type, transformer, table_name)
     } else {
         let unsplit_array = &value[1..value.len() - 1];
         unsplit_array
             .split(", ")
             .map(|list_item| transform(rng, list_item, &sub_type, transformer, table_name))
-            .collect()
+            .collect::<Vec<Cow<str>>>()
+            .join(",")
     };
-
-    Cow::from(format!("{{{}}}", array.join(",")))
+    Cow::from(format!("{{{}}}", transformed_array))
 }
 
-fn array_string_to_vec(value: &str) -> Vec<String> {
+fn transform_quoted_array<'value>(
+    rng: &mut SmallRng,
+    value: &'value str,
+    sub_type: &Type,
+    transformer: &Transformer,
+    table_name: &str,
+) -> String {
     let mut inside_word = false;
     let mut word_is_quoted = false;
-    let mut output: String = "".to_string();
-    let mut list_output: Vec<String> = Vec::new();
-    let mut last_char: char = 'a';
+    let mut current_word: String = "".to_string();
+    let mut word_acc: String = "".to_string();
+    let mut last_char_seen: char = 'a';
     let last_char_index = value.len() - 1;
     for (i, c) in value.chars().enumerate() {
-        println!("-----------");
-        println!("current value is '{}'", c);
+        trace!("-----------");
+        trace!("current value is '{}'", c);
         if i == 0 {
             continue;
         } else if !inside_word && c == '"' {
@@ -134,28 +135,34 @@ fn array_string_to_vec(value: &str) -> Vec<String> {
         } else if !inside_word && c == ',' {
             continue;
         } else if inside_word
-            && ((word_is_quoted && c == '"' && last_char != '\\')
+            && ((word_is_quoted && c == '"' && last_char_seen != '\\')
                 || (!word_is_quoted && c == ',')
-                || !word_is_quoted && c == '}')
+                || (!word_is_quoted && c == '}'))
         {
             inside_word = false;
             word_is_quoted = false;
-            list_output.push(output);
-            output = "".to_string();
-            println!("its the end of a word");
+            let transformed = transform(rng, &current_word, sub_type, transformer, table_name);
+            word_acc = format!("{}\"{}\",", word_acc, transformed);
+            current_word = "".to_string();
+            trace!("its the end of a word");
         } else {
             inside_word = true;
-            output.push(c);
+            current_word.push(c);
         }
 
-        last_char = c;
-        println!(
-            " inside_word: {}, last_char: {}, word: {}, i: {}, length: {}",
-            inside_word, last_char, output, i, last_char_index
+        last_char_seen = c;
+        trace!(
+            "current_word: '{}', inside_word: '{}', last_char_seen: '{}', index: '{}/{}'",
+            current_word,
+            inside_word,
+            last_char_seen,
+            i,
+            last_char_index
         );
     }
-    println!("\noutput - {:?}  ", list_output);
-    list_output
+    trace!("\noutput - {:?}", word_acc);
+    //Remove the trailing comma from line: 145!
+    word_acc[0..word_acc.len() - 1].to_string()
 }
 
 fn prepend_unique_if_present(
@@ -317,7 +324,6 @@ fn scramble(rng: &mut SmallRng, original_value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::national_insurance_number;
     use crate::parsers::rng;
     use regex::Regex;
 
