@@ -1,15 +1,17 @@
 mod anonymiser;
 mod file_reader;
-use std::fmt::Write;
 mod fixer;
 mod opts;
 mod parsers;
+mod uncompress;
+
 use crate::opts::{Anonymiser, Opts};
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_structs::{MissingColumns, SimpleColumn, TransformerOverrides};
 use itertools::Itertools;
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
+use std::fmt::Write;
 
 use parsers::{db_schema, strategy_file};
 use structopt::StructOpt;
@@ -27,6 +29,7 @@ fn main() -> Result<(), std::io::Error> {
             input_file,
             output_file,
             strategy_file,
+            compress_output,
             allow_potential_pii,
             allow_commercially_sensitive,
         } => {
@@ -39,6 +42,7 @@ fn main() -> Result<(), std::io::Error> {
                 input_file,
                 output_file,
                 strategy_file,
+                compress_output,
                 transformer_overrides,
             )?
         }
@@ -84,6 +88,10 @@ fn main() -> Result<(), std::io::Error> {
                 }
             }
         }
+        Anonymiser::Uncompress {
+            input_file,
+            output_file,
+        } => uncompress::uncompress(input_file, output_file).expect("failed to uncompress"),
     }
     Ok(())
 }

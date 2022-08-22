@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Anonymiser", about = "Anonymise your database backups!")]
@@ -16,6 +18,9 @@ pub enum Anonymiser {
         output_file: String,
         #[structopt(short, long, default_value = "./strategy.json")]
         strategy_file: String,
+        /// Compress output using zstd
+        #[structopt(short, long)]
+        compress_output: bool,
         /// Does not transform PotentiallPii data types
         #[structopt(long)]
         allow_potential_pii: bool,
@@ -48,5 +53,14 @@ pub enum Anonymiser {
 
         #[structopt(short, long, env = "DATABASE_URL")]
         db_url: String,
+    },
+    /// Uncompress a zstd sql dump to a file, or stdout if no file specified
+    Uncompress {
+        /// Input file (*.sql.zst)
+        #[structopt(short, long)]
+        input_file: PathBuf,
+        /// Output file, will write to standard output if not specified
+        #[structopt(short, long)]
+        output_file: Option<PathBuf>,
     },
 }
