@@ -1,5 +1,14 @@
 # Anonymiser [![CircleCI](https://circleci.com/gh/Multiverse-io/anonymiser/tree/main.svg?style=svg&circle-token=f96c8ae882765c9cb2219d4539a5bed696451202)](https://circleci.com/gh/Multiverse-io/anonymiser/tree/main)
 
+A command line tool to read a sql backup (created with pg_dump) and anonymise it based on a strategy file
+
+## Running
+1. Ensure you have a strategy.json file (you can generate a blank one using `anonymiser generate-strategies --db-url postgres://postgres:postgres@localhost/DB_NAME`
+2. Choose a category / transformer for the fields (details below)
+3. Create a clear text backup with `pg_dump -x --no-owner > clear_text_dump.sql`
+4. Run the anonymiser with `anonymiser anonymise -i clear_text_dump.sql -o anonymised.sql -s strategy.json`
+
+For further command line options you can use `--help`
 
 ## Creating releases
 
