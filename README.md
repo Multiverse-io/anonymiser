@@ -2,6 +2,9 @@
 
 A command line tool to read a sql backup (created with pg_dump) and anonymise it based on a strategy file
 
+## Installing
+Can be downloded from [here](https://github.com/Multiverse-io/anonymiser/releases) or installed using asdf using [this](https://github.com/Multiverse-io/asdf-anonymiser)
+
 ## Running
 1. Ensure you have a strategy.json file (you can generate a blank one using `anonymiser generate-strategies --db-url postgres://postgres:postgres@localhost/DB_NAME`
 2. Choose a category / transformer for the fields (details below)
