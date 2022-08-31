@@ -16,6 +16,7 @@ pub enum Anonymiser {
         input_file: String,
         #[structopt(short, long, default_value = "./output.sql")]
         output_file: String,
+        /// Path to the strategy.json file
         #[structopt(short, long, default_value = "./strategy.json")]
         strategy_file: String,
         /// Compress output using zstd
@@ -29,9 +30,12 @@ pub enum Anonymiser {
         allow_commercially_sensitive: bool,
     },
 
+    /// Creates a CSV file of PII or PotentialPII fields
     ToCsv {
+        /// Path to write csv file to
         #[structopt(short, long, default_value = "./output.csv")]
         output_file: String,
+        /// Path to the strategy.json file
         #[structopt(short, long, default_value = "./strategy.json")]
         strategy_file: String,
     },
