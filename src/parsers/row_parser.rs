@@ -119,6 +119,9 @@ fn transform_row(
     let mut transformed = column_values.enumerate().map(|(i, value)| {
         let current_column = &current_table.columns[i];
         let column_type = types
+            //TODO this lookup, we do a double hashmap lookup for every column... already know the
+            //table, so we shouldnt need to do both... can we cache the current tables columns
+            //hashmap?
             .lookup(&current_table.table_name, &current_column.name)
             .unwrap_or_else(|| {
                 panic!(
