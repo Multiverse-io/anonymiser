@@ -89,16 +89,10 @@ pub fn parse<'line>(
                 current_table,
                 &state.types,
             ));
-            state.update_position(Position::InCopy {
-                current_table: current_table.clone(),
-            });
             transformed
         }
 
-        (RowType::Normal, Position::Normal) => {
-            state.update_position(Position::Normal);
-            Cow::from(line)
-        }
+        (RowType::Normal, Position::Normal) => Cow::from(line),
         (row_type, position) => {
             panic!(
                 "omg! invalid combo of rowtype: {:?} and position: {:?}",
