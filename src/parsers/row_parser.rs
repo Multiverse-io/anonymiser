@@ -82,15 +82,9 @@ pub fn parse<'line>(
             state.update_position(Position::Normal);
             Cow::from(line)
         }
-        (RowType::CopyBlockRow, Position::InCopy { ref current_table }) => {
-            let transformed = Cow::from(transform_row(
-                rng,
-                sanitised_line,
-                current_table,
-                &state.types,
-            ));
-            transformed
-        }
+        (RowType::CopyBlockRow, Position::InCopy { ref current_table }) => Cow::from(
+            transform_row(rng, sanitised_line, current_table, &state.types),
+        ),
 
         (RowType::Normal, Position::Normal) => Cow::from(line),
         (row_type, position) => {
