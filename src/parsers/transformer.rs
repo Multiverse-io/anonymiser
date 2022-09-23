@@ -305,11 +305,9 @@ fn scramble(rng: &mut SmallRng, original_value: &str) -> String {
         .chars()
         .map(|c| {
             if last_was_backslash {
-                return c;
-            }
-
-            last_was_backslash = false;
-            if c == '\\' {
+                last_was_backslash = false;
+                c
+            } else if c == '\\' {
                 last_was_backslash = true;
                 c
             } else if c == ' ' {
@@ -944,6 +942,29 @@ mod tests {
         );
         assert!(new_value != initial_value);
         //TODO finish this test
+    }
+
+    #[test]
+    fn scramble_deals_with_newlines() {
+        let initial_value = r#"First line\nSecond line\nThird line\n"#;
+
+        let mut rng = rng::get();
+        let new_value = transform(
+            &mut rng,
+            initial_value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::Scramble,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        println!("{new_value}");
+        assert!(new_value != initial_value);
+        assert!(!new_value.contains("Second line"));
+        assert!(!new_value.contains("Third line"));
     }
 
     #[test]
