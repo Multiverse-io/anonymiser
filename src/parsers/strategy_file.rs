@@ -72,7 +72,14 @@ fn add_missing(present: Vec<StrategyInFile>, missing: &[SimpleColumn]) -> Vec<St
 
     new_strategies.sort();
 
+    for s in new_strategies.iter_mut() {
+        sort_columns(s)
+    }
+
     new_strategies
+}
+fn sort_columns(s: &mut StrategyInFile) {
+    s.columns.sort_by(|a, b| a.name.cmp(&b.name))
 }
 
 fn remove_redundant(
@@ -206,8 +213,8 @@ mod tests {
                 table_name: "public.person".to_string(),
                 description: "".to_string(),
                 columns: vec![
-                    ColumnInFile::new("id"),
                     ColumnInFile::new("first_name"),
+                    ColumnInFile::new("id"),
                     ColumnInFile::new("last_name"),
                 ],
             },
