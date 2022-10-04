@@ -7,7 +7,9 @@ mod uncompress;
 
 use crate::opts::{Anonymiser, Opts};
 use crate::parsers::strategies::Strategies;
-use crate::parsers::strategy_structs::{MissingColumns, SimpleColumn, TransformerOverrides};
+use crate::parsers::strategy_structs::{
+    MissingColumns, SimpleColumn, StrategyInFile, TransformerOverrides,
+};
 use itertools::Itertools;
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
@@ -55,11 +57,9 @@ fn main() -> Result<(), std::io::Error> {
             strategy_file,
             db_url,
         } => {
-            let transformer = TransformerOverrides::none();
-            let strategies = strategy_file::read(&strategy_file, transformer)
-                .unwrap_or_else(|_| Strategies::new());
+            let strategies = strategy_file::read(&strategy_file).unwrap_or_else(|_| Vec::new());
 
-            match strategy_differences(&strategies, db_url) {
+            match strategy_differences(strategies, db_url) {
                 Ok(()) => println!("All up to date"),
                 Err(missing_columns) => {
                     let message = format_missing_columns(&strategy_file, &missing_columns);
@@ -77,7 +77,7 @@ fn main() -> Result<(), std::io::Error> {
             strategy_file,
             db_url,
         } => {
-            match strategy_differences(&Strategies::new(), db_url) {
+            match strategy_differences(Vec::new(), db_url) {
                 Ok(()) => println!("All up to date"),
                 Err(missing_columns) => {
                     if fixer::can_fix(&missing_columns) {
@@ -152,14 +152,19 @@ fn missing_to_message(missing: &[SimpleColumn]) -> String {
         .join("\n\t");
 }
 
-fn strategy_differences(strategies: &Strategies, db_url: String) -> Result<(), MissingColumns> {
+fn strategy_differences(
+    strategies: Vec<StrategyInFile>,
+    db_url: String,
+) -> Result<(), MissingColumns> {
+    let transformer = TransformerOverrides::none();
+    let parsed_strategies = Strategies::from_strategies_in_file(strategies, &transformer);
     let builder = TlsConnector::builder();
     let connector =
         MakeTlsConnector::new(builder.build().expect("should be able to create builder!"));
 
     let mut client = postgres::Client::connect(&db_url, connector).expect("expected to connect!");
     let db_columns = db_schema::parse(&mut client);
-    strategies.validate(db_columns)
+    parsed_strategies.validate(db_columns)
 }
 
 #[cfg(test)]

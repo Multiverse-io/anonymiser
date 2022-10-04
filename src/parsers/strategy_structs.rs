@@ -77,6 +77,25 @@ pub struct MissingColumns {
     pub unanonymised_pii: Vec<SimpleColumn>,
 }
 
+impl MissingColumns {
+    pub fn new() -> Self {
+        MissingColumns {
+            missing_from_strategy_file: Vec::new(),
+            missing_from_db: Vec::new(),
+            unknown_data_categories: Vec::new(),
+            error_transformer_types: Vec::new(),
+            unanonymised_pii: Vec::new(),
+        }
+    }
+    pub fn is_empty(to_check: &MissingColumns) -> bool {
+        to_check.missing_from_strategy_file.is_empty()
+            && to_check.missing_from_db.is_empty()
+            && to_check.unknown_data_categories.is_empty()
+            && to_check.error_transformer_types.is_empty()
+            && to_check.unanonymised_pii.is_empty()
+    }
+}
+
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct SimpleColumn {
     pub table_name: String,

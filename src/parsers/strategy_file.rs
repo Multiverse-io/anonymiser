@@ -1,5 +1,3 @@
-use crate::parsers::strategies::Strategies;
-use crate::parsers::strategies_parser;
 use crate::parsers::strategy_structs::*;
 use itertools::sorted;
 use itertools::Itertools;
@@ -9,12 +7,23 @@ use serde_json;
 use std::collections::HashMap;
 use std::fs;
 
-pub fn read(
-    file_name: &str,
-    transformer_overrides: TransformerOverrides,
-) -> Result<Strategies, std::io::Error> {
-    read_file(file_name)
-        .map(|strategies| strategies_parser::parse(strategies, transformer_overrides))
+pub fn read(file_name: &str) -> Result<Vec<StrategyInFile>, std::io::Error> {
+    let result = fs::read_to_string(file_name).map(|file_contents| {
+        serde_json::from_str::<Vec<StrategyInFile>>(&file_contents).unwrap_or_else(|e| {
+            panic!(
+                "Invalid json found in strategy file at '{}': {:#}",
+                file_name, e
+            )
+        })
+    });
+
+    match result {
+        Ok(_) => result,
+        Err(ref err) => match err.kind() {
+            std::io::ErrorKind::NotFound => result,
+            _ => panic!("Unable to read strategy file at {}: {:?}", file_name, err),
+        },
+    }
 }
 
 pub fn sync_to_file(
@@ -22,7 +31,7 @@ pub fn sync_to_file(
     missing_columns: Vec<SimpleColumn>,
     redundant_columns: Vec<SimpleColumn>,
 ) -> std::io::Result<()> {
-    let current_file_contents = read_file(file_name).unwrap_or_else(|_| Vec::new());
+    let current_file_contents = read(file_name).unwrap_or_else(|_| Vec::new());
 
     let file_contents_with_missing = add_missing(current_file_contents, &missing_columns);
     let new_file_contents = remove_redundant(file_contents_with_missing, &redundant_columns);
@@ -122,7 +131,7 @@ fn remove_redundant(
 }
 
 pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()> {
-    let strategies = read_file(strategy_file)?;
+    let strategies = read(strategy_file)?;
     let p: Vec<String> = strategies
         .iter()
         .flat_map(|strategy| {
@@ -156,24 +165,6 @@ pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()>
     Ok(())
 }
 
-fn read_file(file_name: &str) -> Result<Vec<StrategyInFile>, std::io::Error> {
-    let result = fs::read_to_string(file_name).map(|file_contents| {
-        serde_json::from_str::<Vec<StrategyInFile>>(&file_contents).unwrap_or_else(|e| {
-            panic!(
-                "Invalid json found in strategy file at '{}': {:#}",
-                file_name, e
-            )
-        })
-    });
-
-    match result {
-        Ok(_) => result,
-        Err(ref err) => match err.kind() {
-            std::io::ErrorKind::NotFound => result,
-            _ => panic!("Unable to read strategy file at {}: {:?}", file_name, err),
-        },
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;

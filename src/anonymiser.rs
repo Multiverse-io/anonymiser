@@ -1,4 +1,5 @@
 use crate::file_reader;
+use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_file;
 use crate::parsers::strategy_structs::TransformerOverrides;
 
@@ -9,9 +10,11 @@ pub fn anonymise(
     compress_output: bool,
     transformer_overrides: TransformerOverrides,
 ) -> Result<(), std::io::Error> {
-    match strategy_file::read(&strategy_file, transformer_overrides) {
+    match strategy_file::read(&strategy_file) {
         Ok(strategies) => {
-            file_reader::read(input_file, output_file, &strategies, compress_output)?;
+            let parsed_strategies =
+                Strategies::from_strategies_in_file(strategies, &transformer_overrides);
+            file_reader::read(input_file, output_file, &parsed_strategies, compress_output)?;
             Ok(())
         }
         Err(_) => {
