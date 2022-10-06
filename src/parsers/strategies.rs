@@ -1,36 +1,10 @@
 use crate::parsers::strategy_structs::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub struct Strategies {
     tables: HashMap<String, HashMap<String, ColumnInfo>>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Duplicates {
-    columns: Vec<(String, String)>,
-    tables: Vec<String>,
-}
-
-impl fmt::Display for Duplicates {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let tables: String = self.tables.join("\n\t");
-
-        let columns = self
-            .columns
-            .iter()
-            .map(|(t, c)| format!("{} - {}", t, c))
-            .collect::<Vec<String>>()
-            .join("\n\t");
-
-        write!(
-            f,
-            "These tables are defined multiple times:\n\t{}\n\nThese columns are duplicated inside a table deifinition:\n\t{}",
-            tables, columns
-        )
-    }
 }
 
 impl Strategies {
@@ -92,7 +66,7 @@ impl Strategies {
         if StrategyFileErrors::is_empty(&errors) {
             Ok(transformed_strategies)
         } else {
-            //TODO sort errors somehow
+            //TODO sort/order errors somehow
             Err(errors)
         }
     }
@@ -128,8 +102,8 @@ impl Strategies {
                 .difference(&columns_from_strategy_file)
                 .cloned()
                 .collect(),
-            missing_from_db: columns_from_db
-                .difference(&columns_from_strategy_file)
+            missing_from_db: columns_from_strategy_file
+                .difference(&columns_from_db)
                 .cloned()
                 .collect(),
         };
@@ -281,86 +255,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn validate_against_db_returns_columns_missing_data_category() {
-        let strategies = create_strategy(
-            "public.person",
-            [create_strategy_with_data_category(
-                "first_name",
-                DataCategory::Unknown,
-            )]
-            .into_iter(),
-        );
-
-        let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
-
-        let result = strategies.validate_against_db(columns_from_db);
-
-        let error = result.unwrap_err();
-        assert_eq!(
-            error.unknown_data_categories,
-            vec!(create_simple_column("public.person", "first_name"))
-        );
-    }
-    #[test]
-    fn validate_against_db_returns_columns_with_error_transformer_types() {
-        let strategies = create_strategy(
-            "public.person",
-            [create_column_with_transformer_type(
-                "first_name",
-                TransformerType::Error,
-            )]
-            .into_iter(),
-        );
-
-        let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
-
-        let result = strategies.validate_against_db(columns_from_db);
-
-        let error = result.unwrap_err();
-        assert_eq!(
-            error.error_transformer_types,
-            vec!(create_simple_column("public.person", "first_name"))
-        );
-    }
-
-    #[test]
-    fn validate_against_db_returns_pii_columns_with_identity_transformer() {
-        let strategies = create_strategy(
-            "public.person",
-            [
-                create_column_with_data_and_transformer_type(
-                    "first_name",
-                    DataCategory::Pii,
-                    TransformerType::Identity,
-                ),
-                create_column_with_data_and_transformer_type(
-                    "last_name",
-                    DataCategory::PotentialPii,
-                    TransformerType::Identity,
-                ),
-            ]
-            .into_iter(),
-        );
-
-        let columns_from_db = HashSet::from([
-            create_simple_column("public.person", "first_name"),
-            create_simple_column("public.person", "last_name"),
-        ]);
-
-        let result = strategies.validate_against_db(columns_from_db);
-
-        let error = result.unwrap_err();
-
-        assert_eq!(
-            error.unanonymised_pii,
-            vec!(
-                create_simple_column("public.person", "first_name"),
-                create_simple_column("public.person", "last_name")
-            )
-        );
-    }
-
     const TABLE_NAME: &str = "gert_lush_table";
     const PII_COLUMN_NAME: &str = "pii_column";
     const COMMERCIALLY_SENSITIVE_COLUMN_NAME: &str = "commercially_sensitive_column";
@@ -423,10 +317,80 @@ mod tests {
         let error = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none())
             .expect_err("We should have a duplicate table error");
 
-        assert_eq!(error.tables, vec![TABLE_NAME.to_string()]);
+        assert_eq!(error.duplicate_tables, vec![TABLE_NAME.to_string()]);
         assert_eq!(
-            error.columns,
+            error.duplicate_columns,
             vec![(table2_name.to_string(), column_name.to_string())]
+        );
+    }
+
+    #[test]
+    fn from_strategies_in_file_returns_errors_for_columns_missing_data_category() {
+        let strategies = vec![StrategyInFile {
+            table_name: "public.person".to_string(),
+            description: "description".to_string(),
+            columns: vec![column_in_file(
+                DataCategory::Unknown,
+                "first_name",
+                TransformerType::Identity,
+            )],
+        }];
+
+        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+
+        let error = result.unwrap_err();
+        assert_eq!(
+            error.unknown_data_categories,
+            vec!(create_simple_column("public.person", "first_name"))
+        );
+    }
+
+    #[test]
+    fn from_strategies_in_file_returns_errors_for_columns_with_error_transformer_types() {
+        let strategies = vec![StrategyInFile {
+            table_name: "public.person".to_string(),
+            description: "description".to_string(),
+            columns: vec![column_in_file(
+                DataCategory::General,
+                "first_name",
+                TransformerType::Error,
+            )],
+        }];
+
+        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+
+        let error = result.unwrap_err();
+        assert_eq!(
+            error.error_transformer_types,
+            vec!(create_simple_column("public.person", "first_name"))
+        );
+    }
+
+    #[test]
+    fn from_strategies_in_file_returns_errors_for_pii_columns_with_identity_transformer() {
+        let strategies = vec![StrategyInFile {
+            table_name: "public.person".to_string(),
+            description: "description".to_string(),
+            columns: vec![
+                column_in_file(DataCategory::Pii, "first_name", TransformerType::Identity),
+                column_in_file(
+                    DataCategory::PotentialPii,
+                    "last_name",
+                    TransformerType::Identity,
+                ),
+            ],
+        }];
+
+        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+
+        let error = result.unwrap_err();
+
+        assert_eq!(
+            error.unanonymised_pii,
+            vec!(
+                create_simple_column("public.person", "first_name"),
+                create_simple_column("public.person", "last_name")
+            )
         );
     }
 
@@ -598,27 +562,6 @@ mod tests {
         )
     }
 
-    fn create_column_with_transformer_type(
-        column_name: &str,
-        transformer_type: TransformerType,
-    ) -> (String, ColumnInfo) {
-        create_column_with_data_and_transformer_type(
-            column_name,
-            DataCategory::General,
-            transformer_type,
-        )
-    }
-
-    fn create_strategy_with_data_category(
-        column_name: &str,
-        data_category: DataCategory,
-    ) -> (String, ColumnInfo) {
-        create_column_with_data_and_transformer_type(
-            column_name,
-            data_category,
-            TransformerType::Identity,
-        )
-    }
     fn create_column_with_data_and_transformer_type(
         column_name: &str,
         data_category: DataCategory,
