@@ -83,7 +83,8 @@ impl Strategies {
                 tables: duplicate_tables,
             })
         }
-        //TODO diff the columns so you get what is actually duplicated
+        //TODO diff the columns so you get what is actually duplicated - do we need to actually do
+        //we even need the columns for duped tables? probably not, we can work it out when fixing?!
     }
 
     pub fn for_table(&self, table_name: &str) -> Option<&HashMap<String, ColumnInfo>> {
