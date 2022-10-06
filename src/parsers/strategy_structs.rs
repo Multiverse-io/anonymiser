@@ -12,6 +12,7 @@ pub struct ColumnInFile {
 }
 
 impl ColumnInFile {
+    //TODO why is this no longer used?!
     pub fn new(column_name: &str) -> Self {
         ColumnInFile {
             data_category: DataCategory::Unknown,
@@ -67,32 +68,60 @@ impl PartialEq for StrategyInFile {
         self.table_name == other.table_name && self.columns == other.columns
     }
 }
+#[derive(Debug)]
+pub enum StrategyFileError {
+    ValidationError(StrategyFileErrors),
+    DbMismatchError(StrategyFileDbValidationErrors),
+}
+
+impl From<StrategyFileErrors> for StrategyFileError {
+    fn from(err: StrategyFileErrors) -> Self {
+        StrategyFileError::ValidationError(err)
+    }
+}
+
+impl From<StrategyFileDbValidationErrors> for StrategyFileError {
+    fn from(err: StrategyFileDbValidationErrors) -> Self {
+        StrategyFileError::DbMismatchError(err)
+    }
+}
 
 #[derive(Debug)]
-pub struct MissingColumns {
+pub struct StrategyFileDbValidationErrors {
     pub missing_from_strategy_file: Vec<SimpleColumn>,
     pub missing_from_db: Vec<SimpleColumn>,
+}
+impl StrategyFileDbValidationErrors {
+    pub fn is_empty(to_check: &StrategyFileDbValidationErrors) -> bool {
+        to_check.missing_from_strategy_file.is_empty() && to_check.missing_from_db.is_empty()
+    }
+}
+
+#[derive(Debug)]
+pub struct StrategyFileErrors {
     pub unknown_data_categories: Vec<SimpleColumn>,
     pub error_transformer_types: Vec<SimpleColumn>,
     pub unanonymised_pii: Vec<SimpleColumn>,
+    pub duplicate_columns: Vec<(String, String)>,
+    pub duplicate_tables: Vec<String>,
 }
 
-impl MissingColumns {
+impl StrategyFileErrors {
     pub fn new() -> Self {
-        MissingColumns {
-            missing_from_strategy_file: Vec::new(),
-            missing_from_db: Vec::new(),
+        StrategyFileErrors {
             unknown_data_categories: Vec::new(),
             error_transformer_types: Vec::new(),
             unanonymised_pii: Vec::new(),
+            duplicate_columns: Vec::new(),
+            duplicate_tables: Vec::new(),
         }
     }
-    pub fn is_empty(to_check: &MissingColumns) -> bool {
-        to_check.missing_from_strategy_file.is_empty()
-            && to_check.missing_from_db.is_empty()
-            && to_check.unknown_data_categories.is_empty()
+    pub fn is_empty(to_check: &StrategyFileErrors) -> bool {
+        to_check.unknown_data_categories.is_empty()
             && to_check.error_transformer_types.is_empty()
             && to_check.unanonymised_pii.is_empty()
+            && to_check.duplicate_columns.is_empty()
+            && to_check.duplicate_tables.is_empty()
     }
 }
 

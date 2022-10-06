@@ -8,7 +8,7 @@ mod uncompress;
 use crate::opts::{Anonymiser, Opts};
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_structs::{
-    MissingColumns, SimpleColumn, StrategyInFile, TransformerOverrides,
+    SimpleColumn, StrategyFileError, StrategyInFile, TransformerOverrides,
 };
 use itertools::Itertools;
 use native_tls::TlsConnector;
@@ -61,12 +61,12 @@ fn main() -> Result<(), std::io::Error> {
 
             match strategy_differences(strategies, db_url) {
                 Ok(()) => println!("All up to date"),
-                Err(missing_columns) => {
-                    let message = format_missing_columns(&strategy_file, &missing_columns);
+                Err(err) => {
+                    let message = format_missing_columns(&strategy_file, &err);
                     println!("{}", message);
-                    if fix_flag && fixer::can_fix(&missing_columns) {
+                    if fix_flag && fixer::can_fix(&err) {
                         println!("But the great news is that we're going to try and fix some of this!...");
-                        fixer::fix_columns(&strategy_file, missing_columns);
+                        fixer::fix_columns(&strategy_file, err);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
                     std::process::exit(1);
@@ -79,9 +79,9 @@ fn main() -> Result<(), std::io::Error> {
         } => {
             match strategy_differences(Vec::new(), db_url) {
                 Ok(()) => println!("All up to date"),
-                Err(missing_columns) => {
-                    if fixer::can_fix(&missing_columns) {
-                        fixer::fix_columns(&strategy_file, missing_columns);
+                Err(err) => {
+                    if fixer::can_fix(&err) {
+                        fixer::fix_columns(&strategy_file, err);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
                     std::process::exit(1);
@@ -96,49 +96,56 @@ fn main() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn format_missing_columns(strategy_file: &str, missing_columns: &MissingColumns) -> String {
+fn format_missing_columns(strategy_file: &str, error: &StrategyFileError) -> String {
     let mut message = "".to_string();
 
-    if !missing_columns.unanonymised_pii.is_empty() {
-        let missing_list = missing_to_message(&missing_columns.unanonymised_pii);
-        write!(message,
+    match error {
+        StrategyFileError::DbMismatchError(missing_columns) => {
+            if !missing_columns.missing_from_db.is_empty() {
+                let missing_list = missing_to_message(&missing_columns.missing_from_db);
+                write!(
+                    message,
+                    "Some fields are in the strategies file ({}) but not the database!\n\t{}\n",
+                    strategy_file, missing_list
+                )
+                .unwrap()
+            }
+
+            if !missing_columns.missing_from_strategy_file.is_empty() {
+                let missing_list = missing_to_message(&missing_columns.missing_from_strategy_file);
+                write!(
+                    message,
+                    "Some fields are missing from strategies file ({})\n\t{}\n",
+                    strategy_file, missing_list
+                )
+                .unwrap()
+            }
+        }
+        StrategyFileError::ValidationError(validation_error) => {
+            if !validation_error.unanonymised_pii.is_empty() {
+                let missing_list = missing_to_message(&validation_error.unanonymised_pii);
+                write!(message,
                 "Some fields are tagged as being PII but do not have anonymising transformers set. ({})\n\t{}\nPlease add valid transformers!\n\n",
                 strategy_file, missing_list
             ).unwrap()
-    }
+            }
 
-    if !missing_columns.error_transformer_types.is_empty() {
-        let missing_list = missing_to_message(&missing_columns.error_transformer_types);
-        write!(message, "Some fields still have 'Error' transformer types ({})\n\t{}\nPlease add valid transformers!\n\n",
+            //TODO missing_to_message? naming
+            if !validation_error.error_transformer_types.is_empty() {
+                let missing_list = missing_to_message(&validation_error.error_transformer_types);
+                write!(message, "Some fields still have 'Error' transformer types ({})\n\t{}\nPlease add valid transformers!\n\n",
                 strategy_file, missing_list
             ).unwrap()
-    }
+            }
 
-    if !missing_columns.unknown_data_categories.is_empty() {
-        let missing_list = missing_to_message(&missing_columns.unknown_data_categories);
-        write!(message,
+            if !validation_error.unknown_data_categories.is_empty() {
+                let missing_list = missing_to_message(&validation_error.unknown_data_categories);
+                write!(message,
                 "Some fields still have 'Unknown' data types ({})\n\t{}\nPlease add valid data types!\n\n",
                 strategy_file, missing_list
             ).unwrap()
-    }
-    if !missing_columns.missing_from_db.is_empty() {
-        let missing_list = missing_to_message(&missing_columns.missing_from_db);
-        write!(
-            message,
-            "Some fields are in the strategies file ({}) but not the database!\n\t{}\n",
-            strategy_file, missing_list
-        )
-        .unwrap()
-    }
-
-    if !missing_columns.missing_from_strategy_file.is_empty() {
-        let missing_list = missing_to_message(&missing_columns.missing_from_strategy_file);
-        write!(
-            message,
-            "Some fields are missing from strategies file ({})\n\t{}\n",
-            strategy_file, missing_list
-        )
-        .unwrap()
+            }
+        }
     }
 
     message
@@ -155,17 +162,17 @@ fn missing_to_message(missing: &[SimpleColumn]) -> String {
 fn strategy_differences(
     strategies: Vec<StrategyInFile>,
     db_url: String,
-) -> Result<(), MissingColumns> {
+) -> Result<(), StrategyFileError> {
     let transformer = TransformerOverrides::none();
-    //TODO dont unwrap
-    let parsed_strategies = Strategies::from_strategies_in_file(strategies, &transformer).unwrap();
+    let parsed_strategies = Strategies::from_strategies_in_file(strategies, &transformer)?;
     let builder = TlsConnector::builder();
     let connector =
         MakeTlsConnector::new(builder.build().expect("should be able to create builder!"));
 
     let mut client = postgres::Client::connect(&db_url, connector).expect("expected to connect!");
     let db_columns = db_schema::parse(&mut client);
-    parsed_strategies.validate_against_db(db_columns)
+    parsed_strategies.validate_against_db(db_columns)?;
+    Ok(())
 }
 
 #[cfg(test)]

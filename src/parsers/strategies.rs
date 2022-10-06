@@ -43,14 +43,31 @@ impl Strategies {
     pub fn from_strategies_in_file(
         strategies_in_file: Vec<StrategyInFile>,
         transformer_overrides: &TransformerOverrides,
-    ) -> Result<Strategies, Duplicates> {
+    ) -> Result<Strategies, StrategyFileErrors> {
         let mut transformed_strategies = Strategies::new();
-        let mut duplicate_tables = Vec::new();
-        let mut duplicate_columns = Vec::new();
+        let mut errors = StrategyFileErrors::new();
 
         for strategy in strategies_in_file {
             let mut columns = HashMap::<String, ColumnInfo>::new();
             for column in strategy.columns {
+                if (column.data_category == DataCategory::PotentialPii
+                    || column.data_category == DataCategory::Pii)
+                    && column.transformer.name == TransformerType::Identity
+                {
+                    errors
+                        .unanonymised_pii
+                        .push(create_simple_column(&column.name, &strategy.table_name));
+                }
+                if column.data_category == DataCategory::Unknown {
+                    errors
+                        .unknown_data_categories
+                        .push(create_simple_column(&column.name, &strategy.table_name));
+                }
+                if column.transformer.name == TransformerType::Error {
+                    errors
+                        .error_transformer_types
+                        .push(create_simple_column(&column.name, &strategy.table_name));
+                }
                 let result = columns.insert(
                     column.name.clone(),
                     ColumnInfo {
@@ -60,26 +77,24 @@ impl Strategies {
                     },
                 );
                 if let Some(dupe) = result {
-                    duplicate_columns.push((strategy.table_name.clone(), dupe.name));
+                    errors
+                        .duplicate_columns
+                        .push((strategy.table_name.clone(), dupe.name));
                 }
             }
 
             let result = transformed_strategies.insert(strategy.table_name.clone(), columns);
             if result.is_some() {
-                duplicate_tables.push(strategy.table_name);
+                errors.duplicate_tables.push(strategy.table_name);
             }
         }
 
-        if duplicate_columns.is_empty() && duplicate_tables.is_empty() {
+        if StrategyFileErrors::is_empty(&errors) {
             Ok(transformed_strategies)
         } else {
-            Err(Duplicates {
-                columns: duplicate_columns,
-                tables: duplicate_tables,
-            })
+            //TODO sort errors somehow
+            Err(errors)
         }
-        //TODO diff the columns so you get what is actually duplicated - do we need to actually do
-        //we even need the columns for duped tables? probably not, we can work it out when fixing?!
     }
 
     pub fn for_table(&self, table_name: &str) -> Option<&HashMap<String, ColumnInfo>> {
@@ -97,31 +112,7 @@ impl Strategies {
     pub fn validate_against_db(
         &self,
         columns_from_db: HashSet<SimpleColumn>,
-    ) -> Result<(), MissingColumns> {
-        let mut errors = MissingColumns::new();
-        for (table_name, columns) in &self.tables {
-            for (column_name, column_info) in columns {
-                if (column_info.data_category == DataCategory::PotentialPii
-                    || column_info.data_category == DataCategory::Pii)
-                    && column_info.transformer.name == TransformerType::Identity
-                {
-                    errors
-                        .unanonymised_pii
-                        .push(create_simple_column(column_name, table_name));
-                }
-                if column_info.data_category == DataCategory::Unknown {
-                    errors
-                        .unknown_data_categories
-                        .push(create_simple_column(column_name, table_name));
-                }
-                if column_info.transformer.name == TransformerType::Error {
-                    errors
-                        .error_transformer_types
-                        .push(create_simple_column(column_name, table_name));
-                }
-            }
-        }
-
+    ) -> Result<(), StrategyFileDbValidationErrors> {
         let columns_from_strategy_file: HashSet<SimpleColumn> = self
             .tables
             .iter()
@@ -132,29 +123,24 @@ impl Strategies {
             })
             .collect();
 
-        let in_strategy_file_but_not_db: Vec<_> = columns_from_strategy_file
-            .difference(&columns_from_db)
-            .cloned()
-            .collect();
+        let mut errors = StrategyFileDbValidationErrors {
+            missing_from_strategy_file: columns_from_db
+                .difference(&columns_from_strategy_file)
+                .cloned()
+                .collect(),
+            missing_from_db: columns_from_db
+                .difference(&columns_from_strategy_file)
+                .cloned()
+                .collect(),
+        };
 
-        let in_db_but_not_strategy_file: Vec<_> = columns_from_db
-            .difference(&columns_from_strategy_file)
-            .cloned()
-            .collect();
-
-        errors.missing_from_strategy_file = add_if_present(in_db_but_not_strategy_file);
-        errors.missing_from_db = add_if_present(in_strategy_file_but_not_db);
-
-        if MissingColumns::is_empty(&errors) {
+        if StrategyFileDbValidationErrors::is_empty(&errors) {
             Ok(())
         } else {
             // TODO i wanted to do like errors.sort() and errors.is_empty()
             // above but couldnt work out the ownership :(
             errors.missing_from_strategy_file.sort();
             errors.missing_from_db.sort();
-            errors.unknown_data_categories.sort();
-            errors.error_transformer_types.sort();
-            errors.unanonymised_pii.sort();
             Err(errors)
         }
     }
@@ -183,16 +169,6 @@ fn create_simple_column(column_name: &str, table_name: &str) -> SimpleColumn {
     SimpleColumn {
         table_name: table_name.to_string(),
         column_name: column_name.to_string(),
-    }
-}
-
-fn add_if_present(list: Vec<SimpleColumn>) -> Vec<SimpleColumn> {
-    if list.is_empty() {
-        list
-    } else {
-        let mut new_list = list;
-        new_list.sort();
-        new_list
     }
 }
 

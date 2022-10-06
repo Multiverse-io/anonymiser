@@ -23,8 +23,8 @@ pub fn anonymise(
                     Ok(())
                 }
                 Err(duplicate_columns) => {
-                    //TODO deal with this - its duplicate entries
-                    panic!("Duplicate columns found: {}", duplicate_columns)
+                    //TODO We probably want to return errors neatly from this file
+                    panic!("Duplicate columns found: {:?}", duplicate_columns)
                 }
             }
         }
