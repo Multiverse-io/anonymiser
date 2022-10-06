@@ -165,7 +165,7 @@ fn strategy_differences(
 
     let mut client = postgres::Client::connect(&db_url, connector).expect("expected to connect!");
     let db_columns = db_schema::parse(&mut client);
-    parsed_strategies.validate(db_columns)
+    parsed_strategies.validate_against_db(db_columns)
 }
 
 #[cfg(test)]

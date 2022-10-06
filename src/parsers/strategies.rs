@@ -10,23 +10,18 @@ pub struct Strategies {
 
 #[derive(Debug, PartialEq)]
 pub struct Duplicates {
-    columns: Vec<(String, ColumnInfo)>,
-    tables: HashMap<String, HashMap<String, ColumnInfo>>,
+    columns: Vec<(String, String)>,
+    tables: Vec<String>,
 }
 
 impl fmt::Display for Duplicates {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let tables: String = self
-            .tables
-            .keys()
-            .cloned()
-            .collect::<Vec<String>>()
-            .join("\n\t");
+        let tables: String = self.tables.join("\n\t");
 
         let columns = self
             .columns
             .iter()
-            .map(|(t, c)| format!("{} - {}", t, c.name.clone()))
+            .map(|(t, c)| format!("{} - {}", t, c))
             .collect::<Vec<String>>()
             .join("\n\t");
 
@@ -50,7 +45,7 @@ impl Strategies {
         transformer_overrides: &TransformerOverrides,
     ) -> Result<Strategies, Duplicates> {
         let mut transformed_strategies = Strategies::new();
-        let mut duplicate_tables = HashMap::<String, HashMap<String, ColumnInfo>>::new();
+        let mut duplicate_tables = Vec::new();
         let mut duplicate_columns = Vec::new();
 
         for strategy in strategies_in_file {
@@ -65,13 +60,13 @@ impl Strategies {
                     },
                 );
                 if let Some(dupe) = result {
-                    duplicate_columns.push((strategy.table_name.clone(), dupe));
+                    duplicate_columns.push((strategy.table_name.clone(), dupe.name));
                 }
             }
 
             let result = transformed_strategies.insert(strategy.table_name.clone(), columns);
-            if let Some(dupe) = result {
-                duplicate_tables.insert(strategy.table_name, dupe);
+            if result.is_some() {
+                duplicate_tables.push(strategy.table_name);
             }
         }
 
@@ -99,7 +94,10 @@ impl Strategies {
         self.tables.insert(table_name, columns)
     }
 
-    pub fn validate(&self, columns_from_db: HashSet<SimpleColumn>) -> Result<(), MissingColumns> {
+    pub fn validate_against_db(
+        &self,
+        columns_from_db: HashSet<SimpleColumn>,
+    ) -> Result<(), MissingColumns> {
         let mut errors = MissingColumns::new();
         for (table_name, columns) in &self.tables {
             for (column_name, column_info) in columns {
@@ -224,7 +222,7 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    fn returns_ok_with_matching_fields() {
+    fn validate_against_db_returns_ok_with_matching_fields() {
         let mut strategies =
             create_strategy("public.person", [create_column("first_name")].into_iter());
 
@@ -239,13 +237,13 @@ mod tests {
             create_simple_column("public.location", "postcode"),
         ]);
 
-        let result = strategies.validate(columns_from_db);
+        let result = strategies.validate_against_db(columns_from_db);
 
         assert!(result.is_ok());
     }
 
     #[test]
-    fn returns_fields_missing_from_strategy_file_that_are_in_the_db() {
+    fn validate_against_db_returns_fields_missing_from_strategy_file_that_are_in_the_db() {
         let strategies =
             create_strategy("public.person", [create_column("first_name")].into_iter());
 
@@ -254,7 +252,7 @@ mod tests {
             create_simple_column("public.location", "postcode"),
         ]);
 
-        let result = strategies.validate(columns_from_db);
+        let result = strategies.validate_against_db(columns_from_db);
 
         let error = result.unwrap_err();
         assert!(error.missing_from_db.is_empty());
@@ -265,7 +263,7 @@ mod tests {
     }
 
     #[test]
-    fn returns_fields_missing_from_the_db_but_are_in_the_strategy_file() {
+    fn validate_against_db_returns_fields_missing_from_the_db_but_are_in_the_strategy_file() {
         let mut strategies =
             create_strategy("public.person", [create_column("first_name")].into_iter());
 
@@ -277,7 +275,7 @@ mod tests {
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
 
-        let result = strategies.validate(columns_from_db);
+        let result = strategies.validate_against_db(columns_from_db);
 
         let error = result.unwrap_err();
         assert!(error.missing_from_strategy_file.is_empty());
@@ -288,13 +286,13 @@ mod tests {
     }
 
     #[test]
-    fn returns_fields_missing_both() {
+    fn validate_against_db_returns_fields_missing_both() {
         let strategies =
             create_strategy("public.person", [create_column("first_name")].into_iter());
 
         let columns_from_db = HashSet::from([create_simple_column("public.location", "postcode")]);
 
-        let result = strategies.validate(columns_from_db);
+        let result = strategies.validate_against_db(columns_from_db);
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -308,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn returns_columns_missing_data_category() {
+    fn validate_against_db_returns_columns_missing_data_category() {
         let strategies = create_strategy(
             "public.person",
             [create_strategy_with_data_category(
@@ -320,7 +318,7 @@ mod tests {
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
 
-        let result = strategies.validate(columns_from_db);
+        let result = strategies.validate_against_db(columns_from_db);
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -329,7 +327,7 @@ mod tests {
         );
     }
     #[test]
-    fn returns_columns_with_error_transformer_types() {
+    fn validate_against_db_returns_columns_with_error_transformer_types() {
         let strategies = create_strategy(
             "public.person",
             [create_column_with_transformer_type(
@@ -341,7 +339,7 @@ mod tests {
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
 
-        let result = strategies.validate(columns_from_db);
+        let result = strategies.validate_against_db(columns_from_db);
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -351,7 +349,7 @@ mod tests {
     }
 
     #[test]
-    fn returns_pii_columns_with_identity_transformer() {
+    fn validate_against_db_returns_pii_columns_with_identity_transformer() {
         let strategies = create_strategy(
             "public.person",
             [
@@ -374,7 +372,7 @@ mod tests {
             create_simple_column("public.person", "last_name"),
         ]);
 
-        let result = strategies.validate(columns_from_db);
+        let result = strategies.validate_against_db(columns_from_db);
 
         let error = result.unwrap_err();
 
@@ -392,7 +390,7 @@ mod tests {
     const COMMERCIALLY_SENSITIVE_COLUMN_NAME: &str = "commercially_sensitive_column";
 
     #[test]
-    fn can_parse_file_contents_into_hashmaps() {
+    fn from_strategies_in_file_can_parse_file_contents_into_hashmaps() {
         let column_name = "column1";
 
         let strategies = vec![StrategyInFile {
@@ -422,7 +420,42 @@ mod tests {
     }
 
     #[test]
-    fn ignores_transformers_for_potential_pii_if_flag_provided() {
+    fn from_strategies_in_file_returns_errors_for_duplicate_table_and_column_definitions() {
+        let table2_name = "daps";
+        let column_name = "column1";
+        let duplicated_column =
+            column_in_file(DataCategory::Pii, column_name, TransformerType::Scramble);
+
+        let strategies = vec![
+            StrategyInFile {
+                table_name: TABLE_NAME.to_string(),
+                description: "description".to_string(),
+                columns: vec![],
+            },
+            StrategyInFile {
+                table_name: TABLE_NAME.to_string(),
+                description: "description".to_string(),
+                columns: vec![],
+            },
+            StrategyInFile {
+                table_name: table2_name.to_string(),
+                description: "description".to_string(),
+                columns: vec![duplicated_column.clone(), duplicated_column],
+            },
+        ];
+
+        let error = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none())
+            .expect_err("We should have a duplicate table error");
+
+        assert_eq!(error.tables, vec![TABLE_NAME.to_string()]);
+        assert_eq!(
+            error.columns,
+            vec![(table2_name.to_string(), column_name.to_string())]
+        );
+    }
+
+    #[test]
+    fn from_strategies_in_file_ignores_transformers_for_potential_pii_if_flag_provided() {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
@@ -463,7 +496,7 @@ mod tests {
     }
 
     #[test]
-    fn ignores_transformers_for_commercially_sensitive_if_flag_provided() {
+    fn from_strategies_in_file_ignores_transformers_for_commercially_sensitive_if_flag_provided() {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
@@ -505,7 +538,7 @@ mod tests {
     }
 
     #[test]
-    fn can_combine_override_flags() {
+    fn from_strategies_in_file_can_combine_override_flags() {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
