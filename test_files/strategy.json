@@ -2,7 +2,20 @@
   {
     "table_name": "public.orders",
     "description": "",
+    "columns": []
+    },
+  {
+    "table_name": "public.orders",
+    "description": "",
     "columns": [
+      {
+        "data_category": "General",
+        "description": "",
+        "name": "id",
+        "transformer": {
+          "name": "Identity"
+        }
+      },
       {
         "data_category": "General",
         "description": "",
@@ -28,6 +41,11 @@
         }
       }
     ]
+  },
+  {
+    "table_name": "public.products",
+    "description": "",
+    "columns": []
   },
   {
     "table_name": "public.products",

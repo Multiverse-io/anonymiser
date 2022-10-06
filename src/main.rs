@@ -157,7 +157,8 @@ fn strategy_differences(
     db_url: String,
 ) -> Result<(), MissingColumns> {
     let transformer = TransformerOverrides::none();
-    let parsed_strategies = Strategies::from_strategies_in_file(strategies, &transformer);
+    //TODO dont unwrap
+    let parsed_strategies = Strategies::from_strategies_in_file(strategies, &transformer).unwrap();
     let builder = TlsConnector::builder();
     let connector =
         MakeTlsConnector::new(builder.build().expect("should be able to create builder!"));

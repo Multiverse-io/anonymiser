@@ -12,10 +12,21 @@ pub fn anonymise(
 ) -> Result<(), std::io::Error> {
     match strategy_file::read(&strategy_file) {
         Ok(strategies) => {
-            let parsed_strategies =
-                Strategies::from_strategies_in_file(strategies, &transformer_overrides);
-            file_reader::read(input_file, output_file, &parsed_strategies, compress_output)?;
-            Ok(())
+            match Strategies::from_strategies_in_file(strategies, &transformer_overrides) {
+                Ok(parsed_strategies) => {
+                    file_reader::read(
+                        input_file,
+                        output_file,
+                        &parsed_strategies,
+                        compress_output,
+                    )?;
+                    Ok(())
+                }
+                Err(duplicate_columns) => {
+                    //TODO deal with this - its duplicate entries
+                    panic!("Duplicate columns found: {}", duplicate_columns)
+                }
+            }
         }
         Err(_) => {
             panic!("Strategy file '{}' does not exist", strategy_file)

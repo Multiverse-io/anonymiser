@@ -1,11 +1,43 @@
 use crate::parsers::strategy_structs::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub struct Strategies {
     tables: HashMap<String, HashMap<String, ColumnInfo>>,
 }
+
+#[derive(Debug, PartialEq)]
+pub struct Duplicates {
+    columns: Vec<(String, ColumnInfo)>,
+    tables: HashMap<String, HashMap<String, ColumnInfo>>,
+}
+
+impl fmt::Display for Duplicates {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let tables: String = self
+            .tables
+            .keys()
+            .cloned()
+            .collect::<Vec<String>>()
+            .join("\n\t");
+
+        let columns = self
+            .columns
+            .iter()
+            .map(|(t, c)| format!("{} - {}", t, c.name.clone()))
+            .collect::<Vec<String>>()
+            .join("\n\t");
+
+        write!(
+            f,
+            "These tables are defined multiple times:\n\t{}\n\nThese columns are duplicated inside a table deifinition:\n\t{}",
+            tables, columns
+        )
+    }
+}
+
 impl Strategies {
     pub fn new() -> Strategies {
         Strategies {
@@ -16,43 +48,54 @@ impl Strategies {
     pub fn from_strategies_in_file(
         strategies_in_file: Vec<StrategyInFile>,
         transformer_overrides: &TransformerOverrides,
-    ) -> Strategies {
+    ) -> Result<Strategies, Duplicates> {
         let mut transformed_strategies = Strategies::new();
-        //TODO If all columns are none, lets not do any transforming?
-        for strategy in strategies_in_file {
-            let columns = strategy
-                .columns
-                .into_iter()
-                .map(|column| {
-                    (
-                        column.name.clone(),
-                        ColumnInfo {
-                            data_category: column.data_category.clone(),
-                            name: column.name.clone(),
-                            transformer: transformer(column, &transformer_overrides),
-                        },
-                    )
-                })
-                .collect();
+        let mut duplicate_tables = HashMap::<String, HashMap<String, ColumnInfo>>::new();
+        let mut duplicate_columns = Vec::new();
 
-            transformed_strategies.insert(strategy.table_name, columns);
+        for strategy in strategies_in_file {
+            let mut columns = HashMap::<String, ColumnInfo>::new();
+            for column in strategy.columns {
+                let result = columns.insert(
+                    column.name.clone(),
+                    ColumnInfo {
+                        data_category: column.data_category.clone(),
+                        name: column.name.clone(),
+                        transformer: transformer(column, transformer_overrides),
+                    },
+                );
+                if let Some(dupe) = result {
+                    duplicate_columns.push((strategy.table_name.clone(), dupe));
+                }
+            }
+
+            let result = transformed_strategies.insert(strategy.table_name.clone(), columns);
+            if let Some(dupe) = result {
+                duplicate_tables.insert(strategy.table_name, dupe);
+            }
         }
 
-        transformed_strategies
+        if duplicate_columns.is_empty() && duplicate_tables.is_empty() {
+            Ok(transformed_strategies)
+        } else {
+            Err(Duplicates {
+                columns: duplicate_columns,
+                tables: duplicate_tables,
+            })
+        }
+        //TODO diff the columns so you get what is actually duplicated
     }
 
     pub fn for_table(&self, table_name: &str) -> Option<&HashMap<String, ColumnInfo>> {
         self.tables.get(table_name)
     }
 
-    pub fn insert(&mut self, table_name: String, columns: HashMap<String, ColumnInfo>) {
-        match self.tables.insert(table_name.clone(), columns) {
-            None => (),
-            Some(_existing) => panic!(
-
-                "Duplicate table {:?} found in strategy file! try running `check-strategies` with --fix", table_name
-            ),
-        }
+    pub fn insert(
+        &mut self,
+        table_name: String,
+        columns: HashMap<String, ColumnInfo>,
+    ) -> Option<HashMap<String, ColumnInfo>> {
+        self.tables.insert(table_name, columns)
     }
 
     pub fn validate(&self, columns_from_db: HashSet<SimpleColumn>) -> Result<(), MissingColumns> {
@@ -65,17 +108,17 @@ impl Strategies {
                 {
                     errors
                         .unanonymised_pii
-                        .push(create_simple_column(&column_name, &table_name));
+                        .push(create_simple_column(column_name, table_name));
                 }
                 if column_info.data_category == DataCategory::Unknown {
                     errors
                         .unknown_data_categories
-                        .push(create_simple_column(&column_name, &table_name));
+                        .push(create_simple_column(column_name, table_name));
                 }
                 if column_info.transformer.name == TransformerType::Error {
                     errors
                         .error_transformer_types
-                        .push(create_simple_column(&column_name, &table_name));
+                        .push(create_simple_column(column_name, table_name));
                 }
             }
         }
@@ -372,7 +415,8 @@ mod tests {
                     .build(),
             )]),
         );
-        let parsed = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+        let parsed = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none())
+            .expect("we shouldnt have duplicate columns!");
         assert_eq!(expected, parsed);
     }
 
@@ -401,7 +445,8 @@ mod tests {
                 allow_potential_pii: true,
                 allow_commercially_sensitive: false,
             },
-        );
+        )
+        .expect("we shouldnt have duplicate columns!");
         let pii_column_transformer = transformer_for_column(PII_COLUMN_NAME, &parsed);
         let commercially_sensitive_transformer =
             transformer_for_column(COMMERCIALLY_SENSITIVE_COLUMN_NAME, &parsed);
@@ -441,7 +486,8 @@ mod tests {
                 allow_potential_pii: false,
                 allow_commercially_sensitive: true,
             },
-        );
+        )
+        .expect("we shouldnt have duplicate columns!");
 
         let commercially_sensitive_transformer =
             transformer_for_column(COMMERCIALLY_SENSITIVE_COLUMN_NAME, &parsed);
@@ -482,7 +528,8 @@ mod tests {
                 allow_potential_pii: true,
                 allow_commercially_sensitive: true,
             },
-        );
+        )
+        .expect("we shouldnt have duplicate columns!");
 
         let commercially_sensitive_transformer =
             transformer_for_column(COMMERCIALLY_SENSITIVE_COLUMN_NAME, &parsed);
