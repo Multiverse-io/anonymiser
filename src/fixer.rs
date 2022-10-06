@@ -1,5 +1,5 @@
+use crate::parsers::strategies::StrategyFileError;
 use crate::parsers::strategy_file;
-use crate::parsers::strategy_structs::StrategyFileError;
 
 pub fn can_fix(error: &StrategyFileError) -> bool {
     match error {
@@ -36,64 +36,55 @@ pub fn fix_columns(strategy_file: &str, error: StrategyFileError) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::strategy_structs::{
-        SimpleColumn, StrategyFileDbValidationErrors, StrategyFileErrors,
-    };
+    use crate::parsers::strategies::{DbErrors, ValidationErrors};
+    use crate::parsers::strategy_structs::SimpleColumn;
 
     #[test]
     fn cannot_fix_db_mismatch_error_if_no_missing_columns() {
-        assert!(!can_fix(&StrategyFileError::DbMismatchError(
-            StrategyFileDbValidationErrors {
-                missing_from_db: Vec::new(),
-                missing_from_strategy_file: Vec::new(),
-            }
-        )));
+        assert!(!can_fix(&StrategyFileError::DbMismatchError(DbErrors {
+            missing_from_db: Vec::new(),
+            missing_from_strategy_file: Vec::new(),
+        })));
     }
     #[test]
     fn can_fix_db_mismatch_error_if_missing_from_db_and_strategy() {
-        assert!(can_fix(&StrategyFileError::DbMismatchError(
-            StrategyFileDbValidationErrors {
-                missing_from_db: vec![SimpleColumn {
-                    column_name: "column".to_string(),
-                    table_name: "table".to_string()
-                }],
-                missing_from_strategy_file: vec![SimpleColumn {
-                    column_name: "column".to_string(),
-                    table_name: "table".to_string()
-                }],
-            }
-        )));
+        assert!(can_fix(&StrategyFileError::DbMismatchError(DbErrors {
+            missing_from_db: vec![SimpleColumn {
+                column_name: "column".to_string(),
+                table_name: "table".to_string()
+            }],
+            missing_from_strategy_file: vec![SimpleColumn {
+                column_name: "column".to_string(),
+                table_name: "table".to_string()
+            }],
+        })));
     }
 
     #[test]
     fn can_fix_db_mismatch_error_if_missing_from_db_only() {
-        assert!(can_fix(&StrategyFileError::DbMismatchError(
-            StrategyFileDbValidationErrors {
-                missing_from_db: vec![SimpleColumn {
-                    column_name: "column".to_string(),
-                    table_name: "table".to_string()
-                }],
-                missing_from_strategy_file: Vec::new(),
-            }
-        )));
+        assert!(can_fix(&StrategyFileError::DbMismatchError(DbErrors {
+            missing_from_db: vec![SimpleColumn {
+                column_name: "column".to_string(),
+                table_name: "table".to_string()
+            }],
+            missing_from_strategy_file: Vec::new(),
+        })));
     }
 
     #[test]
     fn can_fix_db_mismatch_error_if_missing_from_strategy_file_only() {
-        assert!(can_fix(&StrategyFileError::DbMismatchError(
-            StrategyFileDbValidationErrors {
-                missing_from_db: Vec::new(),
-                missing_from_strategy_file: vec![SimpleColumn {
-                    column_name: "column".to_string(),
-                    table_name: "table".to_string()
-                }],
-            }
-        )));
+        assert!(can_fix(&StrategyFileError::DbMismatchError(DbErrors {
+            missing_from_db: Vec::new(),
+            missing_from_strategy_file: vec![SimpleColumn {
+                column_name: "column".to_string(),
+                table_name: "table".to_string()
+            }],
+        })));
     }
     #[test]
     fn cannot_fix_validation_error_if_no_errors() {
         assert!(!can_fix(&StrategyFileError::ValidationError(
-            StrategyFileErrors {
+            ValidationErrors {
                 unknown_data_categories: Vec::new(),
                 error_transformer_types: Vec::new(),
                 unanonymised_pii: Vec::new(),
@@ -110,7 +101,7 @@ mod tests {
             table_name: "table".to_string(),
         }];
         assert!(!can_fix(&StrategyFileError::ValidationError(
-            StrategyFileErrors {
+            ValidationErrors {
                 unknown_data_categories: error.clone(),
                 error_transformer_types: error.clone(),
                 unanonymised_pii: error,
@@ -124,7 +115,7 @@ mod tests {
     fn can_fix_duplicate_columns() {
         let error = vec![("table_name".to_string(), "column".to_string())];
         assert!(can_fix(&StrategyFileError::ValidationError(
-            StrategyFileErrors {
+            ValidationErrors {
                 unknown_data_categories: Vec::new(),
                 error_transformer_types: Vec::new(),
                 unanonymised_pii: Vec::new(),
@@ -138,7 +129,7 @@ mod tests {
     fn can_fix_duplicate_tables() {
         let error = vec!["table_name".to_string()];
         assert!(can_fix(&StrategyFileError::ValidationError(
-            StrategyFileErrors {
+            ValidationErrors {
                 unknown_data_categories: Vec::new(),
                 error_transformer_types: Vec::new(),
                 unanonymised_pii: Vec::new(),

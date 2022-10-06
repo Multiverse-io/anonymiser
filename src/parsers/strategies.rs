@@ -7,6 +7,63 @@ pub struct Strategies {
     tables: HashMap<String, HashMap<String, ColumnInfo>>,
 }
 
+#[derive(Debug)]
+pub enum StrategyFileError {
+    ValidationError(ValidationErrors),
+    DbMismatchError(DbErrors),
+}
+
+impl From<ValidationErrors> for StrategyFileError {
+    fn from(err: ValidationErrors) -> Self {
+        StrategyFileError::ValidationError(err)
+    }
+}
+
+impl From<DbErrors> for StrategyFileError {
+    fn from(err: DbErrors) -> Self {
+        StrategyFileError::DbMismatchError(err)
+    }
+}
+
+#[derive(Debug)]
+pub struct DbErrors {
+    pub missing_from_strategy_file: Vec<SimpleColumn>,
+    pub missing_from_db: Vec<SimpleColumn>,
+}
+impl DbErrors {
+    pub fn is_empty(to_check: &DbErrors) -> bool {
+        to_check.missing_from_strategy_file.is_empty() && to_check.missing_from_db.is_empty()
+    }
+}
+
+#[derive(Debug)]
+pub struct ValidationErrors {
+    pub unknown_data_categories: Vec<SimpleColumn>,
+    pub error_transformer_types: Vec<SimpleColumn>,
+    pub unanonymised_pii: Vec<SimpleColumn>,
+    pub duplicate_columns: Vec<(String, String)>,
+    pub duplicate_tables: Vec<String>,
+}
+
+impl ValidationErrors {
+    pub fn new() -> Self {
+        ValidationErrors {
+            unknown_data_categories: Vec::new(),
+            error_transformer_types: Vec::new(),
+            unanonymised_pii: Vec::new(),
+            duplicate_columns: Vec::new(),
+            duplicate_tables: Vec::new(),
+        }
+    }
+    pub fn is_empty(to_check: &ValidationErrors) -> bool {
+        to_check.unknown_data_categories.is_empty()
+            && to_check.error_transformer_types.is_empty()
+            && to_check.unanonymised_pii.is_empty()
+            && to_check.duplicate_columns.is_empty()
+            && to_check.duplicate_tables.is_empty()
+    }
+}
+
 impl Strategies {
     pub fn new() -> Strategies {
         Strategies {
@@ -17,9 +74,9 @@ impl Strategies {
     pub fn from_strategies_in_file(
         strategies_in_file: Vec<StrategyInFile>,
         transformer_overrides: &TransformerOverrides,
-    ) -> Result<Strategies, StrategyFileErrors> {
+    ) -> Result<Strategies, ValidationErrors> {
         let mut transformed_strategies = Strategies::new();
-        let mut errors = StrategyFileErrors::new();
+        let mut errors = ValidationErrors::new();
 
         for strategy in strategies_in_file {
             let mut columns = HashMap::<String, ColumnInfo>::new();
@@ -63,10 +120,10 @@ impl Strategies {
             }
         }
 
-        if StrategyFileErrors::is_empty(&errors) {
+        if ValidationErrors::is_empty(&errors) {
             Ok(transformed_strategies)
         } else {
-            //TODO sort/order errors somehow
+            //TODO sort/order errors somehow or maybe only do that when we log them out??
             Err(errors)
         }
     }
@@ -86,7 +143,7 @@ impl Strategies {
     pub fn validate_against_db(
         &self,
         columns_from_db: HashSet<SimpleColumn>,
-    ) -> Result<(), StrategyFileDbValidationErrors> {
+    ) -> Result<(), DbErrors> {
         let columns_from_strategy_file: HashSet<SimpleColumn> = self
             .tables
             .iter()
@@ -97,7 +154,7 @@ impl Strategies {
             })
             .collect();
 
-        let mut errors = StrategyFileDbValidationErrors {
+        let mut errors = DbErrors {
             missing_from_strategy_file: columns_from_db
                 .difference(&columns_from_strategy_file)
                 .cloned()
@@ -108,7 +165,7 @@ impl Strategies {
                 .collect(),
         };
 
-        if StrategyFileDbValidationErrors::is_empty(&errors) {
+        if DbErrors::is_empty(&errors) {
             Ok(())
         } else {
             // TODO i wanted to do like errors.sort() and errors.is_empty()

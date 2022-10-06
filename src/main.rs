@@ -6,10 +6,8 @@ mod parsers;
 mod uncompress;
 
 use crate::opts::{Anonymiser, Opts};
-use crate::parsers::strategies::Strategies;
-use crate::parsers::strategy_structs::{
-    SimpleColumn, StrategyFileError, StrategyInFile, TransformerOverrides,
-};
+use crate::parsers::strategies::{Strategies, StrategyFileError};
+use crate::parsers::strategy_structs::{SimpleColumn, StrategyInFile, TransformerOverrides};
 use itertools::Itertools;
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
