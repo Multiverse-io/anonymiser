@@ -1,4 +1,4 @@
-use crate::parsers::strategies::StrategyFileError;
+use crate::parsers::strategy_errors::StrategyFileError;
 use crate::parsers::strategy_file;
 
 pub fn can_fix(error: &StrategyFileError) -> bool {
@@ -36,7 +36,7 @@ pub fn fix_columns(strategy_file: &str, error: StrategyFileError) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parsers::strategies::{DbErrors, ValidationErrors};
+    use crate::parsers::strategy_errors::{DbErrors, ValidationErrors};
     use crate::parsers::strategy_structs::SimpleColumn;
 
     #[test]
@@ -113,7 +113,10 @@ mod tests {
 
     #[test]
     fn can_fix_duplicate_columns() {
-        let error = vec![("table_name".to_string(), "column".to_string())];
+        let error = vec![SimpleColumn {
+            table_name: "table_name".to_string(),
+            column_name: "column".to_string(),
+        }];
         assert!(can_fix(&StrategyFileError::ValidationError(
             ValidationErrors {
                 unknown_data_categories: Vec::new(),

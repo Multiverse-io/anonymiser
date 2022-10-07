@@ -1,3 +1,4 @@
+use crate::parsers::strategy_errors::{DbErrors, ValidationErrors};
 use crate::parsers::strategy_structs::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -5,63 +6,6 @@ use std::collections::HashSet;
 #[derive(Debug, PartialEq)]
 pub struct Strategies {
     tables: HashMap<String, HashMap<String, ColumnInfo>>,
-}
-
-#[derive(Debug)]
-pub enum StrategyFileError {
-    ValidationError(ValidationErrors),
-    DbMismatchError(DbErrors),
-}
-
-impl From<ValidationErrors> for StrategyFileError {
-    fn from(err: ValidationErrors) -> Self {
-        StrategyFileError::ValidationError(err)
-    }
-}
-
-impl From<DbErrors> for StrategyFileError {
-    fn from(err: DbErrors) -> Self {
-        StrategyFileError::DbMismatchError(err)
-    }
-}
-
-#[derive(Debug)]
-pub struct DbErrors {
-    pub missing_from_strategy_file: Vec<SimpleColumn>,
-    pub missing_from_db: Vec<SimpleColumn>,
-}
-impl DbErrors {
-    pub fn is_empty(to_check: &DbErrors) -> bool {
-        to_check.missing_from_strategy_file.is_empty() && to_check.missing_from_db.is_empty()
-    }
-}
-
-#[derive(Debug)]
-pub struct ValidationErrors {
-    pub unknown_data_categories: Vec<SimpleColumn>,
-    pub error_transformer_types: Vec<SimpleColumn>,
-    pub unanonymised_pii: Vec<SimpleColumn>,
-    pub duplicate_columns: Vec<(String, String)>,
-    pub duplicate_tables: Vec<String>,
-}
-
-impl ValidationErrors {
-    pub fn new() -> Self {
-        ValidationErrors {
-            unknown_data_categories: Vec::new(),
-            error_transformer_types: Vec::new(),
-            unanonymised_pii: Vec::new(),
-            duplicate_columns: Vec::new(),
-            duplicate_tables: Vec::new(),
-        }
-    }
-    pub fn is_empty(to_check: &ValidationErrors) -> bool {
-        to_check.unknown_data_categories.is_empty()
-            && to_check.error_transformer_types.is_empty()
-            && to_check.unanonymised_pii.is_empty()
-            && to_check.duplicate_columns.is_empty()
-            && to_check.duplicate_tables.is_empty()
-    }
 }
 
 impl Strategies {
@@ -108,9 +52,10 @@ impl Strategies {
                     },
                 );
                 if let Some(dupe) = result {
-                    errors
-                        .duplicate_columns
-                        .push((strategy.table_name.clone(), dupe.name));
+                    errors.duplicate_columns.push(create_simple_column(
+                        &dupe.name,
+                        &strategy.table_name.clone(),
+                    ))
                 }
             }
 
@@ -377,7 +322,7 @@ mod tests {
         assert_eq!(error.duplicate_tables, vec![TABLE_NAME.to_string()]);
         assert_eq!(
             error.duplicate_columns,
-            vec![(table2_name.to_string(), column_name.to_string())]
+            vec![create_simple_column(table2_name, column_name)]
         );
     }
 
