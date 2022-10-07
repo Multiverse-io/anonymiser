@@ -1,10 +1,11 @@
 mod anonymiser;
 mod file_reader;
-mod fixer;
+mod fixers;
 mod opts;
 mod parsers;
 mod uncompress;
 
+use crate::fixers::fixer;
 use crate::opts::{Anonymiser, Opts};
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_errors::StrategyFileError;
