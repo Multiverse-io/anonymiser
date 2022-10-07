@@ -12,7 +12,6 @@ pub struct ColumnInFile {
 }
 
 impl ColumnInFile {
-    //TODO why is this no longer used?!
     pub fn new(column_name: &str) -> Self {
         ColumnInFile {
             data_category: DataCategory::Unknown,

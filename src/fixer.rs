@@ -18,7 +18,6 @@ pub fn can_fix(error: &StrategyFileError) -> bool {
 pub fn fix_columns(strategy_file: &str, error: StrategyFileError) {
     match error {
         StrategyFileError::ValidationError(_validation_error) => {
-
             //TODO this
         }
 
