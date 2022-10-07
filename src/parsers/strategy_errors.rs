@@ -12,8 +12,7 @@ impl fmt::Display for StrategyFileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             StrategyFileError::ValidationError(error) => write!(f, "{}", error),
-            StrategyFileError::DbMismatchError(error) => write!(f, "{:?}", error), //TODO display
-                                                                                   //trait
+            StrategyFileError::DbMismatchError(error) => write!(f, "{}", error),
         }
     }
 }
@@ -41,6 +40,32 @@ impl DbErrors {
     }
 }
 
+impl fmt::Display for DbErrors {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut message = "".to_string();
+        if !self.missing_from_db.is_empty() {
+            let missing_list = column_to_message(&self.missing_from_db);
+            write!(
+                message,
+                "Some fields are in the strategy file but not the database!\n\t{}\n",
+                missing_list
+            )
+            .unwrap()
+        }
+
+        if !self.missing_from_strategy_file.is_empty() {
+            let missing_list = column_to_message(&self.missing_from_strategy_file);
+            write!(
+                message,
+                "Some fields are missing from strategy file\n\t{}\n",
+                missing_list
+            )
+            .unwrap()
+        }
+        write!(f, "{}", message)
+    }
+}
+
 #[derive(Debug)]
 pub struct ValidationErrors {
     pub unknown_data_categories: Vec<SimpleColumn>,
@@ -56,23 +81,23 @@ impl fmt::Display for ValidationErrors {
         if !self.unanonymised_pii.is_empty() {
             let missing_list = column_to_message(&self.unanonymised_pii);
             write!(message,
-                "Some fields are tagged as being PII but do not have anonymising transformers set.\n\t{}\nPlease add valid transformers!\n\n",
-                 missing_list
+                 "Some fields in strategy file are tagged as being PII but do not have anonymising transformers set\n\t{}\nPlease add valid transformers!\n\n",
+                missing_list
             ).unwrap()
         }
 
         if !self.error_transformer_types.is_empty() {
             let missing_list = column_to_message(&self.error_transformer_types);
-            write!(message, "Some fields still have 'Error' transformer types\n\t{}\nPlease add valid transformers!\n\n",
-                 missing_list
+            write!(message, "Some fields in strategy file still have 'Error' transformer types\n\t{}\nPlease add valid transformers!\n\n",
+                missing_list
             ).unwrap()
         }
 
         if !self.unknown_data_categories.is_empty() {
             let missing_list = column_to_message(&self.unknown_data_categories);
             write!(message,
-                "Some fields still have 'Unknown' data types\n\t{}\nPlease add valid data types!\n\n",
-                 missing_list
+                "Some fields in strategy file still have 'Unknown' data types\n\t{}\nPlease add valid data types!\n\n",
+                missing_list
             ).unwrap()
         }
 
@@ -80,7 +105,7 @@ impl fmt::Display for ValidationErrors {
             let missing_list = column_to_message(&self.unknown_data_categories);
             write!(
                 message,
-                "Duplicate columns definitions found!\n\t{}\n\n",
+                "Duplicate columns definitions found in strategy file\n\t{}\n\n",
                 missing_list
             )
             .unwrap()
@@ -89,7 +114,7 @@ impl fmt::Display for ValidationErrors {
         if !self.duplicate_tables.is_empty() {
             write!(
                 message,
-                "Duplicate table definitions found!\n\t{}\n\n",
+                "Duplicate table definitions found in strategy file\n\t{}\n\n",
                 self.duplicate_tables.iter().join("\n\t")
             )
             .unwrap()
