@@ -1,10 +1,9 @@
 #[cfg(test)]
 pub mod builders {
     use crate::parsers::state::Types;
-    use crate::parsers::strategy_structs::ColumnInfo;
-    use crate::parsers::strategy_structs::DataCategory;
-    use crate::parsers::strategy_structs::Transformer;
-    use crate::parsers::strategy_structs::TransformerType;
+    use crate::parsers::strategy_structs::{
+        ColumnInFile, ColumnInfo, DataCategory, StrategyInFile, Transformer, TransformerType,
+    };
     use crate::parsers::types::{SubType, Type};
     use std::collections::HashMap;
 
@@ -47,6 +46,96 @@ pub mod builders {
             ColumnInfo {
                 name: self.name,
                 data_category: self.data_category.unwrap_or(DataCategory::General),
+                transformer: Transformer {
+                    args: self.transformer_args,
+                    name: self.transformer_type.unwrap_or(TransformerType::Identity),
+                },
+            }
+        }
+    }
+
+    #[derive(Default)]
+    pub struct StrategyInFileBuilder {
+        table_name: String,
+        description: Option<String>,
+        columns: Vec<ColumnInFile>,
+    }
+
+    impl StrategyInFile {
+        pub fn builder() -> StrategyInFileBuilder {
+            StrategyInFileBuilder::default()
+        }
+    }
+
+    impl StrategyInFileBuilder {
+        pub fn with_table_name(mut self, name: &str) -> StrategyInFileBuilder {
+            self.table_name = name.to_string();
+            self
+        }
+
+        pub fn with_description(mut self, description: &str) -> StrategyInFileBuilder {
+            self.description = Some(description.to_string());
+            self
+        }
+
+        pub fn with_column(mut self, column: ColumnInFile) -> StrategyInFileBuilder {
+            self.columns.push(column);
+            self
+        }
+
+        pub fn build(self) -> StrategyInFile {
+            StrategyInFile {
+                table_name: self.table_name,
+                description: self.description.unwrap_or("Any description".to_string()),
+                columns: self.columns,
+            }
+        }
+    }
+    #[derive(Default)]
+    pub struct ColumnInFileBuilder {
+        name: String,
+        description: Option<String>,
+        data_category: Option<DataCategory>,
+        transformer_type: Option<TransformerType>,
+        transformer_args: Option<HashMap<String, String>>,
+    }
+
+    impl ColumnInFile {
+        pub fn builder() -> ColumnInFileBuilder {
+            ColumnInFileBuilder::default()
+        }
+    }
+
+    impl ColumnInFileBuilder {
+        pub fn with_name(mut self, name: &str) -> ColumnInFileBuilder {
+            self.name = name.to_string();
+            self
+        }
+        pub fn with_transformer(
+            mut self,
+            transformer_type: TransformerType,
+            transformer_args: Option<HashMap<String, String>>,
+        ) -> ColumnInFileBuilder {
+            self.transformer_type = Some(transformer_type);
+            self.transformer_args = transformer_args;
+            self
+        }
+
+        pub fn with_data_category(mut self, data_category: DataCategory) -> ColumnInFileBuilder {
+            self.data_category = Some(data_category);
+            self
+        }
+
+        pub fn with_description(mut self, description: &str) -> ColumnInFileBuilder {
+            self.description = Some(description.to_string());
+            self
+        }
+
+        pub fn build(self) -> ColumnInFile {
+            ColumnInFile {
+                name: self.name,
+                data_category: self.data_category.unwrap_or(DataCategory::General),
+                description: self.description.unwrap_or("Any description".to_string()),
                 transformer: Transformer {
                     args: self.transformer_args,
                     name: self.transformer_type.unwrap_or(TransformerType::Identity),
