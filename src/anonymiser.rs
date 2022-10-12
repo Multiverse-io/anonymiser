@@ -10,7 +10,6 @@ pub fn anonymise(
     compress_output: bool,
     transformer_overrides: TransformerOverrides,
 ) -> Result<(), std::io::Error> {
-    println!("{}", &strategy_file);
     match strategy_file::read(&strategy_file) {
         Ok(strategies) => {
             match Strategies::from_strategies_in_file(strategies, &transformer_overrides) {
