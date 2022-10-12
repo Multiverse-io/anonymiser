@@ -6,6 +6,7 @@ mod parsers;
 mod uncompress;
 
 use crate::fixers::fixer;
+use crate::fixers::fixer::SortResult;
 use crate::opts::{Anonymiser, Opts};
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_errors::StrategyFileError;
@@ -51,7 +52,6 @@ fn main() -> Result<(), std::io::Error> {
             strategy_file,
         } => strategy_file::to_csv(&strategy_file, &output_file)?,
         Anonymiser::CheckStrategies {
-            fix: fix_flag,
             strategy_file,
             db_url,
         } => {
@@ -61,15 +61,40 @@ fn main() -> Result<(), std::io::Error> {
                 Ok(()) => println!("All up to date"),
                 Err(err) => {
                     println!("{}", err);
-                    if fix_flag && fixer::can_fix(&err) {
-                        println!("But the great news is that we're going to try and fix some of this!...");
-                        fixer::fix_columns(&strategy_file, err);
-                        println!("All done, you'll need to set a data_type and transformer for those fields");
+                    if fixer::can_fix(&err) {
+                        println!("But the great news is we can fix at least some of your mess... try running with \"fix-strategies\"");
+                    } else {
+                        println!("Bad news... we currently cannot fix this for you, you'll have to sort it out yourself!");
                     }
                     std::process::exit(1);
                 }
             }
         }
+
+        Anonymiser::FixStrategies {
+            strategy_file,
+            db_url,
+        } => {
+            let strategies = strategy_file::read(&strategy_file).unwrap_or_else(|_| Vec::new());
+
+            match strategy_differences(strategies, db_url) {
+                Ok(()) => match fixer::just_sort(&strategy_file) {
+                    SortResult::Sorted => {
+                        println!("Ok, we've updated that for you, check your diff!")
+                    }
+                    SortResult::NoChange => {
+                        println!("Somehow you got lucky and your file was already sorted perfectly")
+                    }
+                },
+                Err(err) => {
+                    println!("{}", err);
+                    println!("Ok! lets try and fix some of this!");
+                    fixer::fix_columns(&strategy_file, err);
+                    println!("All done, you probably want to run \"check-strategies\" again to make sure");
+                }
+            }
+        }
+
         Anonymiser::GenerateStrategies {
             strategy_file,
             db_url,
