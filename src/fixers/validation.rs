@@ -33,6 +33,7 @@ pub fn fix(
             }
         }
     });
+
     current_file_contents
 }
 

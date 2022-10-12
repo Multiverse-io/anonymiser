@@ -24,7 +24,12 @@ pub fn read(file_name: &str) -> Result<Vec<StrategyInFile>, std::io::Error> {
     }
 }
 
-pub fn write(file_name: &str, new_file_contents: Vec<StrategyInFile>) -> std::io::Result<()> {
+pub fn write(file_name: &str, mut new_file_contents: Vec<StrategyInFile>) -> std::io::Result<()> {
+    new_file_contents.sort();
+
+    for s in new_file_contents.iter_mut() {
+        sort_columns(s)
+    }
     let file = fs::OpenOptions::new()
         .write(true)
         .truncate(true)
@@ -35,7 +40,9 @@ pub fn write(file_name: &str, new_file_contents: Vec<StrategyInFile>) -> std::io
 
     Ok(())
 }
-
+fn sort_columns(s: &mut StrategyInFile) {
+    s.columns.sort_by(|a, b| a.name.cmp(&b.name))
+}
 pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()> {
     let strategies = read(strategy_file)?;
     let p: Vec<String> = strategies

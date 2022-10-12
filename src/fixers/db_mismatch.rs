@@ -44,12 +44,6 @@ fn add_missing(current: Vec<StrategyInFile>, missing: &[SimpleColumn]) -> Vec<St
         }
     }
 
-    new_strategies.sort();
-
-    for s in new_strategies.iter_mut() {
-        sort_columns(s)
-    }
-
     new_strategies
 }
 
@@ -92,9 +86,6 @@ fn remove_redundant(
         .collect()
 }
 
-fn sort_columns(s: &mut StrategyInFile) {
-    s.columns.sort_by(|a, b| a.name.cmp(&b.name))
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,18 +117,18 @@ mod tests {
 
         let expected = vec![
             StrategyInFile {
-                table_name: "public.location".to_string(),
-                description: "".to_string(),
-                columns: vec![ColumnInFile::new("id"), ColumnInFile::new("post_code")],
-            },
-            StrategyInFile {
                 table_name: "public.person".to_string(),
                 description: "".to_string(),
                 columns: vec![
-                    ColumnInFile::new("first_name"),
                     ColumnInFile::new("id"),
+                    ColumnInFile::new("first_name"),
                     ColumnInFile::new("last_name"),
                 ],
+            },
+            StrategyInFile {
+                table_name: "public.location".to_string(),
+                description: "".to_string(),
+                columns: vec![ColumnInFile::new("id"), ColumnInFile::new("post_code")],
             },
         ];
 
