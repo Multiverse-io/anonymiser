@@ -6,9 +6,7 @@ pub fn can_fix(error: &StrategyFileError) -> bool {
     match error {
         StrategyFileError::ValidationError(validation_error) => {
             !validation_error.duplicate_columns.is_empty()
-                || !validation_error.duplicate_tables.is_empty()
         }
-
         StrategyFileError::DbMismatchError(db_mismatch_error) => {
             !db_mismatch_error.missing_from_strategy_file.is_empty()
                 || !db_mismatch_error.missing_from_db.is_empty()
@@ -25,7 +23,6 @@ pub fn fix_columns(strategy_file: &str, error: StrategyFileError) {
             strategy_file::write(strategy_file, new_file_contents)
                 .expect("Unable to write to file :(");
         }
-
         StrategyFileError::DbMismatchError(db_mismatch_error) => {
             let new_file_contents = db_mismatch::fix(current_file_contents, db_mismatch_error);
 
@@ -131,9 +128,9 @@ mod tests {
     }
 
     #[test]
-    fn can_fix_duplicate_tables() {
+    fn cannot_currently_fix_duplicate_tables() {
         let error = vec!["table_name".to_string()];
-        assert!(can_fix(&StrategyFileError::ValidationError(
+        assert!(!can_fix(&StrategyFileError::ValidationError(
             ValidationErrors {
                 unknown_data_categories: Vec::new(),
                 error_transformer_types: Vec::new(),
