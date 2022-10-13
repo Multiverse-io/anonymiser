@@ -82,23 +82,11 @@ pub fn parse<'line>(
             state.update_position(Position::Normal);
             Cow::from(line)
         }
-        (RowType::CopyBlockRow, Position::InCopy { ref current_table }) => {
-            let transformed = Cow::from(transform_row(
-                rng,
-                sanitised_line,
-                current_table,
-                &state.types,
-            ));
-            state.update_position(Position::InCopy {
-                current_table: current_table.clone(),
-            });
-            transformed
-        }
+        (RowType::CopyBlockRow, Position::InCopy { ref current_table }) => Cow::from(
+            transform_row(rng, sanitised_line, current_table, &state.types),
+        ),
 
-        (RowType::Normal, Position::Normal) => {
-            state.update_position(Position::Normal);
-            Cow::from(line)
-        }
+        (RowType::Normal, Position::Normal) => Cow::from(line),
         (row_type, position) => {
             panic!(
                 "omg! invalid combo of rowtype: {:?} and position: {:?}",
@@ -119,6 +107,9 @@ fn transform_row(
     let mut transformed = column_values.enumerate().map(|(i, value)| {
         let current_column = &current_table.columns[i];
         let column_type = types
+            //TODO this lookup, we do a double hashmap lookup for every column... already know the
+            //table, so we shouldnt need to do both... can we cache the current tables columns
+            //hashmap?
             .lookup(&current_table.table_name, &current_column.name)
             .unwrap_or_else(|| {
                 panic!(

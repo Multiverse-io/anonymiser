@@ -1,3 +1,4 @@
+use crate::parsers::strategy_errors::{DbErrors, ValidationErrors};
 use crate::parsers::strategy_structs::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -6,6 +7,7 @@ use std::collections::HashSet;
 pub struct Strategies {
     tables: HashMap<String, HashMap<String, ColumnInfo>>,
 }
+
 impl Strategies {
     pub fn new() -> Strategies {
         Strategies {
@@ -13,55 +15,80 @@ impl Strategies {
         }
     }
 
+    pub fn from_strategies_in_file(
+        strategies_in_file: Vec<StrategyInFile>,
+        transformer_overrides: &TransformerOverrides,
+    ) -> Result<Strategies, ValidationErrors> {
+        let mut transformed_strategies = Strategies::new();
+        let mut errors = ValidationErrors::new();
+
+        for strategy in strategies_in_file {
+            let mut columns = HashMap::<String, ColumnInfo>::new();
+            for column in strategy.columns {
+                if (column.data_category == DataCategory::PotentialPii
+                    || column.data_category == DataCategory::Pii)
+                    && column.transformer.name == TransformerType::Identity
+                {
+                    errors
+                        .unanonymised_pii
+                        .push(create_simple_column(&column.name, &strategy.table_name));
+                }
+                if column.data_category == DataCategory::Unknown {
+                    errors
+                        .unknown_data_categories
+                        .push(create_simple_column(&column.name, &strategy.table_name));
+                }
+                if column.transformer.name == TransformerType::Error {
+                    errors
+                        .error_transformer_types
+                        .push(create_simple_column(&column.name, &strategy.table_name));
+                }
+                let result = columns.insert(
+                    column.name.clone(),
+                    ColumnInfo {
+                        data_category: column.data_category.clone(),
+                        name: column.name.clone(),
+                        transformer: transformer(column, transformer_overrides),
+                    },
+                );
+                if let Some(dupe) = result {
+                    errors.duplicate_columns.push(create_simple_column(
+                        &dupe.name,
+                        &strategy.table_name.clone(),
+                    ))
+                }
+            }
+
+            let result = transformed_strategies.insert(strategy.table_name.clone(), columns);
+            if result.is_some() {
+                errors.duplicate_tables.push(strategy.table_name);
+            }
+        }
+
+        if ValidationErrors::is_empty(&errors) {
+            Ok(transformed_strategies)
+        } else {
+            //TODO sort/order errors somehow or maybe only do that when we log them out??
+            Err(errors)
+        }
+    }
+
     pub fn for_table(&self, table_name: &str) -> Option<&HashMap<String, ColumnInfo>> {
         self.tables.get(table_name)
     }
 
-    pub fn insert(&mut self, table_name: String, columns: HashMap<String, ColumnInfo>) {
-        self.tables.insert(table_name, columns);
+    pub fn insert(
+        &mut self,
+        table_name: String,
+        columns: HashMap<String, ColumnInfo>,
+    ) -> Option<HashMap<String, ColumnInfo>> {
+        self.tables.insert(table_name, columns)
     }
 
-    pub fn validate(&self, columns_from_db: HashSet<SimpleColumn>) -> Result<(), MissingColumns> {
-        //TODO probably dont iterate over and over again!
-
-        let unanonymised_pii: Vec<SimpleColumn> = self
-            .tables
-            .iter()
-            .flat_map(|(table_name, columns)| {
-                return columns
-                    .iter()
-                    .filter(|(_, column_info)| {
-                        (column_info.data_category == DataCategory::PotentialPii
-                            || column_info.data_category == DataCategory::Pii)
-                            && column_info.transformer.name == TransformerType::Identity
-                    })
-                    .map(|(column_name, _)| create_simple_column(column_name, table_name));
-            })
-            .collect();
-        let unknown_data_categories: Vec<SimpleColumn> = self
-            .tables
-            .iter()
-            .flat_map(|(table_name, columns)| {
-                return columns
-                    .iter()
-                    .filter(|(_, column_info)| column_info.data_category == DataCategory::Unknown)
-                    .map(|(column_name, _)| create_simple_column(column_name, table_name));
-            })
-            .collect();
-
-        let error_transformer_types: Vec<SimpleColumn> = self
-            .tables
-            .iter()
-            .flat_map(|(table_name, columns)| {
-                return columns
-                    .iter()
-                    .filter(|(_, column_info)| {
-                        column_info.transformer.name == TransformerType::Error
-                    })
-                    .map(|(column_name, _)| create_simple_column(column_name, table_name));
-            })
-            .collect();
-
+    pub fn validate_against_db(
+        &self,
+        columns_from_db: HashSet<SimpleColumn>,
+    ) -> Result<(), DbErrors> {
         let columns_from_strategy_file: HashSet<SimpleColumn> = self
             .tables
             .iter()
@@ -72,31 +99,25 @@ impl Strategies {
             })
             .collect();
 
-        let in_strategy_file_but_not_db: Vec<_> = columns_from_strategy_file
-            .difference(&columns_from_db)
-            .cloned()
-            .collect();
+        let mut errors = DbErrors {
+            missing_from_strategy_file: columns_from_db
+                .difference(&columns_from_strategy_file)
+                .cloned()
+                .collect(),
+            missing_from_db: columns_from_strategy_file
+                .difference(&columns_from_db)
+                .cloned()
+                .collect(),
+        };
 
-        let in_db_but_not_strategy_file: Vec<_> = columns_from_db
-            .difference(&columns_from_strategy_file)
-            .cloned()
-            .collect();
-
-        if in_db_but_not_strategy_file.is_empty()
-            && in_strategy_file_but_not_db.is_empty()
-            && unknown_data_categories.is_empty()
-            && error_transformer_types.is_empty()
-            && unanonymised_pii.is_empty()
-        {
+        if DbErrors::is_empty(&errors) {
             Ok(())
         } else {
-            Err(MissingColumns {
-                missing_from_db: add_if_present(in_strategy_file_but_not_db),
-                missing_from_strategy_file: add_if_present(in_db_but_not_strategy_file),
-                unknown_data_categories: add_if_present(unknown_data_categories),
-                error_transformer_types: add_if_present(error_transformer_types),
-                unanonymised_pii: add_if_present(unanonymised_pii),
-            })
+            // TODO i wanted to do like errors.sort() and errors.is_empty()
+            // above but couldnt work out the ownership :(
+            errors.missing_from_strategy_file.sort();
+            errors.missing_from_db.sort();
+            Err(errors)
         }
     }
 
@@ -127,15 +148,25 @@ fn create_simple_column(column_name: &str, table_name: &str) -> SimpleColumn {
     }
 }
 
-fn add_if_present(list: Vec<SimpleColumn>) -> Vec<SimpleColumn> {
-    if list.is_empty() {
-        list
+fn column_transformer_is_overriden(
+    data_category: DataCategory,
+    overrides: &TransformerOverrides,
+) -> bool {
+    (data_category == DataCategory::PotentialPii && overrides.allow_potential_pii)
+        || (data_category == DataCategory::CommerciallySensitive
+            && overrides.allow_commercially_sensitive)
+}
+fn transformer(column: ColumnInFile, overrides: &TransformerOverrides) -> Transformer {
+    if column_transformer_is_overriden(column.data_category, overrides) {
+        Transformer {
+            name: TransformerType::Identity,
+            args: None,
+        }
     } else {
-        let mut new_list = list;
-        new_list.sort();
-        new_list
+        column.transformer
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,7 +174,7 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    fn returns_ok_with_matching_fields() {
+    fn validate_against_db_returns_ok_with_matching_fields() {
         let mut strategies =
             create_strategy("public.person", [create_column("first_name")].into_iter());
 
@@ -158,13 +189,13 @@ mod tests {
             create_simple_column("public.location", "postcode"),
         ]);
 
-        let result = strategies.validate(columns_from_db);
+        let result = strategies.validate_against_db(columns_from_db);
 
         assert!(result.is_ok());
     }
 
     #[test]
-    fn returns_fields_missing_from_strategy_file_that_are_in_the_db() {
+    fn validate_against_db_returns_fields_missing_from_strategy_file_that_are_in_the_db() {
         let strategies =
             create_strategy("public.person", [create_column("first_name")].into_iter());
 
@@ -173,7 +204,7 @@ mod tests {
             create_simple_column("public.location", "postcode"),
         ]);
 
-        let result = strategies.validate(columns_from_db);
+        let result = strategies.validate_against_db(columns_from_db);
 
         let error = result.unwrap_err();
         assert!(error.missing_from_db.is_empty());
@@ -184,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn returns_fields_missing_from_the_db_but_are_in_the_strategy_file() {
+    fn validate_against_db_returns_fields_missing_from_the_db_but_are_in_the_strategy_file() {
         let mut strategies =
             create_strategy("public.person", [create_column("first_name")].into_iter());
 
@@ -196,7 +227,7 @@ mod tests {
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
 
-        let result = strategies.validate(columns_from_db);
+        let result = strategies.validate_against_db(columns_from_db);
 
         let error = result.unwrap_err();
         assert!(error.missing_from_strategy_file.is_empty());
@@ -207,13 +238,13 @@ mod tests {
     }
 
     #[test]
-    fn returns_fields_missing_both() {
+    fn validate_against_db_returns_fields_missing_both() {
         let strategies =
             create_strategy("public.person", [create_column("first_name")].into_iter());
 
         let columns_from_db = HashSet::from([create_simple_column("public.location", "postcode")]);
 
-        let result = strategies.validate(columns_from_db);
+        let result = strategies.validate_against_db(columns_from_db);
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -226,20 +257,88 @@ mod tests {
         );
     }
 
+    const TABLE_NAME: &str = "gert_lush_table";
+    const PII_COLUMN_NAME: &str = "pii_column";
+    const COMMERCIALLY_SENSITIVE_COLUMN_NAME: &str = "commercially_sensitive_column";
+
     #[test]
-    fn returns_columns_missing_data_category() {
-        let strategies = create_strategy(
-            "public.person",
-            [create_strategy_with_data_category(
-                "first_name",
-                DataCategory::Unknown,
-            )]
-            .into_iter(),
+    fn from_strategies_in_file_can_parse_file_contents_into_hashmaps() {
+        let column_name = "column1";
+
+        let strategies = vec![StrategyInFile {
+            table_name: TABLE_NAME.to_string(),
+            description: "description".to_string(),
+            columns: vec![column_in_file(
+                DataCategory::Pii,
+                column_name,
+                TransformerType::Scramble,
+            )],
+        }];
+
+        let expected = Strategies::new_from(
+            TABLE_NAME.to_string(),
+            HashMap::from([(
+                column_name.to_string(),
+                ColumnInfo::builder()
+                    .with_name(column_name)
+                    .with_data_category(DataCategory::Pii)
+                    .with_transformer(TransformerType::Scramble, None)
+                    .build(),
+            )]),
         );
+        let parsed = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none())
+            .expect("we shouldnt have duplicate columns!");
+        assert_eq!(expected, parsed);
+    }
 
-        let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
+    #[test]
+    fn from_strategies_in_file_returns_errors_for_duplicate_table_and_column_definitions() {
+        let table2_name = "daps";
+        let column_name = "column1";
+        let duplicated_column =
+            column_in_file(DataCategory::Pii, column_name, TransformerType::Scramble);
 
-        let result = strategies.validate(columns_from_db);
+        let strategies = vec![
+            StrategyInFile {
+                table_name: TABLE_NAME.to_string(),
+                description: "description".to_string(),
+                columns: vec![],
+            },
+            StrategyInFile {
+                table_name: TABLE_NAME.to_string(),
+                description: "description".to_string(),
+                columns: vec![],
+            },
+            StrategyInFile {
+                table_name: table2_name.to_string(),
+                description: "description".to_string(),
+                columns: vec![duplicated_column.clone(), duplicated_column],
+            },
+        ];
+
+        let error = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none())
+            .expect_err("We should have a duplicate table error");
+
+        assert_eq!(error.duplicate_tables, vec![TABLE_NAME.to_string()]);
+        assert_eq!(
+            error.duplicate_columns,
+            vec![create_simple_column(table2_name, column_name)]
+        );
+    }
+
+    #[test]
+    fn from_strategies_in_file_returns_errors_for_columns_missing_data_category() {
+        let strategies = vec![StrategyInFile {
+            table_name: "public.person".to_string(),
+            description: "description".to_string(),
+            columns: vec![column_in_file(
+                DataCategory::Unknown,
+                "first_name",
+                TransformerType::Identity,
+            )],
+        }];
+
+        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -247,20 +346,20 @@ mod tests {
             vec!(create_simple_column("public.person", "first_name"))
         );
     }
+
     #[test]
-    fn returns_columns_with_error_transformer_types() {
-        let strategies = create_strategy(
-            "public.person",
-            [create_column_with_transformer_type(
+    fn from_strategies_in_file_returns_errors_for_columns_with_error_transformer_types() {
+        let strategies = vec![StrategyInFile {
+            table_name: "public.person".to_string(),
+            description: "description".to_string(),
+            columns: vec![column_in_file(
+                DataCategory::General,
                 "first_name",
                 TransformerType::Error,
-            )]
-            .into_iter(),
-        );
+            )],
+        }];
 
-        let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
-
-        let result = strategies.validate(columns_from_db);
+        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -270,30 +369,21 @@ mod tests {
     }
 
     #[test]
-    fn returns_pii_columns_with_identity_transformer() {
-        let strategies = create_strategy(
-            "public.person",
-            [
-                create_column_with_data_and_transformer_type(
-                    "first_name",
-                    DataCategory::Pii,
-                    TransformerType::Identity,
-                ),
-                create_column_with_data_and_transformer_type(
-                    "last_name",
+    fn from_strategies_in_file_returns_errors_for_pii_columns_with_identity_transformer() {
+        let strategies = vec![StrategyInFile {
+            table_name: "public.person".to_string(),
+            description: "description".to_string(),
+            columns: vec![
+                column_in_file(DataCategory::Pii, "first_name", TransformerType::Identity),
+                column_in_file(
                     DataCategory::PotentialPii,
+                    "last_name",
                     TransformerType::Identity,
                 ),
-            ]
-            .into_iter(),
-        );
+            ],
+        }];
 
-        let columns_from_db = HashSet::from([
-            create_simple_column("public.person", "first_name"),
-            create_simple_column("public.person", "last_name"),
-        ]);
-
-        let result = strategies.validate(columns_from_db);
+        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
 
         let error = result.unwrap_err();
 
@@ -304,6 +394,150 @@ mod tests {
                 create_simple_column("public.person", "last_name")
             )
         );
+    }
+
+    #[test]
+    fn from_strategies_in_file_ignores_transformers_for_potential_pii_if_flag_provided() {
+        let strategies = vec![StrategyInFile {
+            table_name: TABLE_NAME.to_string(),
+            description: "description".to_string(),
+            columns: vec![
+                column_in_file(
+                    DataCategory::PotentialPii,
+                    PII_COLUMN_NAME,
+                    TransformerType::Scramble,
+                ),
+                column_in_file(
+                    DataCategory::CommerciallySensitive,
+                    COMMERCIALLY_SENSITIVE_COLUMN_NAME,
+                    TransformerType::Scramble,
+                ),
+            ],
+        }];
+
+        let parsed = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides {
+                allow_potential_pii: true,
+                allow_commercially_sensitive: false,
+            },
+        )
+        .expect("we shouldnt have duplicate columns!");
+        let pii_column_transformer = transformer_for_column(PII_COLUMN_NAME, &parsed);
+        let commercially_sensitive_transformer =
+            transformer_for_column(COMMERCIALLY_SENSITIVE_COLUMN_NAME, &parsed);
+
+        assert_eq!(pii_column_transformer.name, TransformerType::Identity);
+        assert_eq!(pii_column_transformer.args, None);
+
+        assert_eq!(
+            commercially_sensitive_transformer.name,
+            TransformerType::Scramble
+        );
+        assert_eq!(commercially_sensitive_transformer.args, None);
+    }
+
+    #[test]
+    fn from_strategies_in_file_ignores_transformers_for_commercially_sensitive_if_flag_provided() {
+        let strategies = vec![StrategyInFile {
+            table_name: TABLE_NAME.to_string(),
+            description: "description".to_string(),
+            columns: vec![
+                column_in_file(
+                    DataCategory::PotentialPii,
+                    PII_COLUMN_NAME,
+                    TransformerType::Scramble,
+                ),
+                column_in_file(
+                    DataCategory::CommerciallySensitive,
+                    COMMERCIALLY_SENSITIVE_COLUMN_NAME,
+                    TransformerType::Scramble,
+                ),
+            ],
+        }];
+
+        let parsed = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides {
+                allow_potential_pii: false,
+                allow_commercially_sensitive: true,
+            },
+        )
+        .expect("we shouldnt have duplicate columns!");
+
+        let commercially_sensitive_transformer =
+            transformer_for_column(COMMERCIALLY_SENSITIVE_COLUMN_NAME, &parsed);
+        let pii_column_transformer = transformer_for_column(PII_COLUMN_NAME, &parsed);
+
+        assert_eq!(
+            commercially_sensitive_transformer.name,
+            TransformerType::Identity
+        );
+        assert_eq!(commercially_sensitive_transformer.args, None);
+
+        assert_eq!(pii_column_transformer.name, TransformerType::Scramble);
+        assert_eq!(pii_column_transformer.args, None);
+    }
+
+    #[test]
+    fn from_strategies_in_file_can_combine_override_flags() {
+        let strategies = vec![StrategyInFile {
+            table_name: TABLE_NAME.to_string(),
+            description: "description".to_string(),
+            columns: vec![
+                column_in_file(
+                    DataCategory::PotentialPii,
+                    PII_COLUMN_NAME,
+                    TransformerType::Scramble,
+                ),
+                column_in_file(
+                    DataCategory::CommerciallySensitive,
+                    COMMERCIALLY_SENSITIVE_COLUMN_NAME,
+                    TransformerType::Scramble,
+                ),
+            ],
+        }];
+
+        let parsed = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides {
+                allow_potential_pii: true,
+                allow_commercially_sensitive: true,
+            },
+        )
+        .expect("we shouldnt have duplicate columns!");
+
+        let commercially_sensitive_transformer =
+            transformer_for_column(COMMERCIALLY_SENSITIVE_COLUMN_NAME, &parsed);
+        let pii_column_transformer = transformer_for_column(PII_COLUMN_NAME, &parsed);
+
+        assert_eq!(
+            commercially_sensitive_transformer.name,
+            TransformerType::Identity
+        );
+        assert_eq!(pii_column_transformer.name, TransformerType::Identity);
+    }
+
+    fn transformer_for_column(column_name: &str, strategies: &Strategies) -> Transformer {
+        strategies
+            .transformer_for_column(TABLE_NAME, column_name)
+            .expect("expecting a transformer!")
+    }
+
+    fn column_in_file(
+        data_category: DataCategory,
+        name: &str,
+        transformer_type: TransformerType,
+    ) -> ColumnInFile {
+        ColumnInFile {
+            data_category,
+            description: name.to_string(),
+            name: name.to_string(),
+            transformer: Transformer {
+                name: transformer_type,
+                args: None,
+            },
+        }
     }
 
     fn create_strategy<I>(table_name: &str, columns: I) -> Strategies
@@ -330,27 +564,6 @@ mod tests {
         )
     }
 
-    fn create_column_with_transformer_type(
-        column_name: &str,
-        transformer_type: TransformerType,
-    ) -> (String, ColumnInfo) {
-        create_column_with_data_and_transformer_type(
-            column_name,
-            DataCategory::General,
-            transformer_type,
-        )
-    }
-
-    fn create_strategy_with_data_category(
-        column_name: &str,
-        data_category: DataCategory,
-    ) -> (String, ColumnInfo) {
-        create_column_with_data_and_transformer_type(
-            column_name,
-            data_category,
-            TransformerType::Identity,
-        )
-    }
     fn create_column_with_data_and_transformer_type(
         column_name: &str,
         data_category: DataCategory,
