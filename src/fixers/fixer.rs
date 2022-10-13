@@ -14,7 +14,24 @@ pub fn can_fix(error: &StrategyFileError) -> bool {
     }
 }
 
-pub fn fix_columns(strategy_file: &str, error: StrategyFileError) {
+pub enum SortResult {
+    Sorted,
+    NoChange,
+}
+
+pub fn just_sort(strategy_file: &str) -> SortResult {
+    let initial_hash = sha256_digest(strategy_file);
+    let current_file_contents = strategy_file::read(strategy_file).unwrap_or_else(|_| Vec::new());
+    strategy_file::write(strategy_file, current_file_contents).expect("Unable to write to file :(");
+    let post_sort_hash = sha256_digest(strategy_file);
+    if initial_hash == post_sort_hash {
+        SortResult::NoChange
+    } else {
+        SortResult::Sorted
+    }
+}
+
+pub fn fix(strategy_file: &str, error: StrategyFileError) {
     let current_file_contents = strategy_file::read(strategy_file).unwrap_or_else(|_| Vec::new());
     match error {
         StrategyFileError::ValidationError(validation_error) => {
@@ -30,6 +47,10 @@ pub fn fix_columns(strategy_file: &str, error: StrategyFileError) {
                 .expect("Unable to write to file :(");
         }
     }
+}
+fn sha256_digest(strategy_file: &str) -> String {
+    let bytes = std::fs::read(strategy_file).unwrap();
+    sha256::digest_bytes(&bytes)
 }
 
 #[cfg(test)]
