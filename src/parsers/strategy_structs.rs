@@ -67,16 +67,6 @@ impl PartialEq for StrategyInFile {
         self.table_name == other.table_name && self.columns == other.columns
     }
 }
-
-#[derive(Debug)]
-pub struct MissingColumns {
-    pub missing_from_strategy_file: Vec<SimpleColumn>,
-    pub missing_from_db: Vec<SimpleColumn>,
-    pub unknown_data_categories: Vec<SimpleColumn>,
-    pub error_transformer_types: Vec<SimpleColumn>,
-    pub unanonymised_pii: Vec<SimpleColumn>,
-}
-
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct SimpleColumn {
     pub table_name: String,

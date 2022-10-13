@@ -8,7 +8,7 @@ pub mod row_parser;
 pub mod sanitiser;
 pub mod state;
 pub mod strategies;
-pub mod strategies_parser;
+pub mod strategy_errors;
 pub mod strategy_file;
 pub mod strategy_structs;
 pub mod transformer;
