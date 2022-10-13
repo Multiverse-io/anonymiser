@@ -89,7 +89,7 @@ fn main() -> Result<(), std::io::Error> {
                 Err(err) => {
                     println!("{}", err);
                     println!("Ok! lets try and fix some of this!");
-                    fixer::fix_columns(&strategy_file, err);
+                    fixer::fix(&strategy_file, err);
                     println!("All done, you probably want to run \"check-strategies\" again to make sure");
                 }
             }
@@ -103,7 +103,7 @@ fn main() -> Result<(), std::io::Error> {
                 Ok(()) => println!("All up to date"),
                 Err(err) => {
                     if fixer::can_fix(&err) {
-                        fixer::fix_columns(&strategy_file, err);
+                        fixer::fix(&strategy_file, err);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
                     std::process::exit(1);

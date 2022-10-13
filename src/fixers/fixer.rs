@@ -31,7 +31,7 @@ pub fn just_sort(strategy_file: &str) -> SortResult {
     }
 }
 
-pub fn fix_columns(strategy_file: &str, error: StrategyFileError) {
+pub fn fix(strategy_file: &str, error: StrategyFileError) {
     let current_file_contents = strategy_file::read(strategy_file).unwrap_or_else(|_| Vec::new());
     match error {
         StrategyFileError::ValidationError(validation_error) => {
