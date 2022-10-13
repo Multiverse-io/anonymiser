@@ -40,17 +40,26 @@ pub enum Anonymiser {
         strategy_file: String,
     },
 
+    /// Checks the provided strategy file against a database to check that all fields are covered
+    /// and valid
     CheckStrategies {
         #[structopt(short, long, default_value = "./strategy.json")]
         strategy_file: String,
-
-        #[structopt(short, long)]
-        fix: bool,
 
         #[structopt(short, long, env = "DATABASE_URL")]
         db_url: String,
     },
 
+    /// Fixes errors in the strategy file
+    FixStrategies {
+        #[structopt(short, long, default_value = "./strategy.json")]
+        strategy_file: String,
+
+        #[structopt(short, long, env = "DATABASE_URL")]
+        db_url: String,
+    },
+
+    /// Generates a new skeleton strategy file from a db connection
     GenerateStrategies {
         #[structopt(short, long, default_value = "./strategy.json")]
         strategy_file: String,
@@ -58,6 +67,7 @@ pub enum Anonymiser {
         #[structopt(short, long, env = "DATABASE_URL")]
         db_url: String,
     },
+
     /// Uncompress a zstd sql dump to a file, or stdout if no file specified
     Uncompress {
         /// Input file (*.sql.zst)
