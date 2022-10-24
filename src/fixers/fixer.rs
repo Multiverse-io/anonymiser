@@ -50,7 +50,7 @@ pub fn fix(strategy_file: &str, error: StrategyFileError) {
 }
 fn sha256_digest(strategy_file: &str) -> String {
     let bytes = std::fs::read(strategy_file).unwrap();
-    sha256::digest_bytes(&bytes)
+    sha256::digest(bytes.as_slice())
 }
 
 #[cfg(test)]
