@@ -148,23 +148,34 @@ fn create_simple_column(column_name: &str, table_name: &str) -> SimpleColumn {
     }
 }
 
-fn column_transformer_is_overriden(
+fn apply_transformer_overrides(
     data_category: DataCategory,
     overrides: &TransformerOverrides,
-) -> bool {
-    (data_category == DataCategory::PotentialPii && overrides.allow_potential_pii)
-        || (data_category == DataCategory::CommerciallySensitive
-            && overrides.allow_commercially_sensitive)
-}
-fn transformer(column: ColumnInFile, overrides: &TransformerOverrides) -> Transformer {
-    if column_transformer_is_overriden(column.data_category, overrides) {
-        Transformer {
+    transformer: Transformer,
+) -> Transformer {
+    match data_category {
+        DataCategory::PotentialPii if overrides.allow_potential_pii => Transformer {
             name: TransformerType::Identity,
             args: None,
+        },
+        DataCategory::CommerciallySensitive if overrides.allow_commercially_sensitive => {
+            Transformer {
+                name: TransformerType::Identity,
+                args: None,
+            }
         }
-    } else {
-        column.transformer
+        _ if overrides.scramble_blank && transformer.name == TransformerType::Scramble => {
+            Transformer {
+                name: TransformerType::ScrambleBlank,
+                args: None,
+            }
+        }
+        _ => transformer,
     }
+}
+
+fn transformer(column: ColumnInFile, overrides: &TransformerOverrides) -> Transformer {
+    apply_transformer_overrides(column.data_category, overrides, column.transformer)
 }
 
 #[cfg(test)]
@@ -420,6 +431,7 @@ mod tests {
             &TransformerOverrides {
                 allow_potential_pii: true,
                 allow_commercially_sensitive: false,
+                ..Default::default()
             },
         )
         .expect("we shouldnt have duplicate columns!");
@@ -461,6 +473,7 @@ mod tests {
             &TransformerOverrides {
                 allow_potential_pii: false,
                 allow_commercially_sensitive: true,
+                ..Default::default()
             },
         )
         .expect("we shouldnt have duplicate columns!");
@@ -503,6 +516,7 @@ mod tests {
             &TransformerOverrides {
                 allow_potential_pii: true,
                 allow_commercially_sensitive: true,
+                ..Default::default()
             },
         )
         .expect("we shouldnt have duplicate columns!");

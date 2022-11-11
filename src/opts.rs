@@ -28,6 +28,9 @@ pub enum Anonymiser {
         /// Does not transform Commercially sensitive data types
         #[structopt(long)]
         allow_commercially_sensitive: bool,
+        /// Modifies the "Scramble" transformer to use an underscore for all replaced non-whitespace characters
+        #[structopt(long)]
+        scramble_blank: bool,
     },
 
     /// Creates a CSV file of PII or PotentialPII fields
