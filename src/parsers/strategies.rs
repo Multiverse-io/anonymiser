@@ -544,7 +544,6 @@ mod tests {
                 allow_potential_pii: true,
                 allow_commercially_sensitive: true,
                 scramble_blank: true,
-                ..Default::default()
             },
         )
         .expect("we shouldnt have duplicate columns!");
