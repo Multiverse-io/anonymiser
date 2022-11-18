@@ -271,6 +271,7 @@ mod tests {
     const TABLE_NAME: &str = "gert_lush_table";
     const PII_COLUMN_NAME: &str = "pii_column";
     const COMMERCIALLY_SENSITIVE_COLUMN_NAME: &str = "commercially_sensitive_column";
+    const SCRAMBLED_COLUMN_NAME: &str = "scrambled_column";
 
     #[test]
     fn from_strategies_in_file_can_parse_file_contents_into_hashmaps() {
@@ -493,6 +494,32 @@ mod tests {
     }
 
     #[test]
+    fn from_strategies_in_file_modifies_transformer_for_scramble_if_flag_provided() {
+        let strategies = vec![StrategyInFile {
+            table_name: TABLE_NAME.to_string(),
+            description: "description".to_string(),
+            columns: vec![column_in_file(
+                DataCategory::General,
+                SCRAMBLED_COLUMN_NAME,
+                TransformerType::Scramble,
+            )],
+        }];
+
+        let parsed = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides {
+                scramble_blank: true,
+                ..Default::default()
+            },
+        )
+        .expect("we shouldnt have duplicate columns!");
+
+        let scramble_transformer = transformer_for_column(SCRAMBLED_COLUMN_NAME, &parsed);
+
+        assert_eq!(scramble_transformer.name, TransformerType::ScrambleBlank);
+    }
+
+    #[test]
     fn from_strategies_in_file_can_combine_override_flags() {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
@@ -516,10 +543,13 @@ mod tests {
             &TransformerOverrides {
                 allow_potential_pii: true,
                 allow_commercially_sensitive: true,
+                scramble_blank: true,
                 ..Default::default()
             },
         )
         .expect("we shouldnt have duplicate columns!");
+
+        // Both of these override scramble_blank
 
         let commercially_sensitive_transformer =
             transformer_for_column(COMMERCIALLY_SENSITIVE_COLUMN_NAME, &parsed);
