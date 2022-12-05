@@ -148,23 +148,34 @@ fn create_simple_column(column_name: &str, table_name: &str) -> SimpleColumn {
     }
 }
 
-fn column_transformer_is_overriden(
+fn apply_transformer_overrides(
     data_category: DataCategory,
     overrides: &TransformerOverrides,
-) -> bool {
-    (data_category == DataCategory::PotentialPii && overrides.allow_potential_pii)
-        || (data_category == DataCategory::CommerciallySensitive
-            && overrides.allow_commercially_sensitive)
-}
-fn transformer(column: ColumnInFile, overrides: &TransformerOverrides) -> Transformer {
-    if column_transformer_is_overriden(column.data_category, overrides) {
-        Transformer {
+    transformer: Transformer,
+) -> Transformer {
+    match data_category {
+        DataCategory::PotentialPii if overrides.allow_potential_pii => Transformer {
             name: TransformerType::Identity,
             args: None,
+        },
+        DataCategory::CommerciallySensitive if overrides.allow_commercially_sensitive => {
+            Transformer {
+                name: TransformerType::Identity,
+                args: None,
+            }
         }
-    } else {
-        column.transformer
+        _ if overrides.scramble_blank && transformer.name == TransformerType::Scramble => {
+            Transformer {
+                name: TransformerType::ScrambleBlank,
+                args: None,
+            }
+        }
+        _ => transformer,
     }
+}
+
+fn transformer(column: ColumnInFile, overrides: &TransformerOverrides) -> Transformer {
+    apply_transformer_overrides(column.data_category, overrides, column.transformer)
 }
 
 #[cfg(test)]
@@ -260,6 +271,7 @@ mod tests {
     const TABLE_NAME: &str = "gert_lush_table";
     const PII_COLUMN_NAME: &str = "pii_column";
     const COMMERCIALLY_SENSITIVE_COLUMN_NAME: &str = "commercially_sensitive_column";
+    const SCRAMBLED_COLUMN_NAME: &str = "scrambled_column";
 
     #[test]
     fn from_strategies_in_file_can_parse_file_contents_into_hashmaps() {
@@ -420,6 +432,7 @@ mod tests {
             &TransformerOverrides {
                 allow_potential_pii: true,
                 allow_commercially_sensitive: false,
+                ..Default::default()
             },
         )
         .expect("we shouldnt have duplicate columns!");
@@ -461,6 +474,7 @@ mod tests {
             &TransformerOverrides {
                 allow_potential_pii: false,
                 allow_commercially_sensitive: true,
+                ..Default::default()
             },
         )
         .expect("we shouldnt have duplicate columns!");
@@ -477,6 +491,32 @@ mod tests {
 
         assert_eq!(pii_column_transformer.name, TransformerType::Scramble);
         assert_eq!(pii_column_transformer.args, None);
+    }
+
+    #[test]
+    fn from_strategies_in_file_modifies_transformer_for_scramble_if_flag_provided() {
+        let strategies = vec![StrategyInFile {
+            table_name: TABLE_NAME.to_string(),
+            description: "description".to_string(),
+            columns: vec![column_in_file(
+                DataCategory::General,
+                SCRAMBLED_COLUMN_NAME,
+                TransformerType::Scramble,
+            )],
+        }];
+
+        let parsed = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides {
+                scramble_blank: true,
+                ..Default::default()
+            },
+        )
+        .expect("we shouldnt have duplicate columns!");
+
+        let scramble_transformer = transformer_for_column(SCRAMBLED_COLUMN_NAME, &parsed);
+
+        assert_eq!(scramble_transformer.name, TransformerType::ScrambleBlank);
     }
 
     #[test]
@@ -503,9 +543,12 @@ mod tests {
             &TransformerOverrides {
                 allow_potential_pii: true,
                 allow_commercially_sensitive: true,
+                scramble_blank: true,
             },
         )
         .expect("we shouldnt have duplicate columns!");
+
+        // Both of these override scramble_blank
 
         let commercially_sensitive_transformer =
             transformer_for_column(COMMERCIALLY_SENSITIVE_COLUMN_NAME, &parsed);

@@ -33,10 +33,12 @@ fn main() -> Result<(), std::io::Error> {
             compress_output,
             allow_potential_pii,
             allow_commercially_sensitive,
+            scramble_blank,
         } => {
             let transformer_overrides = TransformerOverrides {
                 allow_potential_pii,
                 allow_commercially_sensitive,
+                scramble_blank,
             };
 
             anonymiser::anonymise(

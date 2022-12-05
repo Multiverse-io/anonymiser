@@ -127,6 +127,7 @@ pub enum TransformerType {
     Identity,
     ObfuscateDay,
     Scramble,
+    ScrambleBlank,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -140,6 +141,7 @@ pub struct Transformer {
 pub struct TransformerOverrides {
     pub allow_potential_pii: bool,
     pub allow_commercially_sensitive: bool,
+    pub scramble_blank: bool,
 }
 
 impl TransformerOverrides {
@@ -147,6 +149,13 @@ impl TransformerOverrides {
         Self {
             allow_potential_pii: false,
             allow_commercially_sensitive: false,
+            scramble_blank: false,
         }
+    }
+}
+
+impl Default for TransformerOverrides {
+    fn default() -> Self {
+        Self::none()
     }
 }

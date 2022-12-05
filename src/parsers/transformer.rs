@@ -76,6 +76,7 @@ pub fn transform<'line>(
         TransformerType::FakeState => Cow::from(StateName().fake::<String>()),
         TransformerType::FakeUsername => Cow::from(fake_username(&transformer.args, unique)),
         TransformerType::Scramble => Cow::from(scramble(rng, value)),
+        TransformerType::ScrambleBlank => Cow::from(scramble_blank(value)),
         TransformerType::ObfuscateDay => Cow::from(obfuscate_day(value, table_name)),
         TransformerType::Fixed => fixed(&transformer.args, table_name),
         TransformerType::Identity => Cow::from(value),
@@ -316,6 +317,26 @@ fn scramble(rng: &mut SmallRng, original_value: &str) -> String {
                 rng.gen_range(b'0'..=b'9') as char
             } else {
                 rng.gen_range(b'a'..=b'z') as char
+            }
+        })
+        .collect::<String>()
+}
+
+fn scramble_blank(original_value: &str) -> String {
+    let mut last_was_backslash = false;
+    original_value
+        .chars()
+        .map(|c| {
+            if last_was_backslash {
+                last_was_backslash = false;
+                c
+            } else if c == '\\' {
+                last_was_backslash = true;
+                c
+            } else if c == ' ' {
+                c
+            } else {
+                '_'
             }
         })
         .collect::<String>()
@@ -1086,6 +1107,48 @@ mod tests {
             "new value: \"{}\" does not contain same digit / alphabet structure as input",
             new_value
         );
+    }
+
+    #[test]
+    fn scramble_blank_maintains_word_boundaries() {
+        let initial_value = "Sample Text";
+
+        let mut rng = rng::get();
+        let new_value = transform(
+            &mut rng,
+            initial_value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::ScrambleBlank,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+
+        assert!(new_value == "______ ____");
+    }
+
+    #[test]
+    fn scramble_blank_maintains_newlines() {
+        let initial_value = r#"One\nTwo\nThree"#;
+
+        let mut rng = rng::get();
+        let new_value = transform(
+            &mut rng,
+            initial_value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::ScrambleBlank,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+
+        assert!(new_value == r#"___\n___\n_____"#);
     }
 
     #[test]
