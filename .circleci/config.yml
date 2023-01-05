@@ -218,29 +218,29 @@ workflows:
     jobs:
       - test:
           context:
-            - Default
+            - slack
 
       - build_release_linux_universal:
           context:
-            - Default
+            - slack
           requires:
             - test
 
       - build_release_macos:
           context:
-            - Default
+            - slack
           requires:
             - test
 
       - test_in_alpine:
           context:
-            - Default
+            - slack
           requires:
             - build_release_linux_universal
 
       - test_in_amazon_linux:
           context:
-            - Default
+            - slack
           requires:
             - build_release_linux_universal
 
@@ -248,7 +248,7 @@ workflows:
     jobs:
       - test:
           context:
-            - Default
+            - slack
           filters: &filters-release
             branches:
               ignore: /.*/
@@ -257,7 +257,7 @@ workflows:
 
       - build_release_linux_universal:
           context:
-            - Default
+            - slack
           requires:
             - test
           filters:
@@ -265,7 +265,7 @@ workflows:
 
       - build_release_macos:
           context:
-            - Default
+            - slack
           requires:
             - test
           filters:
@@ -273,7 +273,7 @@ workflows:
 
       - test_in_alpine:
           context:
-            - Default
+            - slack
           requires:
             - build_release_linux_universal
           filters:
@@ -281,7 +281,7 @@ workflows:
 
       - test_in_amazon_linux:
           context:
-            - Default
+            - slack
           requires:
             - build_release_linux_universal
           filters:
@@ -289,7 +289,7 @@ workflows:
 
       - create_release:
           context:
-            - Default
+            - slack
             - github-deployer
           requires:
             - build_release_macos
