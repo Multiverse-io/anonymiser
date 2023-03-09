@@ -50,7 +50,7 @@ commands:
 jobs:
   test:
     docker:
-      - image: cimg/rust:1.62
+      - image: cimg/rust:1.67
         environment:
           CARGO_NET_GIT_FETCH_WITH_CLI: true
       - image: postgres:13.4
@@ -81,7 +81,7 @@ jobs:
 
   build_release_linux_universal:
     docker:
-      - image: clux/muslrust:1.62.1
+      - image: clux/muslrust:1.67
     environment:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
