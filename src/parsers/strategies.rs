@@ -3,7 +3,7 @@ use crate::parsers::strategy_structs::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Strategies {
     tables: HashMap<String, HashMap<String, ColumnInfo>>,
 }

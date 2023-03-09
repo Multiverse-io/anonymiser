@@ -3,7 +3,7 @@ use crate::parsers::types::Column;
 use crate::parsers::types::Type;
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Types {
     types: HashMap<String, HashMap<String, Type>>,
 }
@@ -33,7 +33,7 @@ pub struct State {
     pub types: Types,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Position {
     Normal,
     InCopy {
