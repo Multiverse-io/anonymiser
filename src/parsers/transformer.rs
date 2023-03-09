@@ -112,9 +112,9 @@ fn transform_array<'value>(
     Cow::from(format!("{{{}}}", transformed_array))
 }
 
-fn transform_quoted_array<'value>(
+fn transform_quoted_array(
     rng: &mut SmallRng,
-    value: &'value str,
+    value: &str,
     sub_type: &Type,
     transformer: &Transformer,
     table_name: &str,
