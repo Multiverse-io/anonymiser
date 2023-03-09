@@ -50,7 +50,7 @@ commands:
 jobs:
   test:
     docker:
-      - image: cimg/rust:1.62
+      - image: cimg/rust:1.67
         environment:
           CARGO_NET_GIT_FETCH_WITH_CLI: true
       - image: postgres:13.4
@@ -81,7 +81,7 @@ jobs:
 
   build_release_linux_universal:
     docker:
-      - image: clux/muslrust:1.62.1
+      - image: clux/muslrust:1.67.1
     environment:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
@@ -172,6 +172,7 @@ jobs:
             - << pipeline.parameters.cache-key >>-cargo-mac-release-cache-{{ checksum "Cargo.lock" }}
       - run: TAG="${CIRCLE_TAG:-v0.0.0}"; ./update_version $TAG
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - run: rustup install 1.67
       - run: rustup target add aarch64-apple-darwin
       - run: cargo build --release --target=x86_64-apple-darwin
       - run: cargo build --release --target=aarch64-apple-darwin

@@ -4,7 +4,7 @@ use crate::parsers::strategy_structs::ColumnInfo;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CurrentTableTransforms {
     pub table_name: String,
     pub columns: Vec<ColumnInfo>,
@@ -68,7 +68,7 @@ fn columns_from_strategy(
     }
 }
 
-fn capture_to_item<'a, 'b>(capture: &'a regex::Captures, name: &'b str) -> Option<&'a str> {
+fn capture_to_item<'a>(capture: &'a regex::Captures, name: &str) -> Option<&'a str> {
     capture
         .name(name)
         .map(|parsed_copy_row| parsed_copy_row.as_str())

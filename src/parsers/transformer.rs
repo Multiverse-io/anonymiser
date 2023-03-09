@@ -112,9 +112,9 @@ fn transform_array<'value>(
     Cow::from(format!("{{{}}}", transformed_array))
 }
 
-fn transform_quoted_array<'value>(
+fn transform_quoted_array(
     rng: &mut SmallRng,
-    value: &'value str,
+    value: &str,
     sub_type: &Type,
     transformer: &Transformer,
     table_name: &str,
@@ -179,7 +179,7 @@ fn prepend_unique_if_present(
         .map_or_else(|| false, |u| u == "true");
 
     if unique_value {
-        return format!("{}-{}", unique, new_value);
+        format!("{}-{}", unique, new_value)
     } else {
         new_value
     }
@@ -243,11 +243,11 @@ fn fake_phone_number(current_value: &str) -> String {
         SmallRng::from_rng(rand::thread_rng()).unwrap_or_else(|_| SmallRng::from_entropy());
     if current_value.starts_with("+447") {
         let random = rng.gen_range(UK_FAKE_MOBILE_RANGE.clone());
-        return format!("+447700{0}", random);
+        format!("+447700{0}", random)
     } else {
         let area_code = rng.gen_range(200..999);
         let rest = rng.gen_range(1000000..9999999);
-        return format!("+1{}{}", area_code, rest);
+        format!("+1{}{}", area_code, rest)
     }
 }
 
