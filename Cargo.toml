@@ -28,4 +28,5 @@ log = "0.4.17"
 zstd = "0.12.3"
 
 [dev-dependencies]
+cargo2junit = "0.1.12"
 pretty_assertions = "1.3.0"
