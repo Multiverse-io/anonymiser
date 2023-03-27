@@ -116,7 +116,7 @@ mod tests {
         let uncompressed_file_name = "test_files/uncompressed_file_reader_test_results.sql";
 
         let _ = fs::remove_file(&compressed_file);
-        let _ = fs::remove_file(&uncompressed_file_name);
+        let _ = fs::remove_file(uncompressed_file_name);
 
         let strategies = default_strategies();
 
@@ -137,7 +137,7 @@ mod tests {
         let original =
             fs::read_to_string(&input_file).expect("Something went wrong reading the file");
 
-        let processed = fs::read_to_string(&uncompressed_file_name)
+        let processed = fs::read_to_string(uncompressed_file_name)
             .expect("Something went wrong reading the file");
 
         assert_eq!(original, processed);

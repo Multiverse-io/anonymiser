@@ -1,12 +1,12 @@
 use crate::parsers::sanitiser;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Column {
     pub name: String,
     pub data_type: Type,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     SingleValue { sub_type: SubType },
     Array { sub_type: SubType },
@@ -22,7 +22,7 @@ impl Type {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SubType {
     Json,
     Character,

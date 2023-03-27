@@ -15,7 +15,7 @@ pub fn fix(
 fn add_missing(current: Vec<StrategyInFile>, missing: &[SimpleColumn]) -> Vec<StrategyInFile> {
     let missing_columns_by_table = missing.iter().fold(HashMap::new(), |mut acc, column| {
         acc.entry(column.table_name.clone())
-            .or_insert(Vec::new())
+            .or_insert_with(Vec::new)
             .push(column.column_name.clone());
         acc
     });
@@ -55,7 +55,7 @@ fn remove_redundant(
         .iter()
         .fold(HashMap::new(), |mut acc, column| {
             acc.entry(column.table_name.clone())
-                .or_insert(Vec::new())
+                .or_insert_with(Vec::new)
                 .push(column.column_name.clone());
             acc
         });
