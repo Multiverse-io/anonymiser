@@ -1,5 +1,6 @@
 .DS_Store
 /target
+/result
 results.xml
 *.sql
 *.csv

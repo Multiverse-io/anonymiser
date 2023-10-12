@@ -3,7 +3,11 @@
 A command line tool to read a sql backup (created with pg_dump) and anonymise it based on a strategy file
 
 ## Installing
-Can be downloded from [here](https://github.com/Multiverse-io/anonymiser/releases) or installed using asdf using [this](https://github.com/Multiverse-io/asdf-anonymiser)
+There are a few options:
+
+1. The binary can be downloded from [the releases page](https://github.com/Multiverse-io/anonymiser/releases).
+2. An [asdf](https://github.com/asdf-vm/asdf) plugin is available at [Multiverse-io/asdf-anonymiser](https://github.com/Multiverse-io/asdf-anonymiser).
+3. This repository is a [Nix flake](https://nix.dev/concepts/flakes) and can be used as input to your own flakes.
 
 ## Running
 1. Ensure you have a strategy.json file (you can generate a blank one using `anonymiser generate-strategies --db-url postgres://postgres:postgres@localhost/DB_NAME`
@@ -12,6 +16,13 @@ Can be downloded from [here](https://github.com/Multiverse-io/anonymiser/release
 4. Run the anonymiser with `anonymiser anonymise -i clear_text_dump.sql -o anonymised.sql -s strategy.json`
 
 For further command line options you can use `--help`
+
+## Development
+
+If you have Nix installed you can run `nix develop` inside the repository to open a subshell with the requisite development tools made available to you.
+If you also have direnv installed you can run `direnv allow` to automatically open the subshell upon entering the repository directory.
+
+Otherwise you just need to ensure a Rust toolchain is available, as provided by [rustup](https://www.rust-lang.org/tools/install) for example.
 
 ## Creating releases
 
