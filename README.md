@@ -1,4 +1,4 @@
-# Anonymiser [![CircleCI](https://circleci.com/gh/Multiverse-io/anonymiser/tree/main.svg?style=svg&circle-token=f96c8ae882765c9cb2219d4539a5bed696451202)](https://circleci.com/gh/Multiverse-io/anonymiser/tree/main)
+# Anonymiser [![CircleCI](https://dl.circleci.com/status-badge/img/gh/Multiverse-io/anonymiser/tree/main.svg?style=svg)](https://circleci.com/gh/Multiverse-io/anonymiser/tree/main)
 
 A command line tool to read a sql backup (created with pg_dump) and anonymise it based on a strategy file
 
