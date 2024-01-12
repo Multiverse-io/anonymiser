@@ -13,3 +13,5 @@ anonymiser-aarch64-apple-darwin
 anonymiser-x86_64-apple-darwin
 anonymiser-x86_64-unknown-linux-gnu
 anonymiser-x86_64-unknown-linux-musl
+
+.direnv
