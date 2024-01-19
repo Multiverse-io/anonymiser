@@ -57,8 +57,7 @@
             [
               openssl
             ]
-            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin
-            (with pkgs; [darwin.apple_sdk.frameworks.Security]);
+            ++ pkgs.lib.optional pkgs.stdenv.isDarwin pkgs.darwin.apple_sdk.frameworks.Security;
 
           checkFlags = [
             # Skip tests which require acces to a PostgreSQL server.
