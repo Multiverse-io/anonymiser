@@ -64,6 +64,9 @@ pub fn transform<'line>(
         TransformerType::FakeCity => Cow::from(CityName().fake::<String>()),
         TransformerType::FakeCompanyName => Cow::from(fake_company_name(&transformer.args, unique)),
         TransformerType::FakeEmail => Cow::from(fake_email(&transformer.args, unique)),
+        TransformerType::FakeEmailOrPhone => {
+            Cow::from(fake_email_or_phone(value, &transformer.args, unique))
+        }
         TransformerType::FakeFirstName => Cow::from(FirstName().fake::<String>()),
         TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
         TransformerType::FakeFullName => Cow::from(fake_full_name()),
@@ -207,6 +210,18 @@ fn fake_company_name(args: &Option<HashMap<String, String>>, unique: usize) -> S
 fn fake_email(optional_args: &Option<HashMap<String, String>>, unique: usize) -> String {
     let new_email = FreeEmail().fake();
     prepend_unique_if_present(new_email, optional_args, unique)
+}
+
+fn fake_email_or_phone(
+    current_value: &str,
+    optional_args: &Option<HashMap<String, String>>,
+    unique: usize,
+) -> String {
+    if current_value.starts_with("+") && !current_value.contains("@") {
+        fake_phone_number(current_value)
+    } else {
+        fake_email(optional_args, unique)
+    }
 }
 
 fn fake_street_address() -> String {
@@ -631,6 +646,46 @@ mod tests {
         assert!(new_national_identity_number != national_identity_number);
         assert!(national_insurance_number::NATIONAL_INSURANCE_NUMBERS
             .contains(&new_national_identity_number.as_ref()));
+    }
+
+    #[test]
+    fn fake_email_or_phone_with_phone() {
+        let phone_number = "+447822222222";
+        let mut rng = rng::get();
+        let new_phone_number = transform(
+            &mut rng,
+            phone_number,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::FakeEmailOrPhone,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_phone_number != phone_number);
+        assert!(new_phone_number.starts_with("+4477009"));
+        assert_eq!(new_phone_number.len(), 13);
+    }
+    #[test]
+    fn fake_email_or_phone_with_email() {
+        let email = "peter@peterson.com";
+        let mut rng = rng::get();
+        let new_email = transform(
+            &mut rng,
+            email,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::FakeEmailOrPhone,
+                args: None,
+            },
+            TABLE_NAME,
+        );
+        assert!(new_email != email);
+        assert!(new_email.contains("@"));
     }
 
     #[test]
