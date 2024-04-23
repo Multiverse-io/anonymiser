@@ -108,7 +108,7 @@ mod tests {
         let _ = fs::remove_file(&output_file).ok();
         let strategies = default_strategies();
 
-        assert!(read(input_file.clone(), output_file.clone(), &strategies, false).is_ok());
+        assert!(read(input_file.clone(), output_file.clone(), &strategies, None).is_ok());
 
         let original =
             fs::read_to_string(&input_file).expect("Something went wrong reading the file");
@@ -120,7 +120,7 @@ mod tests {
     }
 
     #[test]
-    fn can_read_and_output_compressed() {
+    fn can_read_and_output_compressed_with_default() {
         let input_file = "test_files/dump_file.sql".to_string();
         let compressed_file = "test_files/compressed_file_reader_test_results.sql".to_string();
         let uncompressed_file_name = "test_files/uncompressed_file_reader_test_results.sql";
@@ -134,7 +134,40 @@ mod tests {
             input_file.clone(),
             compressed_file.clone(),
             &strategies,
-            true
+            Some(None)
+        )
+        .is_ok());
+
+        uncompress(
+            PathBuf::from(&compressed_file),
+            Some(PathBuf::from(uncompressed_file_name)),
+        )
+        .expect("Should not fail to uncompress!");
+
+        let original =
+            fs::read_to_string(&input_file).expect("Something went wrong reading the file");
+
+        let processed = fs::read_to_string(uncompressed_file_name)
+            .expect("Something went wrong reading the file");
+
+        assert_eq!(original, processed);
+    }
+    #[test]
+    fn can_read_and_output_compressed_with_specific_compression_type() {
+        let input_file = "test_files/dump_file.sql".to_string();
+        let compressed_file = "test_files/compressed_file_reader_test_results.sql".to_string();
+        let uncompressed_file_name = "test_files/uncompressed_file_reader_test_results.sql";
+
+        let _ = fs::remove_file(&compressed_file);
+        let _ = fs::remove_file(uncompressed_file_name);
+
+        let strategies = default_strategies();
+
+        assert!(read(
+            input_file.clone(),
+            compressed_file.clone(),
+            &strategies,
+            Some(Some(CompressionType::Zstd))
         )
         .is_ok());
 

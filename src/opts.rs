@@ -21,8 +21,8 @@ pub enum Anonymiser {
         strategy_file: String,
         /// Either just a flag
         /// e.g. '--compress-output' in which case it defaults to zstd
-        /// or with a compression type
-        /// e.g. '--compress-output zstd' or '--compress-output gzip'
+        /// or with a        /// compression type e.g. '--compress-output zstd' or '--compress-output gzip'
+        /// compr
         #[structopt(short, long)]
         compress_output: Option<Option<CompressionType>>,
         /// Does not transform PotentiallPii data types
@@ -75,6 +75,8 @@ pub enum Anonymiser {
     },
 
     /// Uncompress a zstd sql dump to a file, or stdout if no file specified
+    /// Does not currently work for gzip as tools to decompress that are more
+    /// readily available
     Uncompress {
         /// Input file (*.sql.zst)
         #[structopt(short, long)]
