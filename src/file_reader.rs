@@ -16,7 +16,6 @@ pub fn read(
     strategies: &Strategies,
     compress_output: Option<Option<CompressionType>>,
 ) -> Result<(), std::io::Error> {
-    println!("moo {:?} arguments", compress_output);
     let output_file = File::create(output_file_path)?;
     let mut file_writer: Box<dyn Write> = match compress_output {
         Some(Some(CompressionType::Zstd)) => {

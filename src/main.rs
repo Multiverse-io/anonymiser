@@ -26,7 +26,6 @@ static GLOBAL: MiMalloc = MiMalloc;
 fn main() -> Result<(), std::io::Error> {
     let opt = Opts::from_args();
 
-    println!("{:?}", opt);
     match opt.commands {
         Anonymiser::Anonymise {
             input_file,
