@@ -110,7 +110,7 @@ jobs:
 
   test_in_alpine:
     docker:
-      - image: ghcr.io/multiverse-io/elixir-ci:1.13.4-erlang-25.0.2-alpine-3.16.0
+      - image: ghcr.io/multiverse-io/elixir-ci:1.14.2-erlang-25.1.2-alpine-3.18.0
       - image: postgres:13.4
         environment:
           POSTGRES_USER: postgres
