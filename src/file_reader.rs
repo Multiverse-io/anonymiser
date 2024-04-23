@@ -1,7 +1,10 @@
+use crate::compression_type::CompressionType;
 use crate::parsers::rng;
 use crate::parsers::row_parser;
 use crate::parsers::state::State;
 use crate::parsers::strategies::Strategies;
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -11,12 +14,20 @@ pub fn read(
     input_file_path: String,
     output_file_path: String,
     strategies: &Strategies,
-    compress_output: bool,
+    compress_output: Option<Option<CompressionType>>,
 ) -> Result<(), std::io::Error> {
+    println!("moo {:?} arguments", compress_output);
     let output_file = File::create(output_file_path)?;
     let mut file_writer: Box<dyn Write> = match compress_output {
-        true => Box::new(zstd::Encoder::new(output_file, 1)?.auto_finish()),
-        false => Box::new(BufWriter::new(output_file)),
+        Some(Some(CompressionType::Zstd)) => {
+            Box::new(zstd::Encoder::new(output_file, 1)?.auto_finish())
+        }
+        Some(Some(CompressionType::Gzip)) => {
+            Box::new(GzEncoder::new(output_file, Compression::best()))
+        }
+        Some(None) => Box::new(zstd::Encoder::new(output_file, 1)?.auto_finish()),
+
+        None => Box::new(BufWriter::new(output_file)),
     };
 
     let file_reader = File::open(&input_file_path)

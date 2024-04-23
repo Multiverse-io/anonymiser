@@ -1,5 +1,5 @@
+use crate::compression_type::CompressionType;
 use std::path::PathBuf;
-
 use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Anonymiser", about = "Anonymise your database backups!")]
@@ -19,9 +19,12 @@ pub enum Anonymiser {
         /// Path to the strategy.json file
         #[structopt(short, long, default_value = "./strategy.json")]
         strategy_file: String,
-        /// Compress output using zstd
+        /// Either just a flag
+        /// e.g. '--compress-output' in which case it defaults to zstd
+        /// or with a compression type
+        /// e.g. '--compress-output zstd' or '--compress-output gzip'
         #[structopt(short, long)]
-        compress_output: bool,
+        compress_output: Option<Option<CompressionType>>,
         /// Does not transform PotentiallPii data types
         #[structopt(long)]
         allow_potential_pii: bool,

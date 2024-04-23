@@ -1,3 +1,4 @@
+use crate::compression_type::CompressionType;
 use crate::file_reader;
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_file;
@@ -7,7 +8,7 @@ pub fn anonymise(
     input_file: String,
     output_file: String,
     strategy_file: String,
-    compress_output: bool,
+    compress_output: Option<Option<CompressionType>>,
     transformer_overrides: TransformerOverrides,
 ) -> Result<(), std::io::Error> {
     match strategy_file::read(&strategy_file) {
