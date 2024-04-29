@@ -124,12 +124,14 @@ jobs:
     macos:
       xcode: 13.4.1
     environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - checkout
       - restore_cache:
           keys:
             - << pipeline.parameters.cache-key >>-cargo-mac-release-cache-{{ checksum "Cargo.lock" }}
+      - run: brew install cmake
       - run: TAG="${CIRCLE_TAG:-v0.0.0}"; ./update_version $TAG
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - run: rustup install 1.67
