@@ -28,4 +28,4 @@ log = "0.4.21"
 zstd = "0.12.3"
 
 [dev-dependencies]
-pretty_assertions = "1.3.0"
+pretty_assertions = "1.4.0"
