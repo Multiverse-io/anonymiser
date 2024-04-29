@@ -51,13 +51,14 @@
           # Compile-time dependencies.
           nativeBuildInputs = with pkgs; [
             pkg-config
+            cmake
           ];
           # Run-time dependencies.
           buildInputs = with pkgs;
             [
               openssl
             ]
-            ++ pkgs.lib.optional pkgs.stdenv.isDarwin pkgs.darwin.apple_sdk.frameworks.Security;
+            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [pkgs.darwin.apple_sdk.frameworks.Security pkgs.darwin.apple_sdk.frameworks.SystemConfiguration];
 
           checkFlags = [
             # Skip tests which require acces to a PostgreSQL server.
