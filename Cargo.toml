@@ -10,7 +10,7 @@ edition = "2021"
 base16 = "0.2.1"
 base32 = "0.4.0"
 chrono = "0.4"
-itertools = "0.10.5"
+itertools = "0.12.1"
 fake = "2.4"
 flate2 = { version = "1.0.17", features = ["zlib-ng"], default-features = false }
 lazy_static = "1.4.0"
@@ -24,7 +24,7 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 structopt = "0.3"
 uuid = { version = "1.8", features = [ "v4"] }
-mimalloc = "0.1.39"
+mimalloc = "0.1.41"
 log = "0.4.21"
 zstd = "0.12.3"
 
