@@ -53,6 +53,7 @@ The following data categories are supported
 - FakeCity - Random city from [faker](https://github.com/cksac/fake-rs)
 - FakeCompanyName * - Random Company Name from [faker](https://github.com/cksac/fake-rs)
 - FakeEmail * - Random email address from [faker](https://github.com/cksac/fake-rs)
+- FakeEmailOrPhone * - Either a random phone number OR a random email depending on whether the existing data starts with a `+` and doesn't contain an `@` symbol or not!
 - FakeFirstName - Random first name from [faker](https://github.com/cksac/fake-rs)
 - FakeFullAddress - Random address made up of segments from [faker](https://github.com/cksac/fake-rs)
 - FakeFullName - Random first plus last name from [faker](https://github.com/cksac/fake-rs)

@@ -49,12 +49,10 @@ pub fn to_csv(strategy_file: &str, csv_output_file: &str) -> std::io::Result<()>
         .iter()
         .flat_map(|strategy| {
             strategy.columns.iter().filter_map(|column| {
-                if column.data_category == DataCategory::Pii
-                    || column.data_category == DataCategory::PotentialPii
-                {
+                if column.data_category != DataCategory::General {
                     Some(format!(
-                        "{}, {}, {}",
-                        strategy.table_name, column.name, column.description
+                        "{}, {}, {:?}, {}",
+                        strategy.table_name, column.name, column.data_category, column.description
                     ))
                 } else {
                     None

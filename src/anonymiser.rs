@@ -1,3 +1,4 @@
+use crate::compression_type::CompressionType;
 use crate::file_reader;
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_file;
@@ -7,7 +8,7 @@ pub fn anonymise(
     input_file: String,
     output_file: String,
     strategy_file: String,
-    compress_output: bool,
+    compress_output: Option<Option<CompressionType>>,
     transformer_overrides: TransformerOverrides,
 ) -> Result<(), std::io::Error> {
     match strategy_file::read(&strategy_file) {
@@ -48,7 +49,7 @@ mod tests {
             "test_files/dump_file.sql".to_string(),
             "test_files/results.sql".to_string(),
             "non_existing_strategy_file.json".to_string(),
-            false,
+            None,
             TransformerOverrides::none(),
         )
         .is_ok());
@@ -61,7 +62,7 @@ mod tests {
             "non_existing_input_file.sql".to_string(),
             "test_files/results.sql".to_string(),
             "test_files/strategy.json".to_string(),
-            false,
+            None,
             TransformerOverrides::none(),
         )
         .is_ok());
@@ -73,7 +74,7 @@ mod tests {
             "test_files/dump_file.sql".to_string(),
             "test_files/results.sql".to_string(),
             "test_files/strategy.json".to_string(),
-            false,
+            None,
             TransformerOverrides::none(),
         )
         .is_ok());

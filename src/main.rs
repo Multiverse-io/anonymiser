@@ -1,4 +1,5 @@
 mod anonymiser;
+mod compression_type;
 mod file_reader;
 mod fixers;
 mod opts;

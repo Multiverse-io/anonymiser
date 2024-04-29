@@ -26,7 +26,7 @@ mod tests {
             "test_files/dump_file.sql".to_string(),
             "test_files/compress/results.sql".to_string(),
             "test_files/strategy.json".to_string(),
-            false,
+            None,
             TransformerOverrides::none(),
         )
         .unwrap();
@@ -35,7 +35,7 @@ mod tests {
             "test_files/dump_file.sql".to_string(),
             "test_files/compress/results.sql.zst".to_string(),
             "test_files/strategy.json".to_string(),
-            true,
+            Some(None),
             TransformerOverrides::none(),
         )
         .unwrap();
