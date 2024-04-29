@@ -111,6 +111,7 @@ pub enum TransformerType {
     FakeCity,
     FakeCompanyName,
     FakeEmail,
+    FakeEmailOrPhone,
     FakeFirstName,
     FakeFullAddress,
     FakeFullName,

@@ -2,50 +2,11 @@ version: 2.1
 
 orbs:
   gh: circleci/github-cli@2.1.0
-  slack: circleci/slack@4.5.1
 
 parameters:
    cache-key:
      type: string
      default: v2
-
-commands:
-  slack_notify_failure:
-    steps:
-      - slack/notify:
-          branch_pattern: main
-          event: fail
-          channel: 'engineering'
-          custom: |-
-            {
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*:fire: ${CIRCLE_USERNAME} broke the Anonymiser ${CIRCLE_JOB} job :fire:*\n\n${GIT_COMMIT_MSG}"
-                  },
-                  "accessory": {
-                    "type": "image",
-                    "image_url": "https://tenor.com/view/mochi-mochi-peach-cat-cat-kitty-animated-cry-gif-17774448",
-                    "alt_text": "images"
-                  }
-                },
-                {
-                  "type": "actions",
-                  "elements": [
-                    {
-                      "type": "button",
-                      "text": {
-                        "type": "plain_text",
-                        "text": "View Job"
-                      },
-                      "url": "${CIRCLE_BUILD_URL}"
-                    }
-                  ]
-                }
-              ]
-            }
 
 jobs:
   test:
@@ -75,7 +36,6 @@ jobs:
             - target/debug/deps
           key: << pipeline.parameters.cache-key >>-cargo-debug-cache-{{ checksum "Cargo.lock" }}
 
-      - slack_notify_failure
       - store_test_results:
           path: results.xml
 
@@ -217,39 +177,26 @@ workflows:
   version: 2.4
   build:
     jobs:
-      - test:
-          context:
-            - slack
-
+      - test
       - build_release_linux_universal:
-          context:
-            - slack
           requires:
             - test
 
       - build_release_macos:
-          context:
-            - slack
           requires:
             - test
 
       - test_in_alpine:
-          context:
-            - slack
           requires:
             - build_release_linux_universal
 
       - test_in_amazon_linux:
-          context:
-            - slack
           requires:
             - build_release_linux_universal
 
   release:
     jobs:
       - test:
-          context:
-            - slack
           filters: &filters-release
             branches:
               ignore: /.*/
@@ -257,32 +204,24 @@ workflows:
               only: /^v.*/
 
       - build_release_linux_universal:
-          context:
-            - slack
           requires:
             - test
           filters:
             <<: *filters-release
 
       - build_release_macos:
-          context:
-            - slack
           requires:
             - test
           filters:
             <<: *filters-release
 
       - test_in_alpine:
-          context:
-            - slack
           requires:
             - build_release_linux_universal
           filters:
             <<: *filters-release
 
       - test_in_amazon_linux:
-          context:
-            - slack
           requires:
             - build_release_linux_universal
           filters:
@@ -290,7 +229,6 @@ workflows:
 
       - create_release:
           context:
-            - slack
             - github-deployer
           requires:
             - build_release_macos
