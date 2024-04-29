@@ -21,8 +21,7 @@ pub enum Anonymiser {
         strategy_file: String,
         /// Either just a flag
         /// e.g. '--compress-output' in which case it defaults to zstd
-        /// or with a        /// compression type e.g. '--compress-output zstd' or '--compress-output gzip'
-        /// compr
+        /// or with a compression type e.g. '--compress-output zstd' or '--compress-output gzip'
         #[structopt(short, long)]
         compress_output: Option<Option<CompressionType>>,
         /// Does not transform PotentiallPii data types
