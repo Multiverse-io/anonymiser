@@ -217,7 +217,7 @@ fn fake_email_or_phone(
     optional_args: &Option<HashMap<String, String>>,
     unique: usize,
 ) -> String {
-    if current_value.starts_with("+") && !current_value.contains("@") {
+    if current_value.starts_with('+') && !current_value.contains('@') {
         fake_phone_number(current_value)
     } else {
         fake_email(optional_args, unique)
@@ -685,7 +685,7 @@ mod tests {
             TABLE_NAME,
         );
         assert!(new_email != email);
-        assert!(new_email.contains("@"));
+        assert!(new_email.contains('@'));
     }
 
     #[test]
