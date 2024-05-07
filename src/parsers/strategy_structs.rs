@@ -47,6 +47,10 @@ impl PartialEq for ColumnInFile {
 pub struct StrategyInFile {
     pub table_name: String,
     pub description: String,
+
+    #[serde(default)]
+    pub truncate: bool,
+
     pub columns: Vec<ColumnInFile>,
 }
 

@@ -280,6 +280,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![column_in_file(
                 DataCategory::Pii,
                 column_name,
@@ -314,16 +315,19 @@ mod tests {
             StrategyInFile {
                 table_name: TABLE_NAME.to_string(),
                 description: "description".to_string(),
+                truncate: false,
                 columns: vec![],
             },
             StrategyInFile {
                 table_name: TABLE_NAME.to_string(),
                 description: "description".to_string(),
+                truncate: false,
                 columns: vec![],
             },
             StrategyInFile {
                 table_name: table2_name.to_string(),
                 description: "description".to_string(),
+                truncate: false,
                 columns: vec![duplicated_column.clone(), duplicated_column],
             },
         ];
@@ -343,6 +347,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: "public.person".to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![column_in_file(
                 DataCategory::Unknown,
                 "first_name",
@@ -364,6 +369,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: "public.person".to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![column_in_file(
                 DataCategory::General,
                 "first_name",
@@ -385,6 +391,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: "public.person".to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![
                 column_in_file(DataCategory::Pii, "first_name", TransformerType::Identity),
                 column_in_file(
@@ -413,6 +420,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![
                 column_in_file(
                     DataCategory::PotentialPii,
@@ -455,6 +463,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![
                 column_in_file(
                     DataCategory::PotentialPii,
@@ -498,6 +507,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![column_in_file(
                 DataCategory::General,
                 SCRAMBLED_COLUMN_NAME,
@@ -524,6 +534,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![
                 column_in_file(
                     DataCategory::PotentialPii,
