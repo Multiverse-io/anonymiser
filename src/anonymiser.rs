@@ -103,4 +103,40 @@ mod tests {
             String::from_utf8(result.stderr).unwrap()
         );
     }
+
+    #[test]
+    fn successfully_truncates() {
+        assert!(anonymise(
+            "test_files/dump_file.sql".to_string(),
+            "test_files/results.sql".to_string(),
+            "test_files/strategy.json".to_string(),
+            None,
+            TransformerOverrides::none(),
+        )
+        .is_ok());
+
+        let db_url = "postgresql://postgres:postgres@localhost";
+        let postgres = format!("{}/postgres", db_url);
+        let mut conn = Client::connect(&postgres, NoTls).expect("expected connection to succeed");
+
+        conn.simple_query("drop database if exists anonymiser_test")
+            .unwrap();
+        conn.simple_query("create database anonymiser_test")
+            .unwrap();
+
+        let result = Command::new("psql")
+            .arg(format!("{}/anonymiser_test", db_url))
+            .arg("-f")
+            .arg("test_files/results.sql")
+            .arg("-v")
+            .arg("ON_ERROR_STOP=1")
+            .output()
+            .expect("failed!");
+
+        assert!(
+            result.status.success(),
+            "failed to restore backup:\n{:?}",
+            String::from_utf8(result.stderr).unwrap()
+        );
+    }
 }

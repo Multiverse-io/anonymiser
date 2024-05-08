@@ -1,5 +1,6 @@
 use crate::parsers::sanitiser;
 use crate::parsers::strategies::Strategies;
+use crate::parsers::strategies::TableStrategy;
 use crate::parsers::strategy_structs::ColumnInfo;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -7,7 +8,7 @@ use regex::Regex;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CurrentTableTransforms {
     pub table_name: String,
-    pub columns: Vec<ColumnInfo>,
+    pub table_strategy: TableStrategy, //    pub columns: Vec<ColumnInfo>,
 }
 
 pub fn parse(copy_row: &str, strategies: &Strategies) -> CurrentTableTransforms {
@@ -40,31 +41,38 @@ fn get_current_table_information(
         .split(", ")
         .map(sanitiser::dequote_column_or_table_name_data)
         .collect();
-    let columns = columns_from_strategy(strategies, &table_name, &column_list);
+    let table_strategy = table_strategy(strategies, &table_name, &column_list);
 
     CurrentTableTransforms {
         table_name,
-        columns,
+        table_strategy,
     }
 }
 
-fn columns_from_strategy(
+fn table_strategy(
     strategies: &Strategies,
     table_name: &str,
     column_list: &[String],
-) -> Vec<ColumnInfo> {
-    match strategies.for_table(table_name) {
-        Some(columns) => column_list
-            .iter()
-            .map(|c| match columns.get(c) {
-                Some(column_info) => column_info.clone(),
-                None => panic!(
-                    "No transform found for column: {:?} in table: {:?}",
-                    c, table_name
-                ),
-            })
-            .collect(),
-        _ => panic!("No transforms found for table: {:?}", table_name),
+) -> TableStrategy {
+    let strategies_for_table = strategies.for_table(table_name);
+
+    match strategies_for_table {
+        Some(columns_strategy @ TableStrategy::Columns(columns)) => {
+            for (i, c) in column_list.iter().enumerate() {
+                match columns.get(c) {
+                    Some(column_info) => (),
+                    None => panic!(
+                        "No transform found for column: {:?} in table: {:?}",
+                        c, table_name
+                    ),
+                }
+            }
+
+            return columns_strategy.clone();
+        }
+
+        Some(TableStrategy::Truncate) => TableStrategy::Truncate,
+        None => panic!("No transforms found for table: {:?}", table_name),
     }
 }
 
@@ -105,24 +113,18 @@ mod tests {
 
         let expected = CurrentTableTransforms {
             table_name: "public.users".to_string(),
-            columns: vec![
-                ColumnInfo::builder().build(),
-                ColumnInfo::builder()
-                    .with_transformer(TransformerType::FakeFirstName, None)
-                    .build(),
-                ColumnInfo::builder()
-                    .with_transformer(TransformerType::FakeLastName, None)
-                    .build(),
-            ],
+            table_strategy: TableStrategy::Columns(column_infos),
         };
 
         assert_eq!(expected.table_name, parsed_copy_row.table_name);
-        assert_eq!(expected.columns, parsed_copy_row.columns);
+        assert_eq!(expected.table_strategy, parsed_copy_row.table_strategy);
     }
 
     #[test]
     fn removes_quotes_around_table_and_column_names() {
         let expected_column = ColumnInfo::builder().with_name("from").build();
+        let expected_table_strategy =
+            TableStrategy::Columns(HashMap::from([("from".to_string(), expected_column)]));
 
         let strategies = Strategies::new_from(
             "public.references".to_string(),
@@ -135,7 +137,7 @@ mod tests {
         );
 
         assert_eq!("public.references", parsed_copy_row.table_name);
-        assert_eq!(vec![expected_column], parsed_copy_row.columns);
+        assert_eq!(expected_table_strategy, parsed_copy_row.table_strategy);
     }
 
     #[test]

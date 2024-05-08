@@ -44,6 +44,29 @@ ALTER TABLE public.orders ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     CACHE 1
 );
 
+--
+-- Name: extra_data; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.extra_data (
+    id bigint NOT NULL,
+    data character varying(255) NOT NULL,
+);
+
+--
+-- Name: extra_data_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.extra_data ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.extra_data_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
 
 --
 -- Name: products; Type: TABLE; Schema: public; Owner: -
@@ -120,6 +143,18 @@ COPY public.orders (id, user_id, product_id) FROM stdin;
 8	5	2
 \.
 
+--
+-- Data for Name: extra_data; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.extra_data (id, user_id, product_id) FROM stdin;
+1	this is jank
+2	more jank
+3	another line of jank
+4	yuk, not more jank!
+5	you guess it.
+\.
+
 
 --
 -- Data for Name: products; Type: TABLE DATA; Schema: public; Owner: -
@@ -154,6 +189,12 @@ COPY public.users (id, email, password, last_login, inserted_at, updated_at, fir
 
 SELECT pg_catalog.setval('public.orders_id_seq', 8, true);
 
+--
+-- Name: extra_data_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.extra_data_id_seq', 5, true);
+
 
 --
 -- Name: products_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
@@ -175,6 +216,13 @@ SELECT pg_catalog.setval('public.users_id_seq', 7, true);
 
 ALTER TABLE ONLY public.orders
     ADD CONSTRAINT orders_pkey PRIMARY KEY (id);
+
+--
+-- Name: extra_data extra_data_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.extra_data
+    ADD CONSTRAINT extra_data_pkey PRIMARY KEY (id);
 
 
 --

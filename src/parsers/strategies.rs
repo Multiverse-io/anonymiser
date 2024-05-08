@@ -5,7 +5,23 @@ use std::collections::HashSet;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Strategies {
-    tables: HashMap<String, HashMap<String, ColumnInfo>>,
+    tables: HashMap<String, TableStrategy>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum TableStrategy {
+    Columns(HashMap<String, ColumnInfo>),
+    Truncate,
+}
+
+impl TableStrategy {
+    fn to_columns(self) -> HashMap<String, ColumnInfo> {
+        if let TableStrategy::Columns(c) = self {
+            c
+        } else {
+            panic!("Not columns!")
+        }
+    }
 }
 
 impl Strategies {
@@ -73,7 +89,7 @@ impl Strategies {
         }
     }
 
-    pub fn for_table(&self, table_name: &str) -> Option<&HashMap<String, ColumnInfo>> {
+    pub fn for_table(&self, table_name: &str) -> Option<&TableStrategy> {
         self.tables.get(table_name)
     }
 
@@ -81,19 +97,32 @@ impl Strategies {
         &mut self,
         table_name: String,
         columns: HashMap<String, ColumnInfo>,
-    ) -> Option<HashMap<String, ColumnInfo>> {
-        self.tables.insert(table_name, columns)
+    ) -> Option<TableStrategy> {
+        self.tables
+            .insert(table_name, TableStrategy::Columns(columns))
     }
 
+    // TODO here, we need to work out how to do validation for tuncation
     pub fn validate_against_db(
         &self,
         columns_from_db: HashSet<SimpleColumn>,
     ) -> Result<(), DbErrors> {
-        let columns_from_strategy_file: HashSet<SimpleColumn> = self
+        let (columns, truncate): (
+            HashMap<String, TableStrategy>,
+            HashMap<String, TableStrategy>,
+        ) = self
             .tables
+            .into_iter()
+            .partition(|(table, table_strategy)| match table_strategy {
+                TableStrategy::Columns(columns) => true,
+                TableStrategy::Truncate => false,
+            });
+
+        let columns_from_strategy_file: HashSet<SimpleColumn> = columns
             .iter()
             .flat_map(|(table, columns)| {
                 return columns
+                    .to_columns()
                     .iter()
                     .map(|(column, _)| create_simple_column(column, table));
             })
@@ -129,14 +158,17 @@ impl Strategies {
     ) -> Option<Transformer> {
         self.tables
             .get(table_name)
-            .and_then(|table| table.get(column_name))
+            .and_then(|table| match table {
+                TableStrategy::Columns(columns) => columns.get(column_name),
+                TableStrategy::Truncate => None,
+            })
             .map(|column| column.transformer.clone())
     }
 
     #[allow(dead_code)] //This is used in tests for convenience
     pub fn new_from(table_name: String, columns: HashMap<String, ColumnInfo>) -> Strategies {
         Strategies {
-            tables: HashMap::from([(table_name, columns)]),
+            tables: HashMap::from([(table_name, TableStrategy::Columns(columns))]),
         }
     }
 }
