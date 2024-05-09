@@ -1,7 +1,6 @@
 use crate::parsers::sanitiser;
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategies::TableStrategy;
-use crate::parsers::strategy_structs::ColumnInfo;
 use lazy_static::lazy_static;
 use regex::Regex;
 

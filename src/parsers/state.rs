@@ -78,6 +78,7 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parsers::strategies::TableStrategy;
     use crate::parsers::types::Column;
     use std::collections::HashMap;
 
@@ -94,7 +95,7 @@ mod tests {
         let new_position = Position::InCopy {
             current_table: CurrentTableTransforms {
                 table_name: "table-mc-tableface".to_string(),
-                columns: Vec::new(),
+                table_strategy: TableStrategy::Columns(HashMap::from([])),
             },
         };
 

@@ -147,6 +147,7 @@ fn add_create_table_row_to_types(line: &str, mut current_types: Vec<Column>) -> 
 mod tests {
     use super::*;
     use crate::parsers::rng;
+    use crate::parsers::strategies::TableStrategy;
     use crate::parsers::strategy_structs::{ColumnInfo, DataCategory, TransformerType};
     use crate::parsers::types::{SubType, Type};
     use std::collections::HashMap;
@@ -309,8 +310,9 @@ mod tests {
 
         match state.position {
             Position::InCopy { current_table } => {
-                let expected_columns = vec![id_column, first_name_column, last_name_column];
-                assert_eq!(expected_columns, current_table.columns)
+                let expected_columns =
+                    TableStrategy::Columns(vec![id_column, first_name_column, last_name_column]);
+                assert_eq!(expected_columns, current_table.table_strategy)
             }
             _other => unreachable!("Position is not InCopy!"),
         };
@@ -375,11 +377,11 @@ mod tests {
             position: Position::InCopy {
                 current_table: CurrentTableTransforms {
                     table_name: "public.users".to_string(),
-                    columns: vec![
+                    table_strategy: TableStrategy::Columns(vec![
                         ColumnInfo::builder().with_name("column_1").build(),
                         ColumnInfo::builder().with_name("column_2").build(),
                         ColumnInfo::builder().with_name("column_3").build(),
-                    ],
+                    ]),
                 },
             },
             types: Types::builder()
@@ -402,7 +404,7 @@ mod tests {
             position: Position::InCopy {
                 current_table: CurrentTableTransforms {
                     table_name: "public.users".to_string(),
-                    columns: vec![
+                    table_strategy: TableStrategy::Columns(vec![
                         ColumnInfo::builder()
                             .with_name("column_1")
                             .with_transformer(
@@ -424,7 +426,7 @@ mod tests {
                                 Some(HashMap::from([("value".to_string(), "third".to_string())])),
                             )
                             .build(),
-                    ],
+                    ]),
                 },
             },
             types: Types::builder()

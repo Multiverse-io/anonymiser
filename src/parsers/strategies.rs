@@ -10,12 +10,12 @@ pub struct Strategies {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TableStrategy {
-    Columns(HashMap<String, ColumnInfo>),
+    Columns(Vec<ColumnInfo>),
     Truncate,
 }
 
 impl TableStrategy {
-    fn to_columns(self) -> HashMap<String, ColumnInfo> {
+    fn to_columns(self) -> Vec<ColumnInfo> {
         if let TableStrategy::Columns(c) = self {
             c
         } else {
@@ -96,7 +96,7 @@ impl Strategies {
     pub fn insert(
         &mut self,
         table_name: String,
-        columns: HashMap<String, ColumnInfo>,
+        columns: Vec<ColumnInfo>,
     ) -> Option<TableStrategy> {
         self.tables
             .insert(table_name, TableStrategy::Columns(columns))
