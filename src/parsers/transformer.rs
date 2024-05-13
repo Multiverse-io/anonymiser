@@ -1037,7 +1037,6 @@ mod tests {
             },
             TABLE_NAME,
         );
-        println!("{new_value}");
         assert!(new_value != initial_value);
         assert!(!new_value.contains("Second line"));
         assert!(!new_value.contains("Third line"));

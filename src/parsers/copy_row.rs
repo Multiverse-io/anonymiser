@@ -47,8 +47,6 @@ fn get_current_table_information(
         .split(", ")
         .map(sanitiser::dequote_column_or_table_name_data)
         .collect();
-    println!("column_name_list: {:?}", column_name_list);
-    println!("strategies: {:?}", strategies);
     let table_transformers = table_strategy(strategies, &table_name, &column_name_list);
 
     CurrentTableTransforms {
@@ -64,8 +62,6 @@ fn table_strategy(
 ) -> TableTransformers {
     let strategies_for_table = strategies.for_table(table_name);
 
-    println!("Strategies for table: {:?}", strategies_for_table);
-    println!("Column name list: {:?}", column_name_list);
     match strategies_for_table {
         Some(TableStrategy::Columns(columns_with_names)) => {
             let column_infos = column_name_list
