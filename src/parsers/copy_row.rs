@@ -115,8 +115,7 @@ mod tests {
             .iter()
             .map(|column| (column.name.clone(), column.clone()))
             .collect();
-        let strategies =
-            Strategies::new_from("public.users".to_string(), column_infos_with_name.clone());
+        let strategies = Strategies::new_from("public.users".to_string(), column_infos_with_name);
         let parsed_copy_row = parse(
             "COPY public.users (id, first_name, last_name) FROM stdin;\n",
             &strategies,
