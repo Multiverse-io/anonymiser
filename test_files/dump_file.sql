@@ -152,7 +152,7 @@ COPY public.extra_data (id, data) FROM stdin;
 2	more jank
 3	another line of jank
 4	yuk, not more jank!
-5	you guess it.
+5	you guessed it.
 \.
 
 --
