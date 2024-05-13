@@ -15,6 +15,7 @@ pub fn read(file_name: &str) -> Result<Vec<StrategyInFile>, std::io::Error> {
         })
     });
 
+    println!("{:?}", result);
     match result {
         Ok(_) => result,
         Err(ref err) => match err.kind() {

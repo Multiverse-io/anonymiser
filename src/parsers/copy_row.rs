@@ -1,13 +1,20 @@
 use crate::parsers::sanitiser;
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategies::TableStrategy;
+use crate::parsers::strategy_structs::ColumnInfo;
 use lazy_static::lazy_static;
 use regex::Regex;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CurrentTableTransforms {
     pub table_name: String,
-    pub table_strategy: TableStrategy, //    pub columns: Vec<ColumnInfo>,
+    pub table_transformers: TableTransformers,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TableTransformers {
+    ColumnTransformer(Vec<ColumnInfo>),
+    Truncator,
 }
 
 pub fn parse(copy_row: &str, strategies: &Strategies) -> CurrentTableTransforms {
@@ -36,41 +43,45 @@ fn get_current_table_information(
     strategies: &Strategies,
 ) -> CurrentTableTransforms {
     let table_name = sanitiser::dequote_column_or_table_name_data(table);
-    let column_list: Vec<String> = unsplit_columns
+    let column_name_list: Vec<String> = unsplit_columns
         .split(", ")
         .map(sanitiser::dequote_column_or_table_name_data)
         .collect();
-    let table_strategy = table_strategy(strategies, &table_name, &column_list);
+    println!("column_name_list: {:?}", column_name_list);
+    println!("strategies: {:?}", strategies);
+    let table_transformers = table_strategy(strategies, &table_name, &column_name_list);
 
     CurrentTableTransforms {
         table_name,
-        table_strategy,
+        table_transformers,
     }
 }
 
 fn table_strategy(
     strategies: &Strategies,
     table_name: &str,
-    column_list: &[String],
-) -> TableStrategy {
+    column_name_list: &[String],
+) -> TableTransformers {
     let strategies_for_table = strategies.for_table(table_name);
 
+    println!("Strategies for table: {:?}", strategies_for_table);
+    println!("Column name list: {:?}", column_name_list);
     match strategies_for_table {
-        Some(columns_strategy @ TableStrategy::Columns(columns)) => {
-            for (i, c) in column_list.iter().enumerate() {
-                match columns.get(c) {
-                    Some(column_info) => (),
+        Some(TableStrategy::Columns(columns_with_names)) => {
+            let column_infos = column_name_list
+                .iter()
+                .map(|column_name| match columns_with_names.get(column_name) {
+                    Some(column_info) => column_info.clone(),
                     None => panic!(
                         "No transform found for column: {:?} in table: {:?}",
-                        c, table_name
+                        column_name, table_name
                     ),
-                }
-            }
-
-            return columns_strategy.clone();
+                })
+                .collect();
+            TableTransformers::ColumnTransformer(column_infos)
         }
 
-        Some(TableStrategy::Truncate) => TableStrategy::Truncate,
+        Some(TableStrategy::Truncate) => TableTransformers::Truncator,
         None => panic!("No transforms found for table: {:?}", table_name),
     }
 }
@@ -89,22 +100,23 @@ mod tests {
 
     #[test]
     fn returns_transforms_for_table() {
-        let column_infos = HashMap::from([
-            ("id".to_string(), ColumnInfo::builder().build()),
-            (
-                "first_name".to_string(),
-                ColumnInfo::builder()
-                    .with_transformer(TransformerType::FakeFirstName, None)
-                    .build(),
-            ),
-            (
-                "last_name".to_string(),
-                ColumnInfo::builder()
-                    .with_transformer(TransformerType::FakeLastName, None)
-                    .build(),
-            ),
-        ]);
-        let strategies = Strategies::new_from("public.users".to_string(), column_infos);
+        let columns = vec![
+            ColumnInfo::builder().with_name("id").build(),
+            ColumnInfo::builder()
+                .with_transformer(TransformerType::FakeFirstName, None)
+                .with_name("first_name")
+                .build(),
+            ColumnInfo::builder()
+                .with_transformer(TransformerType::FakeLastName, None)
+                .with_name("last_name")
+                .build(),
+        ];
+        let column_infos_with_name: HashMap<String, ColumnInfo> = columns
+            .iter()
+            .map(|column| (column.name.clone(), column.clone()))
+            .collect();
+        let strategies =
+            Strategies::new_from("public.users".to_string(), column_infos_with_name.clone());
         let parsed_copy_row = parse(
             "COPY public.users (id, first_name, last_name) FROM stdin;\n",
             &strategies,
@@ -112,19 +124,19 @@ mod tests {
 
         let expected = CurrentTableTransforms {
             table_name: "public.users".to_string(),
-            table_strategy: TableStrategy::Columns(column_infos),
+            table_transformers: TableTransformers::ColumnTransformer(columns),
         };
 
         assert_eq!(expected.table_name, parsed_copy_row.table_name);
-        assert_eq!(expected.table_strategy, parsed_copy_row.table_strategy);
+        assert_eq!(
+            expected.table_transformers,
+            parsed_copy_row.table_transformers
+        );
     }
 
     #[test]
     fn removes_quotes_around_table_and_column_names() {
         let expected_column = ColumnInfo::builder().with_name("from").build();
-        let expected_table_strategy =
-            TableStrategy::Columns(HashMap::from([("from".to_string(), expected_column)]));
-
         let strategies = Strategies::new_from(
             "public.references".to_string(),
             HashMap::from([("from".to_string(), expected_column.clone())]),
@@ -135,8 +147,14 @@ mod tests {
             &strategies,
         );
 
+        let expected_table_transformers =
+            TableTransformers::ColumnTransformer(vec![expected_column]);
+
         assert_eq!("public.references", parsed_copy_row.table_name);
-        assert_eq!(expected_table_strategy, parsed_copy_row.table_strategy);
+        assert_eq!(
+            expected_table_transformers,
+            parsed_copy_row.table_transformers
+        );
     }
 
     #[test]

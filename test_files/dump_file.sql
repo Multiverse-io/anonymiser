@@ -50,7 +50,7 @@ ALTER TABLE public.orders ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 CREATE TABLE public.extra_data (
     id bigint NOT NULL,
-    data character varying(255) NOT NULL,
+    data character varying(255) NOT NULL
 );
 
 --
@@ -147,14 +147,13 @@ COPY public.orders (id, user_id, product_id) FROM stdin;
 -- Data for Name: extra_data; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.extra_data (id, user_id, product_id) FROM stdin;
+COPY public.extra_data (id, data) FROM stdin;
 1	this is jank
 2	more jank
 3	another line of jank
 4	yuk, not more jank!
 5	you guess it.
 \.
-
 
 --
 -- Data for Name: products; Type: TABLE DATA; Schema: public; Owner: -

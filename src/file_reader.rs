@@ -98,6 +98,12 @@ mod tests {
                 strategy_tuple("phone_number"),
             ]),
         );
+
+        strategies.insert(
+            "public.extra_data".to_string(),
+            HashMap::from([strategy_tuple("id"), strategy_tuple("data")]),
+        );
+
         strategies
     }
 

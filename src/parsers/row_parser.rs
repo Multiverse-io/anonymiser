@@ -1,8 +1,9 @@
-use crate::parsers::copy_row::CurrentTableTransforms;
+use crate::parsers::copy_row::{CurrentTableTransforms, TableTransformers};
 use crate::parsers::create_row;
 use crate::parsers::sanitiser;
 use crate::parsers::state::*;
 use crate::parsers::strategies::Strategies;
+use crate::parsers::strategy_structs::ColumnInfo;
 use crate::parsers::transformer;
 use crate::parsers::types;
 use crate::parsers::types::Column;
@@ -102,21 +103,37 @@ fn transform_row(
     current_table: &CurrentTableTransforms,
     types: &Types,
 ) -> String {
+    match current_table.table_transformers {
+        TableTransformers::ColumnTransformer(ref columns) => {
+            transform_row_with_columns(rng, line, &current_table.table_name, columns, types)
+        }
+
+        TableTransformers::Truncator => "".to_string(),
+    }
+}
+
+fn transform_row_with_columns(
+    rng: &mut SmallRng,
+    line: &str,
+    table_name: &str,
+    columns: &[ColumnInfo],
+    types: &Types,
+) -> String {
     let column_values = data_row::split(line);
 
     let mut transformed = column_values.enumerate().map(|(i, value)| {
-        let current_column = &current_table.columns[i];
+        let current_column = &columns[i];
         let column_type = types
             //TODO this lookup, we do a double hashmap lookup for every column... already know the
             //table, so we shouldnt need to do both... can we cache the current tables columns
             //hashmap?
-            .lookup(&current_table.table_name, &current_column.name)
+            .lookup(table_name, &current_column.name)
             .unwrap_or_else(|| {
                 panic!(
                     "No type found for {}.{}\nI did find these for the table: {:?}",
-                    current_table.table_name,
+                    table_name,
                     current_column.name,
-                    types.for_table(&current_table.table_name)
+                    types.for_table(table_name)
                 )
             });
 
@@ -125,7 +142,7 @@ fn transform_row(
             value,
             column_type,
             &current_column.transformer,
-            &current_table.table_name,
+            table_name,
         )
     });
 
@@ -146,8 +163,8 @@ fn add_create_table_row_to_types(line: &str, mut current_types: Vec<Column>) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parsers::copy_row::TableTransformers;
     use crate::parsers::rng;
-    use crate::parsers::strategies::TableStrategy;
     use crate::parsers::strategy_structs::{ColumnInfo, DataCategory, TransformerType};
     use crate::parsers::types::{SubType, Type};
     use std::collections::HashMap;
@@ -310,9 +327,12 @@ mod tests {
 
         match state.position {
             Position::InCopy { current_table } => {
-                let expected_columns =
-                    TableStrategy::Columns(vec![id_column, first_name_column, last_name_column]);
-                assert_eq!(expected_columns, current_table.table_strategy)
+                let expected_columns = TableTransformers::ColumnTransformer(vec![
+                    id_column,
+                    first_name_column,
+                    last_name_column,
+                ]);
+                assert_eq!(expected_columns, current_table.table_transformers)
             }
             _other => unreachable!("Position is not InCopy!"),
         };
@@ -377,7 +397,7 @@ mod tests {
             position: Position::InCopy {
                 current_table: CurrentTableTransforms {
                     table_name: "public.users".to_string(),
-                    table_strategy: TableStrategy::Columns(vec![
+                    table_transformers: TableTransformers::ColumnTransformer(vec![
                         ColumnInfo::builder().with_name("column_1").build(),
                         ColumnInfo::builder().with_name("column_2").build(),
                         ColumnInfo::builder().with_name("column_3").build(),
@@ -404,7 +424,7 @@ mod tests {
             position: Position::InCopy {
                 current_table: CurrentTableTransforms {
                     table_name: "public.users".to_string(),
-                    table_strategy: TableStrategy::Columns(vec![
+                    table_transformers: TableTransformers::ColumnTransformer(vec![
                         ColumnInfo::builder()
                             .with_name("column_1")
                             .with_transformer(
@@ -449,10 +469,12 @@ mod tests {
             position: Position::InCopy {
                 current_table: CurrentTableTransforms {
                     table_name: "public.users".to_string(),
-                    columns: vec![ColumnInfo::builder()
-                        .with_name("column_1")
-                        .with_transformer(TransformerType::Scramble, None)
-                        .build()],
+                    table_transformers: TableTransformers::ColumnTransformer(vec![
+                        ColumnInfo::builder()
+                            .with_name("column_1")
+                            .with_transformer(TransformerType::Scramble, None)
+                            .build(),
+                    ]),
                 },
             },
             types: Types::builder()
