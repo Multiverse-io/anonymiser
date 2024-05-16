@@ -27,6 +27,7 @@ uuid = { version = "1.8", features = [ "v4"] }
 mimalloc = "0.1.41"
 log = "0.4.21"
 zstd = "0.13.1"
+colored = "2.1.0"
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"
