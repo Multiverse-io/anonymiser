@@ -70,9 +70,10 @@ mod tests {
 
     #[test]
     fn successfully_transforms() {
+        let result_file_name = "test_files/results_successfully_transforms.sql";
         assert!(anonymise(
             "test_files/dump_file.sql".to_string(),
-            "test_files/results.sql".to_string(),
+            result_file_name.to_string(),
             "test_files/strategy.json".to_string(),
             None,
             TransformerOverrides::none(),
@@ -91,7 +92,7 @@ mod tests {
         let result = Command::new("psql")
             .arg(format!("{}/successfully_transforms_test_db", db_url))
             .arg("-f")
-            .arg("test_files/results.sql")
+            .arg(result_file_name)
             .arg("-v")
             .arg("ON_ERROR_STOP=1")
             .output()

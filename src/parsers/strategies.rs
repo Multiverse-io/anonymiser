@@ -109,7 +109,7 @@ impl Strategies {
     ) -> Result<(), DbErrors> {
         // from self, split into 2 groups, one for tables, one for truncate
 
-        let (columns_by_table, _truncate): (Vec<(String, ColumnNamesToInfo)>, Vec<_>) = self
+        let (columns_by_table, truncate): (Vec<(String, ColumnNamesToInfo)>, Vec<_>) = self
             .tables
             .clone()
             .into_iter()
@@ -127,13 +127,19 @@ impl Strategies {
             })
             .collect();
 
+        let columns_from_db_without_truncate: HashSet<SimpleColumn> = columns_from_db
+            .iter()
+            .filter(|column| !truncate.contains(&column.table_name))
+            .cloned()
+            .collect();
+
         let mut errors = DbErrors {
-            missing_from_strategy_file: columns_from_db
+            missing_from_strategy_file: columns_from_db_without_truncate
                 .difference(&columns_from_strategy_file)
                 .cloned()
                 .collect(),
             missing_from_db: columns_from_strategy_file
-                .difference(&columns_from_db)
+                .difference(&columns_from_db_without_truncate)
                 .cloned()
                 .collect(),
         };
@@ -297,6 +303,16 @@ mod tests {
             error.missing_from_db,
             vec!(create_simple_column("public.person", "first_name"))
         );
+    }
+    #[test]
+    fn validates_truncate() {
+        let mut strategies = Strategies::new();
+        strategies.insert_truncate("public.location".to_string());
+
+        let columns_from_db = HashSet::from([create_simple_column("public.location", "postcode")]);
+        let result = strategies.validate_against_db(columns_from_db);
+
+        assert_eq!(Ok(()), result);
     }
 
     const TABLE_NAME: &str = "gert_lush_table";
