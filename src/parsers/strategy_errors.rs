@@ -29,7 +29,7 @@ impl From<DbErrors> for StrategyFileError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct DbErrors {
     pub missing_from_strategy_file: Vec<SimpleColumn>,
     pub missing_from_db: Vec<SimpleColumn>,

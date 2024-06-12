@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-cargo install cargo2junit --version 0.1.12
+cargo install cargo2junit --version 0.1.13
 cargo fmt -- --check
 cargo clippy --all-targets --all-features -- -D warnings
-cargo test -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
+RUSTC_BOOTSTRAP=1 cargo test -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
 exit ${PIPESTATUS[0]}
