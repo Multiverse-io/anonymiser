@@ -315,6 +315,19 @@ mod tests {
         assert_eq!(Ok(()), result);
     }
 
+    #[test]
+    fn validates_missing_entire_table() {
+        let strategies = Strategies::new();
+
+        let columns_from_db = HashSet::from([create_simple_column("public.location", "postcode")]);
+        let error = strategies.validate_against_db(columns_from_db).unwrap_err();
+
+        assert_eq!(
+            error.missing_from_strategy_file,
+            vec!(create_simple_column("public.location", "postcode"))
+        );
+    }
+
     const TABLE_NAME: &str = "gert_lush_table";
     const PII_COLUMN_NAME: &str = "pii_column";
     const COMMERCIALLY_SENSITIVE_COLUMN_NAME: &str = "commercially_sensitive_column";
