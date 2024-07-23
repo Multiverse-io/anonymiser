@@ -142,8 +142,8 @@ jobs:
       - run: mv target/x86_64-apple-darwin/release/anonymiser anonymiser-x86_64-apple-darwin
       - run: mv target/aarch64-apple-darwin/release/anonymiser anonymiser-aarch64-apple-darwin
       - run:
-          name: Test x86 executable
-          command: ./anonymiser-x86_64-apple-darwin --help
+          name: Test arm executable
+          command: ./anonymiser-aarch64-apple-darwin --help
 
       - save_cache:
           paths:
