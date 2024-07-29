@@ -123,6 +123,7 @@ jobs:
   build_release_macos:
     macos:
       xcode: 15.4
+    resource_class: macos.m1.medium.gen1
     environment:
       HOMEBREW_NO_AUTO_UPDATE: 1
       CARGO_NET_GIT_FETCH_WITH_CLI: true
