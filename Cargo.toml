@@ -15,7 +15,7 @@ fake = "2.4"
 flate2 = { version = "1.0.30", features = ["zlib-ng"], default-features = false }
 lazy_static = "1.4.0"
 native-tls = "0.2.11"
-postgres = "0.19.7"
+postgres = "0.19.9"
 postgres-native-tls = "0.5.0"
 rand = { version = "0.8", features = ["small_rng"] }
 regex = "1"
