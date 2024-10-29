@@ -122,7 +122,8 @@ jobs:
 
   build_release_macos:
     macos:
-      xcode: 13.4.1
+      xcode: 15.4
+    resource_class: macos.m1.medium.gen1
     environment:
       HOMEBREW_NO_AUTO_UPDATE: 1
       CARGO_NET_GIT_FETCH_WITH_CLI: true
@@ -135,14 +136,15 @@ jobs:
       - run: TAG="${CIRCLE_TAG:-v0.0.0}"; ./update_version $TAG
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - run: rustup install 1.67
+      - run: rustup target add x86_64-apple-darwin
       - run: rustup target add aarch64-apple-darwin
       - run: cargo build --release --target=x86_64-apple-darwin
       - run: cargo build --release --target=aarch64-apple-darwin
       - run: mv target/x86_64-apple-darwin/release/anonymiser anonymiser-x86_64-apple-darwin
       - run: mv target/aarch64-apple-darwin/release/anonymiser anonymiser-aarch64-apple-darwin
       - run:
-          name: Test x86 executable
-          command: ./anonymiser-x86_64-apple-darwin --help
+          name: Test arm executable
+          command: ./anonymiser-aarch64-apple-darwin --help
 
       - save_cache:
           paths:
