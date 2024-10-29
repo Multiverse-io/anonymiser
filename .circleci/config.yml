@@ -122,7 +122,8 @@ jobs:
 
   build_release_macos:
     macos:
-      xcode: 13.4.1
+      xcode: 15.4
+    resource_class: macos.m1.medium.gen1
     environment:
       HOMEBREW_NO_AUTO_UPDATE: 1
       CARGO_NET_GIT_FETCH_WITH_CLI: true
@@ -141,8 +142,8 @@ jobs:
       - run: mv target/x86_64-apple-darwin/release/anonymiser anonymiser-x86_64-apple-darwin
       - run: mv target/aarch64-apple-darwin/release/anonymiser anonymiser-aarch64-apple-darwin
       - run:
-          name: Test x86 executable
-          command: ./anonymiser-x86_64-apple-darwin --help
+          name: Test arm executable
+          command: ./anonymiser-aarch64-apple-darwin --help
 
       - save_cache:
           paths:
