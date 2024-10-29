@@ -95,7 +95,7 @@ fn transform_array<'value>(
     transformer: &Transformer,
     table_name: &str,
 ) -> Cow<'value, str> {
-    let quoted_types = vec![SubType::Character, SubType::Json];
+    let quoted_types = [SubType::Character, SubType::Json];
     let requires_quotes = quoted_types.contains(underlying_type);
 
     let sub_type = SingleValue {
@@ -1037,7 +1037,6 @@ mod tests {
             },
             TABLE_NAME,
         );
-        println!("{new_value}");
         assert!(new_value != initial_value);
         assert!(!new_value.contains("Second line"));
         assert!(!new_value.contains("Third line"));

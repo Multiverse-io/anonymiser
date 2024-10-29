@@ -12,6 +12,7 @@ use crate::opts::{Anonymiser, Opts};
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_errors::StrategyFileError;
 use crate::parsers::strategy_structs::{StrategyInFile, TransformerOverrides};
+use colored::Colorize;
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
 
@@ -57,30 +58,35 @@ fn main() -> Result<(), std::io::Error> {
         Anonymiser::CheckStrategies {
             strategy_file,
             db_url,
-        } => {
-            let strategies = strategy_file::read(&strategy_file).unwrap_or_else(|_| Vec::new());
-
-            match strategy_differences(strategies, db_url) {
+        } => match read_strategy_file(&strategy_file, &db_url) {
+            Ok(strategies) => match strategy_differences(strategies, db_url.clone()) {
                 Ok(()) => println!("All up to date"),
                 Err(err) => {
                     println!("{}", err);
                     if fixer::can_fix(&err) {
-                        println!("But the great news is we can fix at least some of your mess... try running with \"fix-strategies\"");
+                        let retry_command = format!(
+                            "anonymiser fix-strategies --db-url={} --strategy-file={}",
+                            db_url, strategy_file
+                        )
+                        .green();
+                        println!("But the great news is we can fix at least some of your mess... try running:\n{}", retry_command);
                     } else {
                         println!("Bad news... we currently cannot fix this for you, you'll have to sort it out yourself!");
                     }
                     std::process::exit(1);
                 }
+            },
+            Err(err) => {
+                println!("{}", err);
+                std::process::exit(1);
             }
-        }
+        },
 
         Anonymiser::FixStrategies {
             strategy_file,
             db_url,
-        } => {
-            let strategies = strategy_file::read(&strategy_file).unwrap_or_else(|_| Vec::new());
-
-            match strategy_differences(strategies, db_url) {
+        } => match read_strategy_file(&strategy_file, &db_url) {
+            Ok(strategies) => match strategy_differences(strategies, db_url) {
                 Ok(()) => match fixer::just_sort(&strategy_file) {
                     SortResult::Sorted => {
                         println!("Ok, we've updated that for you, check your diff!")
@@ -95,8 +101,12 @@ fn main() -> Result<(), std::io::Error> {
                     fixer::fix(&strategy_file, err);
                     println!("All done, you probably want to run \"check-strategies\" again to make sure");
                 }
+            },
+            Err(err) => {
+                println!("{}", err);
+                std::process::exit(1);
             }
-        }
+        },
 
         Anonymiser::GenerateStrategies {
             strategy_file,
@@ -119,6 +129,23 @@ fn main() -> Result<(), std::io::Error> {
         } => uncompress::uncompress(input_file, output_file).expect("failed to uncompress"),
     }
     Ok(())
+}
+
+fn read_strategy_file(strategy_file: &str, db_url: &str) -> Result<Vec<StrategyInFile>, String> {
+    match strategy_file::read(strategy_file) {
+        Ok(strategies) => Ok(strategies),
+        Err(_) => {
+            let retry_command = format!(
+                "anonymiser generate-strategies --db-url={} --strategy-file={}",
+                db_url, strategy_file
+            )
+            .green();
+            Err(format!(
+                "Strategy file {} not found. You can use \n{}\nto create an initial file",
+                strategy_file, retry_command
+            ))
+        }
+    }
 }
 
 fn strategy_differences(

@@ -13,12 +13,15 @@ pub fn fix(
 }
 
 fn add_missing(current: Vec<StrategyInFile>, missing: &[SimpleColumn]) -> Vec<StrategyInFile> {
-    let missing_columns_by_table = missing.iter().fold(HashMap::new(), |mut acc, column| {
-        acc.entry(column.table_name.clone())
-            .or_insert_with(Vec::new)
-            .push(column.column_name.clone());
-        acc
-    });
+    let missing_columns_by_table = missing.iter().fold(
+        HashMap::new(),
+        |mut acc: HashMap<std::string::String, Vec<String>>, column| {
+            acc.entry(column.table_name.clone())
+                .or_default()
+                .push(column.column_name.clone());
+            acc
+        },
+    );
 
     let mut new_strategies = current;
 
@@ -32,6 +35,7 @@ fn add_missing(current: Vec<StrategyInFile>, missing: &[SimpleColumn]) -> Vec<St
             }
             None => {
                 let mut new_table = StrategyInFile {
+                    truncate: false,
                     table_name: table.clone(),
                     description: "".to_string(),
                     columns: vec![],
@@ -51,14 +55,15 @@ fn remove_redundant(
     existing: Vec<StrategyInFile>,
     redundant_columns_to_remove: &[SimpleColumn],
 ) -> Vec<StrategyInFile> {
-    let table_names = redundant_columns_to_remove
-        .iter()
-        .fold(HashMap::new(), |mut acc, column| {
+    let table_names = redundant_columns_to_remove.iter().fold(
+        HashMap::new(),
+        |mut acc: HashMap<std::string::String, Vec<String>>, column| {
             acc.entry(column.table_name.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(column.column_name.clone());
             acc
-        });
+        },
+    );
 
     existing
         .into_iter()
@@ -95,6 +100,7 @@ mod tests {
         let current = vec![StrategyInFile {
             table_name: "public.person".to_string(),
             description: "".to_string(),
+            truncate: false,
             columns: vec![ColumnInFile::new("id"), ColumnInFile::new("first_name")],
         }];
 
@@ -119,6 +125,7 @@ mod tests {
             StrategyInFile {
                 table_name: "public.person".to_string(),
                 description: "".to_string(),
+                truncate: false,
                 columns: vec![
                     ColumnInFile::new("id"),
                     ColumnInFile::new("first_name"),
@@ -128,6 +135,7 @@ mod tests {
             StrategyInFile {
                 table_name: "public.location".to_string(),
                 description: "".to_string(),
+                truncate: false,
                 columns: vec![ColumnInFile::new("id"), ColumnInFile::new("post_code")],
             },
         ];
@@ -141,11 +149,13 @@ mod tests {
             StrategyInFile {
                 table_name: "public.location".to_string(),
                 description: "".to_string(),
+                truncate: false,
                 columns: vec![ColumnInFile::new("id"), ColumnInFile::new("post_code")],
             },
             StrategyInFile {
                 table_name: "public.person".to_string(),
                 description: "".to_string(),
+                truncate: false,
                 columns: vec![
                     ColumnInFile::new("id"),
                     ColumnInFile::new("first_name"),
@@ -174,6 +184,7 @@ mod tests {
         let expected = vec![StrategyInFile {
             table_name: "public.person".to_string(),
             description: "".to_string(),
+            truncate: false,
             columns: vec![ColumnInFile::new("id"), ColumnInFile::new("first_name")],
         }];
 
