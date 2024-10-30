@@ -98,6 +98,12 @@ mod tests {
                 strategy_tuple("phone_number"),
             ]),
         );
+
+        strategies.insert(
+            "public.extra_data".to_string(),
+            HashMap::from([strategy_tuple("id"), strategy_tuple("data")]),
+        );
+
         strategies
     }
 
@@ -123,7 +129,8 @@ mod tests {
     fn can_read_and_output_compressed_with_default() {
         let input_file = "test_files/dump_file.sql".to_string();
         let compressed_file = "test_files/compressed_file_reader_test_results.sql".to_string();
-        let uncompressed_file_name = "test_files/uncompressed_file_reader_test_results.sql";
+        let uncompressed_file_name =
+            "test_files/uncompressed_file_reader_can_read_and_output_compressed_with_default.sql";
 
         let _ = fs::remove_file(&compressed_file);
         let _ = fs::remove_file(uncompressed_file_name);
@@ -156,7 +163,7 @@ mod tests {
     fn can_read_and_output_compressed_with_specific_compression_type() {
         let input_file = "test_files/dump_file.sql".to_string();
         let compressed_file = "test_files/compressed_file_reader_test_results.sql".to_string();
-        let uncompressed_file_name = "test_files/uncompressed_file_reader_test_results.sql";
+        let uncompressed_file_name = "test_files/uncompressed_file_reader_can_read_and_output_compressed_with_sepcific_compression_type.sql";
 
         let _ = fs::remove_file(&compressed_file);
         let _ = fs::remove_file(uncompressed_file_name);

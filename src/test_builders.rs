@@ -81,6 +81,7 @@ pub mod builders {
         pub fn build(self) -> StrategyInFile {
             StrategyInFile {
                 table_name: self.table_name,
+                truncate: false,
                 description: self
                     .description
                     .unwrap_or_else(|| "Any description".to_string()),
