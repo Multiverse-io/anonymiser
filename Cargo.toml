@@ -26,7 +26,7 @@ structopt = "0.3"
 uuid = { version = "1.8", features = [ "v4"] }
 mimalloc = "0.1.41"
 log = "0.4.21"
-zstd = "0.13.1"
+zstd = "0.13.2"
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"
