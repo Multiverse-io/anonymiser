@@ -25,7 +25,7 @@ serde = { version = "1.0", features = ["derive"] }
 structopt = "0.3"
 uuid = { version = "1.8", features = [ "v4"] }
 mimalloc = "0.1.43"
-log = "0.4.21"
+log = "0.4.22"
 zstd = "0.13.2"
 
 [dev-dependencies]
