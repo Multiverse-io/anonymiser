@@ -83,9 +83,9 @@ pub fn parse<'line>(
             state.update_position(Position::Normal);
             Cow::from(line)
         }
-        (RowType::CopyBlockRow, Position::InCopy { ref current_table }) => Cow::from(
-            transform_row(rng, sanitised_line, current_table, &state.types),
-        ),
+        (RowType::CopyBlockRow, Position::InCopy { ref current_table }) => {
+            Cow::from(transform_row(rng, line, current_table, &state.types))
+        }
 
         (RowType::Normal, Position::Normal) => Cow::from(line),
         (row_type, position) => {
@@ -458,6 +458,41 @@ mod tests {
         let mut rng = rng::get();
         let transformed_row = parse(&mut rng, table_data_row, &mut state, &strategies);
         assert_eq!("first\tsecond\tthird\n", transformed_row);
+    }
+    #[test]
+    fn whitespace_is_not_removed() {
+        let table_data_row = "   123\t  Peter   \t  Puckleberry   \n";
+        let strategies = Strategies::new_from("public.users".to_string(), HashMap::new());
+
+        let mut state = State {
+            position: Position::InCopy {
+                current_table: CurrentTableTransforms {
+                    table_name: "public.users".to_string(),
+                    columns: vec![
+                        ColumnInfo::builder()
+                            .with_name("column_1")
+                            .with_transformer(TransformerType::Identity, None)
+                            .build(),
+                        ColumnInfo::builder()
+                            .with_name("column_2")
+                            .with_transformer(TransformerType::Identity, None)
+                            .build(),
+                        ColumnInfo::builder()
+                            .with_name("column_3")
+                            .with_transformer(TransformerType::Identity, None)
+                            .build(),
+                    ],
+                },
+            },
+            types: Types::builder()
+                .add_type("public.users", "column_1", SubType::Character)
+                .add_type("public.users", "column_2", SubType::Character)
+                .add_type("public.users", "column_3", SubType::Character)
+                .build(),
+        };
+        let mut rng = rng::get();
+        let transformed_row = parse(&mut rng, table_data_row, &mut state, &strategies);
+        assert_eq!(table_data_row, transformed_row);
     }
 
     #[test]
