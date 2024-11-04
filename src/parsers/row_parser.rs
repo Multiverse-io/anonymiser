@@ -468,7 +468,7 @@ mod tests {
             position: Position::InCopy {
                 current_table: CurrentTableTransforms {
                     table_name: "public.users".to_string(),
-                    columns: vec![
+                    table_transformers: TableTransformers::ColumnTransformer(vec![
                         ColumnInfo::builder()
                             .with_name("column_1")
                             .with_transformer(TransformerType::Identity, None)
@@ -481,7 +481,7 @@ mod tests {
                             .with_name("column_3")
                             .with_transformer(TransformerType::Identity, None)
                             .build(),
-                    ],
+                    ]),
                 },
             },
             types: Types::builder()
