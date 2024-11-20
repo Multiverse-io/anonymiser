@@ -45,7 +45,23 @@ The following data categories are supported
 - Unknown - Unclassified, If any fields have this anonymisation will fail until it is replaced with a valid type
 
 
-## Transformers
+## Data transformation
+
+Table data can be transformed in one of two ways,
+1. Truncating the table
+To use this option the table should be defined in the strategy file with the `truncate` key set to `true` and the `columns` key set to an empty array. e.g.
+  ```
+   {
+    "table_name": "public.trunctable_table",
+    "description": "",
+    "truncate": true,
+    "columns": []
+  },
+  ```
+
+2. Transform the data in the table
+Transforming table data requires a list of all table columns with a transformer defined for each and every column. (Note that for non PII or sensitive data, you can use the `Identity` transformer to not transform the data.
+
 - EmptyJson - Literally `{}`
 - Error - Not set. If any fields have this anonymisation will fail until it is replaced with a valid transformer
 - FakeBase16String - Random Base16 string
