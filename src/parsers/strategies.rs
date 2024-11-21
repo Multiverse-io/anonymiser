@@ -108,7 +108,6 @@ impl Strategies {
         columns_from_db: HashSet<SimpleColumn>,
     ) -> Result<(), DbErrors> {
         // from self, split into 2 groups, one for tables, one for truncate
-
         let (columns_by_table, truncate): (Vec<(String, ColumnNamesToInfo)>, Vec<_>) = self
             .tables
             .clone()
