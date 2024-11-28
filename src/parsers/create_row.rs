@@ -1,6 +1,7 @@
 use crate::parsers::sanitiser;
 pub fn is_create_row(line: &str) -> bool {
-    line.starts_with("CREATE TABLE ") || line.starts_with("CREATE UNLOGGED TABLE ")
+    (line.starts_with("CREATE TABLE ") || line.starts_with("CREATE UNLOGGED TABLE "))
+        && line.ends_with('(')
 }
 pub fn parse(line: &str) -> String {
     let result = line
@@ -30,6 +31,13 @@ mod tests {
     fn is_create_row_identifies_CREATE_UNLOGGED_TABLE() {
         let create_row = "CREATE UNLOGGED TABLE public.candidate_details (";
         assert!(is_create_row(create_row))
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn is_create_row_skips_column_containing_CREATE_TABLE() {
+        let not_a_create_row = "CREATE TABLE abc(id uuid);";
+        assert!(!is_create_row(not_a_create_row))
     }
 
     #[test]

@@ -32,6 +32,7 @@ fn add_missing(current: Vec<StrategyInFile>, missing: &[SimpleColumn]) -> Vec<St
             }
             None => {
                 let mut new_table = StrategyInFile {
+                    truncate: false,
                     table_name: table.clone(),
                     description: "".to_string(),
                     columns: vec![],
@@ -95,6 +96,7 @@ mod tests {
         let current = vec![StrategyInFile {
             table_name: "public.person".to_string(),
             description: "".to_string(),
+            truncate: false,
             columns: vec![ColumnInFile::new("id"), ColumnInFile::new("first_name")],
         }];
 
@@ -119,6 +121,7 @@ mod tests {
             StrategyInFile {
                 table_name: "public.person".to_string(),
                 description: "".to_string(),
+                truncate: false,
                 columns: vec![
                     ColumnInFile::new("id"),
                     ColumnInFile::new("first_name"),
@@ -128,6 +131,7 @@ mod tests {
             StrategyInFile {
                 table_name: "public.location".to_string(),
                 description: "".to_string(),
+                truncate: false,
                 columns: vec![ColumnInFile::new("id"), ColumnInFile::new("post_code")],
             },
         ];
@@ -141,11 +145,13 @@ mod tests {
             StrategyInFile {
                 table_name: "public.location".to_string(),
                 description: "".to_string(),
+                truncate: false,
                 columns: vec![ColumnInFile::new("id"), ColumnInFile::new("post_code")],
             },
             StrategyInFile {
                 table_name: "public.person".to_string(),
                 description: "".to_string(),
+                truncate: false,
                 columns: vec![
                     ColumnInFile::new("id"),
                     ColumnInFile::new("first_name"),
@@ -174,6 +180,7 @@ mod tests {
         let expected = vec![StrategyInFile {
             table_name: "public.person".to_string(),
             description: "".to_string(),
+            truncate: false,
             columns: vec![ColumnInFile::new("id"), ColumnInFile::new("first_name")],
         }];
 

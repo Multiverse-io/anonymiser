@@ -1,11 +1,20 @@
 use crate::parsers::strategy_errors::{DbErrors, ValidationErrors};
 use crate::parsers::strategy_structs::*;
+use itertools::{Either, Itertools};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+type ColumnNamesToInfo = HashMap<String, ColumnInfo>;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Strategies {
-    tables: HashMap<String, HashMap<String, ColumnInfo>>,
+    tables: HashMap<String, TableStrategy>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum TableStrategy {
+    Columns(ColumnNamesToInfo),
+    Truncate,
 }
 
 impl Strategies {
@@ -23,45 +32,49 @@ impl Strategies {
         let mut errors = ValidationErrors::new();
 
         for strategy in strategies_in_file {
-            let mut columns = HashMap::<String, ColumnInfo>::new();
-            for column in strategy.columns {
-                if (column.data_category == DataCategory::PotentialPii
-                    || column.data_category == DataCategory::Pii)
-                    && column.transformer.name == TransformerType::Identity
-                {
-                    errors
-                        .unanonymised_pii
-                        .push(create_simple_column(&column.name, &strategy.table_name));
+            if strategy.truncate {
+                transformed_strategies.insert_truncate(strategy.table_name);
+            } else {
+                let mut columns = HashMap::<String, ColumnInfo>::new();
+                for column in strategy.columns {
+                    if (column.data_category == DataCategory::PotentialPii
+                        || column.data_category == DataCategory::Pii)
+                        && column.transformer.name == TransformerType::Identity
+                    {
+                        errors
+                            .unanonymised_pii
+                            .push(create_simple_column(&strategy.table_name, &column.name));
+                    }
+                    if column.data_category == DataCategory::Unknown {
+                        errors
+                            .unknown_data_categories
+                            .push(create_simple_column(&strategy.table_name, &column.name));
+                    }
+                    if column.transformer.name == TransformerType::Error {
+                        errors
+                            .error_transformer_types
+                            .push(create_simple_column(&strategy.table_name, &column.name));
+                    }
+                    let result = columns.insert(
+                        column.name.clone(),
+                        ColumnInfo {
+                            data_category: column.data_category.clone(),
+                            name: column.name.clone(),
+                            transformer: transformer(column, transformer_overrides),
+                        },
+                    );
+                    if let Some(dupe) = result {
+                        errors.duplicate_columns.push(create_simple_column(
+                            &strategy.table_name.clone(),
+                            &dupe.name,
+                        ))
+                    }
                 }
-                if column.data_category == DataCategory::Unknown {
-                    errors
-                        .unknown_data_categories
-                        .push(create_simple_column(&column.name, &strategy.table_name));
-                }
-                if column.transformer.name == TransformerType::Error {
-                    errors
-                        .error_transformer_types
-                        .push(create_simple_column(&column.name, &strategy.table_name));
-                }
-                let result = columns.insert(
-                    column.name.clone(),
-                    ColumnInfo {
-                        data_category: column.data_category.clone(),
-                        name: column.name.clone(),
-                        transformer: transformer(column, transformer_overrides),
-                    },
-                );
-                if let Some(dupe) = result {
-                    errors.duplicate_columns.push(create_simple_column(
-                        &dupe.name,
-                        &strategy.table_name.clone(),
-                    ))
-                }
-            }
 
-            let result = transformed_strategies.insert(strategy.table_name.clone(), columns);
-            if result.is_some() {
-                errors.duplicate_tables.push(strategy.table_name);
+                let result = transformed_strategies.insert(strategy.table_name.clone(), columns);
+                if result.is_some() {
+                    errors.duplicate_tables.push(strategy.table_name);
+                }
             }
         }
 
@@ -73,7 +86,7 @@ impl Strategies {
         }
     }
 
-    pub fn for_table(&self, table_name: &str) -> Option<&HashMap<String, ColumnInfo>> {
+    pub fn for_table(&self, table_name: &str) -> Option<&TableStrategy> {
         self.tables.get(table_name)
     }
 
@@ -81,31 +94,49 @@ impl Strategies {
         &mut self,
         table_name: String,
         columns: HashMap<String, ColumnInfo>,
-    ) -> Option<HashMap<String, ColumnInfo>> {
-        self.tables.insert(table_name, columns)
+    ) -> Option<TableStrategy> {
+        self.tables
+            .insert(table_name, TableStrategy::Columns(columns))
+    }
+    pub fn insert_truncate(&mut self, table_name: String) -> Option<TableStrategy> {
+        self.tables.insert(table_name, TableStrategy::Truncate)
     }
 
     pub fn validate_against_db(
         &self,
         columns_from_db: HashSet<SimpleColumn>,
     ) -> Result<(), DbErrors> {
-        let columns_from_strategy_file: HashSet<SimpleColumn> = self
+        let (columns_by_table, truncate): (Vec<(String, ColumnNamesToInfo)>, Vec<_>) = self
             .tables
+            .clone()
+            .into_iter()
+            .partition_map(|(table, table_strategy)| match table_strategy {
+                TableStrategy::Columns(columns) => Either::Left((table, columns)),
+                TableStrategy::Truncate => Either::Right(table),
+            });
+
+        let columns_from_strategy_file: HashSet<SimpleColumn> = columns_by_table
             .iter()
-            .flat_map(|(table, columns)| {
-                return columns
-                    .iter()
-                    .map(|(column, _)| create_simple_column(column, table));
+            .flat_map(|(table_name, columns)| {
+                columns.iter().map(|(column_name, _column_info)| {
+                    create_simple_column(table_name, column_name)
+                })
             })
             .collect();
 
+        let columns_from_db_without_truncate: HashSet<SimpleColumn> = columns_from_db
+            .iter()
+            .filter(|column| !truncate.contains(&column.table_name))
+            .cloned()
+            .collect();
+
         let mut errors = DbErrors {
-            missing_from_strategy_file: columns_from_db
+            missing_from_strategy_file: columns_from_db_without_truncate
                 .difference(&columns_from_strategy_file)
                 .cloned()
                 .collect(),
             missing_from_db: columns_from_strategy_file
-                .difference(&columns_from_db)
+                .difference(&columns_from_db_without_truncate)
                 .cloned()
                 .collect(),
         };
@@ -129,19 +160,22 @@ impl Strategies {
     ) -> Option<Transformer> {
         self.tables
             .get(table_name)
-            .and_then(|table| table.get(column_name))
+            .and_then(|table| match table {
+                TableStrategy::Columns(columns) => columns.get(column_name),
+                TableStrategy::Truncate => None,
+            })
             .map(|column| column.transformer.clone())
     }
 
     #[allow(dead_code)] //This is used in tests for convenience
     pub fn new_from(table_name: String, columns: HashMap<String, ColumnInfo>) -> Strategies {
         Strategies {
-            tables: HashMap::from([(table_name, columns)]),
+            tables: HashMap::from([(table_name, TableStrategy::Columns(columns))]),
         }
     }
 }
 
-fn create_simple_column(column_name: &str, table_name: &str) -> SimpleColumn {
+fn create_simple_column(table_name: &str, column_name: &str) -> SimpleColumn {
     SimpleColumn {
         table_name: table_name.to_string(),
         column_name: column_name.to_string(),
@@ -267,6 +301,29 @@ mod tests {
             vec!(create_simple_column("public.person", "first_name"))
         );
     }
+    #[test]
+    fn validates_truncate() {
+        let mut strategies = Strategies::new();
+        strategies.insert_truncate("public.location".to_string());
+
+        let columns_from_db = HashSet::from([create_simple_column("public.location", "postcode")]);
+        let result = strategies.validate_against_db(columns_from_db);
+
+        assert_eq!(Ok(()), result);
+    }
+
+    #[test]
+    fn validates_missing_entire_table() {
+        let strategies = Strategies::new();
+
+        let columns_from_db = HashSet::from([create_simple_column("public.location", "postcode")]);
+        let error = strategies.validate_against_db(columns_from_db).unwrap_err();
+
+        assert_eq!(
+            error.missing_from_strategy_file,
+            vec!(create_simple_column("public.location", "postcode"))
+        );
+    }
 
     const TABLE_NAME: &str = "gert_lush_table";
     const PII_COLUMN_NAME: &str = "pii_column";
@@ -280,6 +337,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![column_in_file(
                 DataCategory::Pii,
                 column_name,
@@ -314,16 +372,19 @@ mod tests {
             StrategyInFile {
                 table_name: TABLE_NAME.to_string(),
                 description: "description".to_string(),
+                truncate: false,
                 columns: vec![],
             },
             StrategyInFile {
                 table_name: TABLE_NAME.to_string(),
                 description: "description".to_string(),
+                truncate: false,
                 columns: vec![],
             },
             StrategyInFile {
                 table_name: table2_name.to_string(),
                 description: "description".to_string(),
+                truncate: false,
                 columns: vec![duplicated_column.clone(), duplicated_column],
             },
         ];
@@ -343,6 +404,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: "public.person".to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![column_in_file(
                 DataCategory::Unknown,
                 "first_name",
@@ -364,6 +426,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: "public.person".to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![column_in_file(
                 DataCategory::General,
                 "first_name",
@@ -385,6 +448,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: "public.person".to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![
                 column_in_file(DataCategory::Pii, "first_name", TransformerType::Identity),
                 column_in_file(
@@ -413,6 +477,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![
                 column_in_file(
                     DataCategory::PotentialPii,
@@ -455,6 +520,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![
                 column_in_file(
                     DataCategory::PotentialPii,
@@ -498,6 +564,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![column_in_file(
                 DataCategory::General,
                 SCRAMBLED_COLUMN_NAME,
@@ -524,6 +591,7 @@ mod tests {
         let strategies = vec![StrategyInFile {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
+            truncate: false,
             columns: vec![
                 column_in_file(
                     DataCategory::PotentialPii,
@@ -588,7 +656,7 @@ mod tests {
         I: Iterator<Item = (String, ColumnInfo)>,
     {
         let mut strategies = Strategies::new();
-        strategies.insert(table_name.to_string(), HashMap::from_iter(columns));
+        add_table(&mut strategies, table_name, columns);
         strategies
     }
 
@@ -620,12 +688,5 @@ mod tests {
                 .with_transformer(transformer_type, None)
                 .build(),
         )
-    }
-
-    fn create_simple_column(table_name: &str, column_name: &str) -> SimpleColumn {
-        SimpleColumn {
-            table_name: table_name.to_string(),
-            column_name: column_name.to_string(),
-        }
     }
 }

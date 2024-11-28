@@ -1,5 +1,11 @@
 [
   {
+    "table_name": "public.extra_data",
+    "description": "",
+    "truncate": true,
+    "columns": []
+  },
+  {
     "table_name": "public.orders",
     "description": "",
     "columns": [
