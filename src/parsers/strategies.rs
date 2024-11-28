@@ -102,12 +102,10 @@ impl Strategies {
         self.tables.insert(table_name, TableStrategy::Truncate)
     }
 
-    // TODO here, we need to work out how to do validation for tuncation
     pub fn validate_against_db(
         &self,
         columns_from_db: HashSet<SimpleColumn>,
     ) -> Result<(), DbErrors> {
-        // from self, split into 2 groups, one for tables, one for truncate
         let (columns_by_table, truncate): (Vec<(String, ColumnNamesToInfo)>, Vec<_>) = self
             .tables
             .clone()
