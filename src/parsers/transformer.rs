@@ -199,7 +199,7 @@ fn fake_base32_string() -> String {
     let random_bytes = SmallRng::from_rng(rand::thread_rng())
         .unwrap_or_else(|_| SmallRng::from_entropy())
         .gen::<[u8; 16]>();
-    base32::encode(Alphabet::RFC4648 { padding: true }, &random_bytes)
+    base32::encode(Alphabet::Rfc4648 { padding: true }, &random_bytes)
 }
 
 fn fake_company_name(args: &Option<HashMap<String, String>>, unique: usize) -> String {
