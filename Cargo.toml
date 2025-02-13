@@ -28,6 +28,7 @@ mimalloc = "0.1.43"
 log = "0.4.22"
 zstd = "0.13.2"
 colored = "2.1.0"
+sha2 = "0.10"
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"

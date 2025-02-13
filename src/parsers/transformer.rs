@@ -15,6 +15,7 @@ use fake::Fake;
 use log::trace;
 use rand::SeedableRng;
 use rand::{rngs::SmallRng, Rng};
+use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -67,11 +68,25 @@ pub fn transform<'line>(
         TransformerType::FakeEmailOrPhone => {
             Cow::from(fake_email_or_phone(value, &transformer.args, unique))
         }
-        TransformerType::FakeFirstName => Cow::from(FirstName().fake::<String>()),
+        TransformerType::FakeFirstName => {
+            let mut hasher = Sha256::new();
+            hasher.update(value.as_bytes());
+            let seed = u64::from_le_bytes(hasher.finalize()[..8].try_into().unwrap());
+            let mut seeded_rng = SmallRng::seed_from_u64(seed);
+
+            Cow::from(FirstName().fake_with_rng::<String, _>(&mut seeded_rng))
+        }
         TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
         TransformerType::FakeFullName => Cow::from(fake_full_name()),
         TransformerType::FakeIPv4 => Cow::from(IPv4().fake::<String>()),
-        TransformerType::FakeLastName => Cow::from(LastName().fake::<String>()),
+        TransformerType::FakeLastName => {
+            let mut hasher = Sha256::new();
+            hasher.update(value.as_bytes());
+            let seed = u64::from_le_bytes(hasher.finalize()[..8].try_into().unwrap());
+            let mut seeded_rng = SmallRng::seed_from_u64(seed);
+
+            Cow::from(LastName().fake_with_rng::<String, _>(&mut seeded_rng))
+        }
         TransformerType::FakeNationalIdentityNumber => Cow::from(fake_national_identity_number()),
         TransformerType::FakePostCode => Cow::from(fake_postcode(value)),
         TransformerType::FakePhoneNumber => Cow::from(fake_phone_number(value)),
@@ -555,19 +570,51 @@ mod tests {
     fn fake_first_name() {
         let first_name = "any first name";
         let mut rng = rng::get();
+        let transformer = Transformer {
+            name: TransformerType::FakeFirstName,
+            args: None,
+        };
+
         let new_first_name = transform(
             &mut rng,
             first_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &Transformer {
-                name: TransformerType::FakeFirstName,
-                args: None,
-            },
+            &transformer,
             TABLE_NAME,
         );
         assert!(new_first_name != first_name);
+
+        // Test deterministic behavior
+        let repeat_first_name = transform(
+            &mut rng,
+            first_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+        );
+        assert_eq!(
+            new_first_name, repeat_first_name,
+            "Same input should produce same fake name"
+        );
+
+        // Test different inputs produce different results
+        let different_name = transform(
+            &mut rng,
+            "different input",
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+        );
+        assert_ne!(
+            new_first_name, different_name,
+            "Different inputs should produce different fake names"
+        );
     }
 
     #[test]
@@ -593,19 +640,52 @@ mod tests {
     fn fake_last_name() {
         let last_name = "any last name";
         let mut rng = rng::get();
+        let transformer = Transformer {
+            name: TransformerType::FakeLastName,
+            args: None,
+        };
+
+        // Test that name is changed
         let new_last_name = transform(
             &mut rng,
             last_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &Transformer {
-                name: TransformerType::FakeLastName,
-                args: None,
-            },
+            &transformer,
             TABLE_NAME,
         );
         assert!(new_last_name != last_name);
+
+        // Test deterministic behavior
+        let repeat_last_name = transform(
+            &mut rng,
+            last_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+        );
+        assert_eq!(
+            new_last_name, repeat_last_name,
+            "Same input should produce same fake name"
+        );
+
+        // Test different inputs produce different results
+        let different_name = transform(
+            &mut rng,
+            "different input",
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+        );
+        assert_ne!(
+            new_last_name, different_name,
+            "Different inputs should produce different fake names"
+        );
     }
 
     #[test]
