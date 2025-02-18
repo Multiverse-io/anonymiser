@@ -28,6 +28,13 @@ fn get_unique() -> usize {
     UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst)
 }
 
+fn get_faker_rng(value: &str) -> SmallRng {
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    let seed = u64::from_le_bytes(hasher.finalize()[..8].try_into().unwrap());
+    SmallRng::seed_from_u64(seed)
+}
+
 pub fn transform<'line>(
     rng: &mut SmallRng,
     value: &'line str,
@@ -69,22 +76,14 @@ pub fn transform<'line>(
             Cow::from(fake_email_or_phone(value, &transformer.args, unique))
         }
         TransformerType::FakeFirstName => {
-            let mut hasher = Sha256::new();
-            hasher.update(value.as_bytes());
-            let seed = u64::from_le_bytes(hasher.finalize()[..8].try_into().unwrap());
-            let mut seeded_rng = SmallRng::seed_from_u64(seed);
-
+            let mut seeded_rng = get_faker_rng(value);
             Cow::from(FirstName().fake_with_rng::<String, _>(&mut seeded_rng))
         }
         TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
         TransformerType::FakeFullName => Cow::from(fake_full_name()),
         TransformerType::FakeIPv4 => Cow::from(IPv4().fake::<String>()),
         TransformerType::FakeLastName => {
-            let mut hasher = Sha256::new();
-            hasher.update(value.as_bytes());
-            let seed = u64::from_le_bytes(hasher.finalize()[..8].try_into().unwrap());
-            let mut seeded_rng = SmallRng::seed_from_u64(seed);
-
+            let mut seeded_rng = get_faker_rng(value);
             Cow::from(LastName().fake_with_rng::<String, _>(&mut seeded_rng))
         }
         TransformerType::FakeNationalIdentityNumber => Cow::from(fake_national_identity_number()),
@@ -1060,7 +1059,7 @@ mod tests {
 
     #[test]
     fn scramble_calculates_unicode_length_correctly() {
-        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
+        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
 
         let mut rng = rng::get();
         let new_value = transform(
