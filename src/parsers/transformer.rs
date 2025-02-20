@@ -28,9 +28,9 @@ fn get_unique() -> usize {
     UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst)
 }
 
-fn get_faker_rng(value: &str, user_id: Option<&str>) -> SmallRng {
+fn get_faker_rng(value: &str, id: Option<&str>) -> SmallRng {
     let mut hasher = Sha256::new();
-    let combined = match user_id {
+    let combined = match id {
         Some(id) => format!("{}{}", value, id),
         None => value.to_string(),
     };
@@ -45,7 +45,7 @@ pub fn transform<'line>(
     column_type: &Type,
     transformer: &'line Transformer,
     table_name: &str,
-    user_id: Option<&str>,
+    id: Option<&str>,
 ) -> Cow<'line, str> {
     if ["\\N", "deleted"].contains(&value) {
         return Cow::from(value);
@@ -97,7 +97,7 @@ pub fn transform<'line>(
             Cow::from(fake_email_or_phone(value, &transformer.args, unique))
         }
         TransformerType::FakeFirstName => {
-            let mut seeded_rng = get_faker_rng(value, user_id);
+            let mut seeded_rng = get_faker_rng(value, id);
             Cow::from(FirstName().fake_with_rng::<String, _>(&mut seeded_rng))
         }
         TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
