@@ -28,9 +28,13 @@ fn get_unique() -> usize {
     UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst)
 }
 
-fn get_faker_rng(value: &str) -> SmallRng {
+fn get_faker_rng(value: &str, user_id: Option<&str>) -> SmallRng {
     let mut hasher = Sha256::new();
-    hasher.update(value.as_bytes());
+    let combined = match user_id {
+        Some(id) => format!("{}{}", value, id),
+        None => value.to_string(),
+    };
+    hasher.update(combined.as_bytes());
     let seed = u64::from_le_bytes(hasher.finalize()[..8].try_into().unwrap());
     SmallRng::seed_from_u64(seed)
 }
@@ -41,6 +45,7 @@ pub fn transform<'line>(
     column_type: &Type,
     transformer: &'line Transformer,
     table_name: &str,
+    user_id: Option<&str>,
 ) -> Cow<'line, str> {
     if ["\\N", "deleted"].contains(&value) {
         return Cow::from(value);
@@ -76,14 +81,14 @@ pub fn transform<'line>(
             Cow::from(fake_email_or_phone(value, &transformer.args, unique))
         }
         TransformerType::FakeFirstName => {
-            let mut seeded_rng = get_faker_rng(value);
+            let mut seeded_rng = get_faker_rng(value, None);
             Cow::from(FirstName().fake_with_rng::<String, _>(&mut seeded_rng))
         }
         TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
         TransformerType::FakeFullName => Cow::from(fake_full_name()),
         TransformerType::FakeIPv4 => Cow::from(IPv4().fake::<String>()),
         TransformerType::FakeLastName => {
-            let mut seeded_rng = get_faker_rng(value);
+            let mut seeded_rng = get_faker_rng(value, None);
             Cow::from(LastName().fake_with_rng::<String, _>(&mut seeded_rng))
         }
         TransformerType::FakeNationalIdentityNumber => Cow::from(fake_national_identity_number()),
@@ -122,7 +127,7 @@ fn transform_array<'value>(
         let unsplit_array = &value[1..value.len() - 1];
         unsplit_array
             .split(", ")
-            .map(|list_item| transform(rng, list_item, &sub_type, transformer, table_name))
+            .map(|list_item| transform(rng, list_item, &sub_type, transformer, table_name, None))
             .collect::<Vec<Cow<str>>>()
             .join(",")
     };
@@ -159,7 +164,8 @@ fn transform_quoted_array(
         {
             inside_word = false;
             word_is_quoted = false;
-            let transformed = transform(rng, &current_word, sub_type, transformer, table_name);
+            let transformed =
+                transform(rng, &current_word, sub_type, transformer, table_name, None);
             write!(word_acc, "\"{}\",", &transformed)
                 .expect("Should be able to apppend to word_acc");
             current_word = "".to_string();
@@ -393,6 +399,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert_eq!(new_null, null);
     }
@@ -412,6 +419,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert_eq!(new_deleted, deleted);
     }
@@ -431,6 +439,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_first_name == first_name);
     }
@@ -450,6 +459,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_verification_key != verification_key);
         assert_eq!(new_verification_key.len(), 32);
@@ -470,6 +480,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_verification_key != verification_key);
         assert_eq!(new_verification_key.len(), 32);
@@ -490,6 +501,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_company_name != company_name);
     }
@@ -509,6 +521,7 @@ mod tests {
             },
             transformer,
             TABLE_NAME,
+            None,
         );
         assert!(new_company_name != company_name);
     }
@@ -528,6 +541,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_email != email);
 
@@ -555,6 +569,7 @@ mod tests {
             },
             transformer,
             TABLE_NAME,
+            None,
         );
         assert!(new_email != email);
         let re = Regex::new(r"^[0-9]+-.*@.*\..*").unwrap();
@@ -582,6 +597,7 @@ mod tests {
             },
             &transformer,
             TABLE_NAME,
+            None,
         );
         assert!(new_first_name != first_name);
 
@@ -594,6 +610,7 @@ mod tests {
             },
             &transformer,
             TABLE_NAME,
+            None,
         );
         assert_eq!(
             new_first_name, repeat_first_name,
@@ -609,6 +626,7 @@ mod tests {
             },
             &transformer,
             TABLE_NAME,
+            None,
         );
         assert_ne!(
             new_first_name, different_name,
@@ -631,6 +649,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_full_name != full_name);
     }
@@ -653,6 +672,7 @@ mod tests {
             },
             &transformer,
             TABLE_NAME,
+            None,
         );
         assert!(new_last_name != last_name);
 
@@ -665,6 +685,7 @@ mod tests {
             },
             &transformer,
             TABLE_NAME,
+            None,
         );
         assert_eq!(
             new_last_name, repeat_last_name,
@@ -680,6 +701,7 @@ mod tests {
             },
             &transformer,
             TABLE_NAME,
+            None,
         );
         assert_ne!(
             new_last_name, different_name,
@@ -702,6 +724,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_street_address != street_address);
     }
@@ -721,6 +744,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_national_identity_number != national_identity_number);
         assert!(national_insurance_number::NATIONAL_INSURANCE_NUMBERS
@@ -742,6 +766,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_phone_number != phone_number);
         assert!(new_phone_number.starts_with("+4477009"));
@@ -762,6 +787,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_email != email);
         assert!(new_email.contains('@'));
@@ -782,6 +808,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_phone_number != phone_number);
         assert!(new_phone_number.starts_with("+4477009"));
@@ -803,6 +830,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_phone_number != phone_number);
         assert!(new_phone_number.starts_with("+1"));
@@ -824,6 +852,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert_eq!(new_postcode, "NW5");
     }
@@ -843,6 +872,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_user_name != user_name);
     }
@@ -863,6 +893,7 @@ mod tests {
             },
             transformer,
             TABLE_NAME,
+            None,
         );
 
         assert!(new_user_name != user_name);
@@ -894,6 +925,7 @@ mod tests {
             },
             transformer,
             TABLE_NAME,
+            None,
         );
         assert_eq!(new_url, fixed_url);
     }
@@ -913,6 +945,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
     }
 
@@ -933,6 +966,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert_eq!(obfuscated_date, "2020-12-01");
     }
@@ -957,6 +991,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
     }
 
@@ -977,6 +1012,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert_eq!(result, "0001-08-01 BC");
     }
@@ -998,6 +1034,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_value != initial_value);
         assert_eq!(new_value.chars().count(), initial_value.chars().count());
@@ -1023,6 +1060,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         let re = Regex::new(r"^[a-z][a-z]\\.\\?").unwrap();
         assert!(
@@ -1048,6 +1086,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         let re = Regex::new(r"^[a-z]{2} [0-9]{2} [a-z][0-9][a-z][0-9]").unwrap();
         assert!(
@@ -1059,7 +1098,7 @@ mod tests {
 
     #[test]
     fn scramble_calculates_unicode_length_correctly() {
-        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
+        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
 
         let mut rng = rng::get();
         let new_value = transform(
@@ -1073,6 +1112,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_value != initial_value);
         assert_eq!(new_value.chars().count(), initial_value.chars().count());
@@ -1094,6 +1134,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_value != initial_value);
         //TODO finish this test
@@ -1115,6 +1156,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_value != initial_value);
         assert!(!new_value.contains("Second line"));
@@ -1137,6 +1179,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_value != initial_value);
         let re = Regex::new(r"^[0-9]{9}$").unwrap();
@@ -1162,6 +1205,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_value != initial_value);
         let re = Regex::new(r#"^\{"[a-z]","[a-z]","[a-z] [a-z]{2} [a-z]"\}$"#).unwrap();
@@ -1187,6 +1231,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_value != initial_value);
         let re = Regex::new(r#"^\{"[a-z]{2} [a-z]{2} [a-z]","[a-z]"\}$"#).unwrap();
@@ -1213,6 +1258,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert_eq!(new_value, initial_value);
     }
@@ -1232,6 +1278,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert!(new_value != initial_value);
         let re = Regex::new(r#"^\{[0-9],[0-9]{2},[0-9]{3},[0-9]{4}\}$"#).unwrap();
@@ -1258,6 +1305,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
 
         assert!(new_value == "______ ____");
@@ -1279,6 +1327,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
 
         assert!(new_value == r#"___\n___\n_____"#);
@@ -1299,6 +1348,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert_eq!(new_json, "{\"{}\",\"{}\"}");
     }
@@ -1320,6 +1370,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            None,
         );
         assert_eq!(new_json, "{}");
     }

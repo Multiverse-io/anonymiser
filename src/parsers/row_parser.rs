@@ -143,6 +143,7 @@ fn transform_row_with_columns(
             column_type,
             &current_column.transformer,
             table_name,
+            None,
         )
     });
 
