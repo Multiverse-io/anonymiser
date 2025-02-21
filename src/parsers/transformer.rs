@@ -99,14 +99,14 @@ pub fn transform<'line>(
         TransformerType::FakeEmailOrPhone => {
             Cow::from(fake_email_or_phone(value, &transformer.args, unique))
         }
-        TransformerType::FakeFirstName => Cow::from(FirstName().fake::<String>()),
-        TransformerType::HashedFirstName => Cow::from(hashed_first_name(value, id)),
+        TransformerType::FakeFirstName => Cow::from(fake_first_name(value, id)),
+        TransformerType::HashedFirstName => Cow::from(fake_first_name(value, id)),
         TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
-        TransformerType::FakeFullName => Cow::from(fake_full_name()),
-        TransformerType::HashedFullName => Cow::from(hashed_full_name(value, id)),
+        TransformerType::FakeFullName => Cow::from(fake_full_name(value, None)),
+        TransformerType::HashedFullName => Cow::from(fake_full_name(value, id)),
         TransformerType::FakeIPv4 => Cow::from(IPv4().fake::<String>()),
-        TransformerType::FakeLastName => Cow::from(LastName().fake::<String>()),
-        TransformerType::HashedLastName => Cow::from(hashed_last_name(value, id)),
+        TransformerType::FakeLastName => Cow::from(fake_last_name(value, id)),
+        TransformerType::HashedLastName => Cow::from(fake_last_name(value, id)),
         TransformerType::FakeNationalIdentityNumber => Cow::from(fake_national_identity_number()),
         TransformerType::FakePostCode => Cow::from(fake_postcode(value)),
         TransformerType::FakePhoneNumber => Cow::from(fake_phone_number(value)),
@@ -299,25 +299,29 @@ fn fake_full_address() -> String {
     format!("{}, {}, {}", line_1, city_name, state)
 }
 
-fn fake_full_name() -> String {
-    let first: String = FirstName().fake();
-    let last: String = LastName().fake();
-    format!("{} {}", first, last)
+fn fake_first_name(value: &str, id: Option<&str>) -> String {
+    match id {
+        Some(id) => {
+            let mut seeded_rng = get_faker_rng(value, Some(id));
+            FirstName().fake_with_rng::<String, _>(&mut seeded_rng)
+        }
+        None => FirstName().fake::<String>(),
+    }
 }
 
-fn hashed_first_name(value: &str, id: Option<&str>) -> String {
-    let mut seeded_rng = get_faker_rng(value, id);
-    FirstName().fake_with_rng::<String, _>(&mut seeded_rng)
+fn fake_last_name(value: &str, id: Option<&str>) -> String {
+    match id {
+        Some(id) => {
+            let mut seeded_rng = get_faker_rng(value, Some(id));
+            LastName().fake_with_rng::<String, _>(&mut seeded_rng)
+        }
+        None => LastName().fake::<String>(),
+    }
 }
 
-fn hashed_last_name(value: &str, id: Option<&str>) -> String {
-    let mut seeded_rng = get_faker_rng(value, id);
-    LastName().fake_with_rng::<String, _>(&mut seeded_rng)
-}
-
-fn hashed_full_name(value: &str, id: Option<&str>) -> String {
-    let first = hashed_first_name(&format!("{}_first", value), id);
-    let last = hashed_last_name(&format!("{}_last", value), id);
+fn fake_full_name(value: &str, id: Option<&str>) -> String {
+    let first = fake_first_name(&format!("{}_first", value), id);
+    let last = fake_last_name(&format!("{}_last", value), id);
     format!("{} {}", first, last)
 }
 
@@ -725,7 +729,7 @@ mod tests {
     }
 
     #[test]
-    fn hashed_first_name() {
+    fn fake_first_name_with_id() {
         let first_name = "John Smith";
         let mut rng = rng::get();
 
@@ -794,39 +798,6 @@ mod tests {
             first_name_for_user1, repeat_first_name_for_user1,
             "Same input with same user_id should produce same fake name"
         );
-
-        // Test behavior without ID
-        let transformer_without_id = Transformer {
-            name: TransformerType::HashedFirstName,
-            args: None,
-        };
-
-        let name_without_id1 = transform(
-            &mut rng,
-            first_name,
-            &Type::SingleValue {
-                sub_type: SubType::Character,
-            },
-            &transformer_without_id,
-            TABLE_NAME,
-            EMPTY_COLUMNS,
-        );
-
-        let name_without_id2 = transform(
-            &mut rng,
-            first_name,
-            &Type::SingleValue {
-                sub_type: SubType::Character,
-            },
-            &transformer_without_id,
-            TABLE_NAME,
-            EMPTY_COLUMNS,
-        );
-
-        assert_eq!(
-            name_without_id1, name_without_id2,
-            "Same input without ID should produce same fake name"
-        );
     }
 
     #[test]
@@ -850,7 +821,7 @@ mod tests {
     }
 
     #[test]
-    fn hashed_full_name() {
+    fn fake_full_name_with_id() {
         let full_name = "John Smith";
         let mut rng = rng::get();
 
@@ -923,39 +894,6 @@ mod tests {
             full_name_for_user1, repeat_full_name_for_user1,
             "Same input with same user_id should produce same fake name"
         );
-
-        // Test behavior without ID
-        let transformer_without_id = Transformer {
-            name: TransformerType::HashedFullName,
-            args: None,
-        };
-
-        let name_without_id1 = transform(
-            &mut rng,
-            full_name,
-            &Type::SingleValue {
-                sub_type: SubType::Character,
-            },
-            &transformer_without_id,
-            TABLE_NAME,
-            EMPTY_COLUMNS,
-        );
-
-        let name_without_id2 = transform(
-            &mut rng,
-            full_name,
-            &Type::SingleValue {
-                sub_type: SubType::Character,
-            },
-            &transformer_without_id,
-            TABLE_NAME,
-            EMPTY_COLUMNS,
-        );
-
-        assert_eq!(
-            name_without_id1, name_without_id2,
-            "Same input without ID should produce same fake name"
-        );
     }
 
     #[test]
@@ -979,7 +917,7 @@ mod tests {
     }
 
     #[test]
-    fn hashed_last_name() {
+    fn fake_last_name_with_id() {
         let last_name = "Smith";
         let mut rng = rng::get();
 
@@ -1043,39 +981,6 @@ mod tests {
         assert_eq!(
             last_name_for_user1, repeat_last_name_for_user1,
             "Same input with same user_id should produce same fake name"
-        );
-
-        // Test behavior without ID
-        let transformer_without_id = Transformer {
-            name: TransformerType::HashedLastName,
-            args: None,
-        };
-
-        let name_without_id1 = transform(
-            &mut rng,
-            last_name,
-            &Type::SingleValue {
-                sub_type: SubType::Character,
-            },
-            &transformer_without_id,
-            TABLE_NAME,
-            EMPTY_COLUMNS,
-        );
-
-        let name_without_id2 = transform(
-            &mut rng,
-            last_name,
-            &Type::SingleValue {
-                sub_type: SubType::Character,
-            },
-            &transformer_without_id,
-            TABLE_NAME,
-            EMPTY_COLUMNS,
-        );
-
-        assert_eq!(
-            name_without_id1, name_without_id2,
-            "Same input without ID should produce same fake name"
         );
     }
 
@@ -1468,7 +1373,7 @@ mod tests {
 
     #[test]
     fn scramble_calculates_unicode_length_correctly() {
-        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
+        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
         let mut rng = rng::get();
         let new_value = transform(
             &mut rng,
