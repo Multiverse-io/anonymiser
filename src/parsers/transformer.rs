@@ -99,13 +99,13 @@ pub fn transform<'line>(
         TransformerType::FakeEmailOrPhone => {
             Cow::from(fake_email_or_phone(value, &transformer.args, unique))
         }
-        TransformerType::FakeFirstName => Cow::from(fake_first_name(value, id)),
+        TransformerType::FakeFirstName => Cow::from(fake_first_name(value, None)),
         TransformerType::HashedFirstName => Cow::from(fake_first_name(value, id)),
         TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
         TransformerType::FakeFullName => Cow::from(fake_full_name(value, None)),
         TransformerType::HashedFullName => Cow::from(fake_full_name(value, id)),
         TransformerType::FakeIPv4 => Cow::from(IPv4().fake::<String>()),
-        TransformerType::FakeLastName => Cow::from(fake_last_name(value, id)),
+        TransformerType::FakeLastName => Cow::from(fake_last_name(value, None)),
         TransformerType::HashedLastName => Cow::from(fake_last_name(value, id)),
         TransformerType::FakeNationalIdentityNumber => Cow::from(fake_national_identity_number()),
         TransformerType::FakePostCode => Cow::from(fake_postcode(value)),
