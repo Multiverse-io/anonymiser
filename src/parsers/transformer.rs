@@ -73,7 +73,7 @@ pub fn transform<'line>(
 
     // Get the id value if specified in transformer args
     let id = transformer.args.as_ref().and_then(|args| {
-        args.get("id-column").and_then(|id_column| {
+        args.get("id_column").and_then(|id_column| {
             column_values
                 .iter()
                 .find(|(col, _)| col == id_column)
@@ -310,7 +310,7 @@ fn fake_first_name(
     let deterministic = is_deterministic(args);
 
     if deterministic && id.is_none() {
-        panic!("Deterministic FakeFirstName transformer requires 'id-column' argument to be set and valid");
+        panic!("Deterministic FakeFirstName transformer requires 'id_column' argument to be set and valid");
     }
 
     let id_to_use = if deterministic { id } else { None };
@@ -328,7 +328,7 @@ fn fake_last_name(value: &str, args: &Option<HashMap<String, String>>, id: Optio
     let deterministic = is_deterministic(args);
 
     if deterministic && id.is_none() {
-        panic!("Deterministic FakeLastName transformer requires 'id-column' argument to be set and valid");
+        panic!("Deterministic FakeLastName transformer requires 'id_column' argument to be set and valid");
     }
 
     let id_to_use = if deterministic { id } else { None };
@@ -346,7 +346,7 @@ fn fake_full_name(value: &str, args: &Option<HashMap<String, String>>, id: Optio
     let deterministic = is_deterministic(args);
 
     if deterministic && id.is_none() {
-        panic!("Deterministic FakeFullName transformer requires 'id-column' argument to be set and valid");
+        panic!("Deterministic FakeFullName transformer requires 'id_column' argument to be set and valid");
     }
 
     let id_to_use = if deterministic { id } else { None };
@@ -776,7 +776,7 @@ mod tests {
             name: TransformerType::FakeFirstName,
             args: Some(HashMap::from([
                 ("deterministic".to_string(), "true".to_string()),
-                ("id-column".to_string(), "user_id".to_string()),
+                ("id_column".to_string(), "user_id".to_string()),
             ])),
         };
 
@@ -831,7 +831,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Deterministic FakeFirstName transformer requires 'id-column' argument to be set and valid"
+        expected = "Deterministic FakeFirstName transformer requires 'id_column' argument to be set and valid"
     )]
     fn fake_first_name_deterministic_without_id_should_panic() {
         let first_name = "John Smith";
@@ -890,7 +890,7 @@ mod tests {
             name: TransformerType::FakeFullName,
             args: Some(HashMap::from([
                 ("deterministic".to_string(), "true".to_string()),
-                ("id-column".to_string(), "user_id".to_string()),
+                ("id_column".to_string(), "user_id".to_string()),
             ])),
         };
 
@@ -945,7 +945,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Deterministic FakeFullName transformer requires 'id-column' argument to be set and valid"
+        expected = "Deterministic FakeFullName transformer requires 'id_column' argument to be set and valid"
     )]
     fn fake_full_name_deterministic_without_id_should_panic() {
         let full_name = "John Smith";
@@ -1001,7 +1001,7 @@ mod tests {
             name: TransformerType::FakeLastName,
             args: Some(HashMap::from([
                 ("deterministic".to_string(), "true".to_string()),
-                ("id-column".to_string(), "user_id".to_string()),
+                ("id_column".to_string(), "user_id".to_string()),
             ])),
         };
 
@@ -1056,7 +1056,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Deterministic FakeLastName transformer requires 'id-column' argument to be set and valid"
+        expected = "Deterministic FakeLastName transformer requires 'id_column' argument to be set and valid"
     )]
     fn fake_last_name_deterministic_without_id_should_panic() {
         let last_name = "Smith";
