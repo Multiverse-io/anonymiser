@@ -99,14 +99,11 @@ pub fn transform<'line>(
         TransformerType::FakeEmailOrPhone => {
             Cow::from(fake_email_or_phone(value, &transformer.args, unique))
         }
-        TransformerType::FakeFirstName => Cow::from(fake_first_name(value, None)),
-        TransformerType::DeterministicFirstName => Cow::from(fake_first_name(value, id)),
+        TransformerType::FakeFirstName => Cow::from(fake_first_name(value, &transformer.args, id)),
         TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
-        TransformerType::FakeFullName => Cow::from(fake_full_name(value, None)),
-        TransformerType::DeterministicFullName => Cow::from(fake_full_name(value, id)),
+        TransformerType::FakeFullName => Cow::from(fake_full_name(value, &transformer.args, id)),
         TransformerType::FakeIPv4 => Cow::from(IPv4().fake::<String>()),
-        TransformerType::FakeLastName => Cow::from(fake_last_name(value, None)),
-        TransformerType::DeterministicLastName => Cow::from(fake_last_name(value, id)),
+        TransformerType::FakeLastName => Cow::from(fake_last_name(value, &transformer.args, id)),
         TransformerType::FakeNationalIdentityNumber => Cow::from(fake_national_identity_number()),
         TransformerType::FakePostCode => Cow::from(fake_postcode(value)),
         TransformerType::FakePhoneNumber => Cow::from(fake_phone_number(value)),
@@ -231,6 +228,12 @@ fn transform_quoted_array(
     word_acc
 }
 
+fn is_deterministic(args: &Option<HashMap<String, String>>) -> bool {
+    args.as_ref()
+        .and_then(|args| args.get("deterministic"))
+        .map_or(false, |val| val == "true")
+}
+
 fn prepend_unique_if_present(
     new_value: String,
     args: &Option<HashMap<String, String>>,
@@ -299,8 +302,20 @@ fn fake_full_address() -> String {
     format!("{}, {}, {}", line_1, city_name, state)
 }
 
-fn fake_first_name(value: &str, id: Option<&str>) -> String {
-    match id {
+fn fake_first_name(
+    value: &str,
+    args: &Option<HashMap<String, String>>,
+    id: Option<&str>,
+) -> String {
+    let deterministic = is_deterministic(args);
+
+    if deterministic && id.is_none() {
+        panic!("Deterministic FakeFirstName transformer requires 'id-column' argument to be set and valid");
+    }
+
+    let id_to_use = if deterministic { id } else { None };
+
+    match id_to_use {
         Some(id) => {
             let mut seeded_rng = get_faker_rng(value, Some(id));
             FirstName().fake_with_rng::<String, _>(&mut seeded_rng)
@@ -309,8 +324,16 @@ fn fake_first_name(value: &str, id: Option<&str>) -> String {
     }
 }
 
-fn fake_last_name(value: &str, id: Option<&str>) -> String {
-    match id {
+fn fake_last_name(value: &str, args: &Option<HashMap<String, String>>, id: Option<&str>) -> String {
+    let deterministic = is_deterministic(args);
+
+    if deterministic && id.is_none() {
+        panic!("Deterministic FakeLastName transformer requires 'id-column' argument to be set and valid");
+    }
+
+    let id_to_use = if deterministic { id } else { None };
+
+    match id_to_use {
         Some(id) => {
             let mut seeded_rng = get_faker_rng(value, Some(id));
             LastName().fake_with_rng::<String, _>(&mut seeded_rng)
@@ -319,9 +342,17 @@ fn fake_last_name(value: &str, id: Option<&str>) -> String {
     }
 }
 
-fn fake_full_name(value: &str, id: Option<&str>) -> String {
-    let first = fake_first_name(&format!("{}_first", value), id);
-    let last = fake_last_name(&format!("{}_last", value), id);
+fn fake_full_name(value: &str, args: &Option<HashMap<String, String>>, id: Option<&str>) -> String {
+    let deterministic = is_deterministic(args);
+
+    if deterministic && id.is_none() {
+        panic!("Deterministic FakeFullName transformer requires 'id-column' argument to be set and valid");
+    }
+
+    let id_to_use = if deterministic { id } else { None };
+
+    let first = fake_first_name(&format!("{}_first", value), args, id_to_use);
+    let last = fake_last_name(&format!("{}_last", value), args, id_to_use);
     format!("{} {}", first, last)
 }
 
@@ -715,7 +746,7 @@ mod tests {
     }
 
     #[test]
-    fn fake_first_name() {
+    fn fake_first_name_random() {
         let first_name = "any first name";
         let mut rng = rng::get();
         let new_first_name = transform(
@@ -731,35 +762,25 @@ mod tests {
             TABLE_NAME,
             EMPTY_COLUMNS,
         );
-        assert!(new_first_name != first_name);
+
+        assert_ne!(new_first_name, first_name);
     }
 
     #[test]
-    fn fake_first_name_with_id() {
+    fn fake_first_name_deterministic() {
         let first_name = "John Smith";
         let mut rng = rng::get();
 
-        // Create column values for user1
-        let column_values = vec![
-            ("user_id".to_string(), "123".to_string()),
-            ("registrent_id".to_string(), "456".to_string()),
-        ];
-
-        let transformer_user1 = Transformer {
-            name: TransformerType::DeterministicFirstName,
-            args: Some(HashMap::from([(
-                "id-column".to_string(),
-                "user_id".to_string(),
-            )])),
+        // Create transformer with deterministic args
+        let transformer = Transformer {
+            name: TransformerType::FakeFirstName,
+            args: Some(HashMap::from([
+                ("deterministic".to_string(), "true".to_string()),
+                ("id-column".to_string(), "user_id".to_string()),
+            ])),
         };
 
-        let transformer_user2 = Transformer {
-            name: TransformerType::DeterministicFirstName,
-            args: Some(HashMap::from([(
-                "id-column".to_string(),
-                "registrent_id".to_string(),
-            )])),
-        };
+        let column_values = vec![("user_id".to_string(), "123".to_string())];
 
         let first_name_for_user1 = transform(
             &mut rng,
@@ -767,35 +788,18 @@ mod tests {
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &transformer_user1,
+            &transformer,
             TABLE_NAME,
             &column_values,
         );
 
-        let first_name_for_user2 = transform(
-            &mut rng,
-            first_name,
-            &Type::SingleValue {
-                sub_type: SubType::Character,
-            },
-            &transformer_user2,
-            TABLE_NAME,
-            &column_values,
-        );
-
-        assert_ne!(
-            first_name_for_user1, first_name_for_user2,
-            "Same name with different ids should produce different fake names"
-        );
-
-        // Test deterministic behavior - should get same result for same user_id
         let repeat_first_name_for_user1 = transform(
             &mut rng,
             first_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &transformer_user1,
+            &transformer,
             TABLE_NAME,
             &column_values,
         );
@@ -804,44 +808,93 @@ mod tests {
             first_name_for_user1, repeat_first_name_for_user1,
             "Same input with same user_id should produce same fake name"
         );
+
+        // Test with different user_id
+        let column_values_user2 = vec![("user_id".to_string(), "456".to_string())];
+
+        let first_name_for_user2 = transform(
+            &mut rng,
+            first_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values_user2,
+        );
+
+        assert_ne!(
+            first_name_for_user1, first_name_for_user2,
+            "Same name with different user_ids should produce different fake names"
+        );
     }
 
     #[test]
-    fn fake_full_name() {
-        let full_name = "any full name";
+    #[should_panic(
+        expected = "Deterministic FakeFirstName transformer requires 'id-column' argument to be set and valid"
+    )]
+    fn fake_first_name_deterministic_without_id_should_panic() {
+        let first_name = "John Smith";
         let mut rng = rng::get();
+
+        let transformer = Transformer {
+            name: TransformerType::FakeFirstName,
+            args: Some(HashMap::from([(
+                "deterministic".to_string(),
+                "true".to_string(),
+            )])),
+        };
+
+        transform(
+            &mut rng,
+            first_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+        );
+    }
+
+    #[test]
+    fn fake_full_name_random() {
+        let full_name = "John Smith";
+        let mut rng = rng::get();
+
+        let transformer = Transformer {
+            name: TransformerType::FakeFullName,
+            args: None,
+        };
+
         let new_full_name = transform(
             &mut rng,
             full_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &Transformer {
-                name: TransformerType::FakeFullName,
-                args: None,
-            },
+            &transformer,
             TABLE_NAME,
             EMPTY_COLUMNS,
         );
-        assert!(new_full_name != full_name);
+
+        assert_ne!(new_full_name, full_name);
     }
 
     #[test]
-    fn fake_full_name_with_id() {
+    fn fake_full_name_deterministic() {
         let full_name = "John Smith";
         let mut rng = rng::get();
 
-        // Test with ID-based hashing
-        let transformer_with_id = Transformer {
-            name: TransformerType::DeterministicFullName,
-            args: Some(HashMap::from([(
-                "id-column".to_string(),
-                "user_id".to_string(),
-            )])),
+        let transformer = Transformer {
+            name: TransformerType::FakeFullName,
+            args: Some(HashMap::from([
+                ("deterministic".to_string(), "true".to_string()),
+                ("id-column".to_string(), "user_id".to_string()),
+            ])),
         };
 
-        // Create column values for user1
-        let user1_columns = vec![("user_id".to_string(), "123".to_string())];
+        let column_values = vec![("user_id".to_string(), "123".to_string())];
 
         let full_name_for_user1 = transform(
             &mut rng,
@@ -849,24 +902,29 @@ mod tests {
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &transformer_with_id,
+            &transformer,
             TABLE_NAME,
-            &user1_columns,
+            &column_values,
         );
 
-        // Test that name is changed
-        assert!(full_name_for_user1 != full_name);
-
-        // Verify first and last names are different
-        let name_parts: Vec<&str> = full_name_for_user1.split_whitespace().collect();
-        assert_eq!(name_parts.len(), 2, "Should have first and last name");
-        assert_ne!(
-            name_parts[0], name_parts[1],
-            "First and last name should be different"
+        let repeat_full_name_for_user1 = transform(
+            &mut rng,
+            full_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values,
         );
 
-        // Create column values for user2
-        let user2_columns = vec![("user_id".to_string(), "456".to_string())];
+        assert_eq!(
+            full_name_for_user1, repeat_full_name_for_user1,
+            "Same input with same user_id should produce same fake name"
+        );
+
+        // Test with different user_id
+        let column_values_user2 = vec![("user_id".to_string(), "456".to_string())];
 
         let full_name_for_user2 = transform(
             &mut rng,
@@ -874,36 +932,47 @@ mod tests {
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &transformer_with_id,
+            &transformer,
             TABLE_NAME,
-            &user2_columns,
+            &column_values_user2,
         );
 
         assert_ne!(
             full_name_for_user1, full_name_for_user2,
             "Same name with different user_ids should produce different fake names"
         );
+    }
 
-        // Test deterministic behavior - should get same result for same user_id
-        let repeat_full_name_for_user1 = transform(
+    #[test]
+    #[should_panic(
+        expected = "Deterministic FakeFullName transformer requires 'id-column' argument to be set and valid"
+    )]
+    fn fake_full_name_deterministic_without_id_should_panic() {
+        let full_name = "John Smith";
+        let mut rng = rng::get();
+
+        let transformer = Transformer {
+            name: TransformerType::FakeFullName,
+            args: Some(HashMap::from([(
+                "deterministic".to_string(),
+                "true".to_string(),
+            )])),
+        };
+
+        transform(
             &mut rng,
             full_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &transformer_with_id,
+            &transformer,
             TABLE_NAME,
-            &user1_columns,
-        );
-
-        assert_eq!(
-            full_name_for_user1, repeat_full_name_for_user1,
-            "Same input with same user_id should produce same fake name"
+            EMPTY_COLUMNS,
         );
     }
 
     #[test]
-    fn fake_last_name() {
+    fn fake_last_name_random() {
         let last_name = "any last name";
         let mut rng = rng::get();
         let new_last_name = transform(
@@ -919,25 +988,24 @@ mod tests {
             TABLE_NAME,
             EMPTY_COLUMNS,
         );
-        assert!(new_last_name != last_name);
+
+        assert_ne!(new_last_name, last_name);
     }
 
     #[test]
-    fn fake_last_name_with_id() {
+    fn fake_last_name_deterministic() {
         let last_name = "Smith";
         let mut rng = rng::get();
 
-        // Test with ID-based hashing
-        let transformer_with_id = Transformer {
-            name: TransformerType::DeterministicLastName,
-            args: Some(HashMap::from([(
-                "id-column".to_string(),
-                "user_id".to_string(),
-            )])),
+        let transformer = Transformer {
+            name: TransformerType::FakeLastName,
+            args: Some(HashMap::from([
+                ("deterministic".to_string(), "true".to_string()),
+                ("id-column".to_string(), "user_id".to_string()),
+            ])),
         };
 
-        // Create column values for user1
-        let user1_columns = vec![("user_id".to_string(), "123".to_string())];
+        let column_values = vec![("user_id".to_string(), "123".to_string())];
 
         let last_name_for_user1 = transform(
             &mut rng,
@@ -945,16 +1013,29 @@ mod tests {
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &transformer_with_id,
+            &transformer,
             TABLE_NAME,
-            &user1_columns,
+            &column_values,
         );
 
-        // Test that name is changed
-        assert!(last_name_for_user1 != last_name);
+        let repeat_last_name_for_user1 = transform(
+            &mut rng,
+            last_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values,
+        );
 
-        // Create column values for user2
-        let user2_columns = vec![("user_id".to_string(), "456".to_string())];
+        assert_eq!(
+            last_name_for_user1, repeat_last_name_for_user1,
+            "Same input with same user_id should produce same fake name"
+        );
+
+        // Test with different user_id
+        let column_values_user2 = vec![("user_id".to_string(), "456".to_string())];
 
         let last_name_for_user2 = transform(
             &mut rng,
@@ -962,31 +1043,42 @@ mod tests {
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &transformer_with_id,
+            &transformer,
             TABLE_NAME,
-            &user2_columns,
+            &column_values_user2,
         );
 
         assert_ne!(
             last_name_for_user1, last_name_for_user2,
             "Same name with different user_ids should produce different fake names"
         );
+    }
 
-        // Test deterministic behavior - should get same result for same user_id
-        let repeat_last_name_for_user1 = transform(
+    #[test]
+    #[should_panic(
+        expected = "Deterministic FakeLastName transformer requires 'id-column' argument to be set and valid"
+    )]
+    fn fake_last_name_deterministic_without_id_should_panic() {
+        let last_name = "Smith";
+        let mut rng = rng::get();
+
+        let transformer = Transformer {
+            name: TransformerType::FakeLastName,
+            args: Some(HashMap::from([(
+                "deterministic".to_string(),
+                "true".to_string(),
+            )])),
+        };
+
+        transform(
             &mut rng,
             last_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &transformer_with_id,
+            &transformer,
             TABLE_NAME,
-            &user1_columns,
-        );
-
-        assert_eq!(
-            last_name_for_user1, repeat_last_name_for_user1,
-            "Same input with same user_id should produce same fake name"
+            EMPTY_COLUMNS,
         );
     }
 

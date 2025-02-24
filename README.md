@@ -70,11 +70,11 @@ Transforming table data requires a list of all table columns with a transformer 
 - FakeCompanyName * - Random Company Name from [faker](https://github.com/cksac/fake-rs)
 - FakeEmail * - Random email address from [faker](https://github.com/cksac/fake-rs)
 - FakeEmailOrPhone * - Either a random phone number OR a random email depending on whether the existing data starts with a `+` and doesn't contain an `@` symbol or not!
-- FakeFirstName - Random first name from [faker](https://github.com/cksac/fake-rs)
+- FakeFirstName† - Random first name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id-column` argument
 - FakeFullAddress - Random address made up of segments from [faker](https://github.com/cksac/fake-rs)
-- FakeFullName - Random first plus last name from [faker](https://github.com/cksac/fake-rs)
+- FakeFullName† - Random first plus last name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id-column` argument
 - FakeIPv4 - Random IPV4 address from [faker](https://github.com/cksac/fake-rs)
-- FakeLastName - Random last name from [faker](https://github.com/cksac/fake-rs)
+- FakeLastName†- Random last name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id-column` argument
 - FakeNationalIdentityNumber - Random National Insurance number from list of dummy numbers
 - FakePhoneNumber - Random phone number (looks at existing numbers country code, supports GB + US)
 - FakePostCode - Truncates postcode to the first 3 chars e.g. NW5
@@ -121,3 +121,29 @@ Transformers with a * support the arg `unique` which will append an incrementing
     }
   },
 ```
+
+Transformers with a † support deterministic generation by setting `deterministic: true` and providing an `id-column` argument. This ensures the same input and ID always generate the same fake data.
+
+Example of deterministic name generation:
+```json
+{
+  "data_category": "Pii",
+  "description": "user's first name",
+  "name": "first_name",
+  "transformer": {
+    "name": "FakeFirstName",
+    "args": {
+      "deterministic": "true",
+      "id-column": "user_account_id"
+    }
+  }
+}
+```
+
+When using deterministic mode:
+- The same input value and ID will always generate the same fake name
+- The `id-column` must reference a valid ID column in the same table (e.g., "user_id", "user_account_id", "registrant_id" etc)
+- If `deterministic` is true but the specified ID column is missing or invalid, the transformer will raise an error
+- Different IDs will generate different names, even for the same input value
+
+This is useful when you need consistent fake names across multiple database dumps or when maintaining referential integrity between tables.
