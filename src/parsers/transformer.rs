@@ -620,6 +620,12 @@ mod tests {
             EMPTY_COLUMNS,
         );
         assert!(new_company_name != company_name);
+        let re = Regex::new(r"^[0-9]+-.*").unwrap();
+        assert!(
+            re.is_match(&new_company_name),
+            "Company name {:?} does not have the expected unique prefix format",
+            new_company_name
+        );
     }
 
     #[test]
@@ -1373,7 +1379,7 @@ mod tests {
 
     #[test]
     fn scramble_calculates_unicode_length_correctly() {
-        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
+        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
         let mut rng = rng::get();
         let new_value = transform(
             &mut rng,
