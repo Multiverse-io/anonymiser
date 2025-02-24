@@ -100,13 +100,13 @@ pub fn transform<'line>(
             Cow::from(fake_email_or_phone(value, &transformer.args, unique))
         }
         TransformerType::FakeFirstName => Cow::from(fake_first_name(value, None)),
-        TransformerType::HashedFirstName => Cow::from(fake_first_name(value, id)),
+        TransformerType::DeterministicFirstName => Cow::from(fake_first_name(value, id)),
         TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
         TransformerType::FakeFullName => Cow::from(fake_full_name(value, None)),
-        TransformerType::HashedFullName => Cow::from(fake_full_name(value, id)),
+        TransformerType::DeterministicFullName => Cow::from(fake_full_name(value, id)),
         TransformerType::FakeIPv4 => Cow::from(IPv4().fake::<String>()),
         TransformerType::FakeLastName => Cow::from(fake_last_name(value, None)),
-        TransformerType::HashedLastName => Cow::from(fake_last_name(value, id)),
+        TransformerType::DeterministicLastName => Cow::from(fake_last_name(value, id)),
         TransformerType::FakeNationalIdentityNumber => Cow::from(fake_national_identity_number()),
         TransformerType::FakePostCode => Cow::from(fake_postcode(value)),
         TransformerType::FakePhoneNumber => Cow::from(fake_phone_number(value)),
@@ -740,7 +740,7 @@ mod tests {
         ];
 
         let transformer_user1 = Transformer {
-            name: TransformerType::HashedFirstName,
+            name: TransformerType::DeterministicFirstName,
             args: Some(HashMap::from([(
                 "id-column".to_string(),
                 "user_id".to_string(),
@@ -748,7 +748,7 @@ mod tests {
         };
 
         let transformer_user2 = Transformer {
-            name: TransformerType::HashedFirstName,
+            name: TransformerType::DeterministicFirstName,
             args: Some(HashMap::from([(
                 "id-column".to_string(),
                 "registrent_id".to_string(),
@@ -827,7 +827,7 @@ mod tests {
 
         // Test with ID-based hashing
         let transformer_with_id = Transformer {
-            name: TransformerType::HashedFullName,
+            name: TransformerType::DeterministicFullName,
             args: Some(HashMap::from([(
                 "id-column".to_string(),
                 "user_id".to_string(),
@@ -923,7 +923,7 @@ mod tests {
 
         // Test with ID-based hashing
         let transformer_with_id = Transformer {
-            name: TransformerType::HashedLastName,
+            name: TransformerType::DeterministicLastName,
             args: Some(HashMap::from([(
                 "id-column".to_string(),
                 "user_id".to_string(),

@@ -133,9 +133,9 @@ pub enum TransformerType {
     ObfuscateDay,
     Scramble,
     ScrambleBlank,
-    HashedFirstName,
-    HashedLastName,
-    HashedFullName,
+    DeterministicFirstName,
+    DeterministicLastName,
+    DeterministicFullName,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
