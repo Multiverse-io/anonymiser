@@ -5,8 +5,8 @@ use std::fmt::Write;
 
 #[derive(Debug)]
 pub enum StrategyFileError {
-    ValidationError(ValidationErrors),
-    DbMismatchError(DbErrors),
+    ValidationError(Box<ValidationErrors>),
+    DbMismatchError(Box<DbErrors>),
 }
 impl fmt::Display for StrategyFileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -19,13 +19,13 @@ impl fmt::Display for StrategyFileError {
 
 impl From<ValidationErrors> for StrategyFileError {
     fn from(err: ValidationErrors) -> Self {
-        StrategyFileError::ValidationError(err)
+        StrategyFileError::ValidationError(Box::new(err))
     }
 }
 
 impl From<DbErrors> for StrategyFileError {
     fn from(err: DbErrors) -> Self {
-        StrategyFileError::DbMismatchError(err)
+        StrategyFileError::DbMismatchError(Box::new(err))
     }
 }
 
@@ -73,6 +73,7 @@ pub struct ValidationErrors {
     pub unanonymised_pii: Vec<SimpleColumn>,
     pub duplicate_columns: Vec<SimpleColumn>,
     pub duplicate_tables: Vec<String>,
+    pub deterministic_without_id: Vec<SimpleColumn>,
 }
 
 impl fmt::Display for ValidationErrors {
@@ -139,6 +140,7 @@ impl ValidationErrors {
             unanonymised_pii: Vec::new(),
             duplicate_columns: Vec::new(),
             duplicate_tables: Vec::new(),
+            deterministic_without_id: Vec::new(),
         }
     }
     pub fn is_empty(to_check: &ValidationErrors) -> bool {
@@ -147,5 +149,6 @@ impl ValidationErrors {
             && to_check.unanonymised_pii.is_empty()
             && to_check.duplicate_columns.is_empty()
             && to_check.duplicate_tables.is_empty()
+            && to_check.deterministic_without_id.is_empty()
     }
 }

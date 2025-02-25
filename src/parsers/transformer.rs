@@ -308,11 +308,6 @@ fn fake_first_name(
     id: Option<&str>,
 ) -> String {
     let deterministic = is_deterministic(args);
-
-    if deterministic && id.is_none() {
-        panic!("Deterministic FakeFirstName transformer requires 'id_column' argument to be set and valid");
-    }
-
     let id_to_use = if deterministic { id } else { None };
 
     match id_to_use {
@@ -326,11 +321,6 @@ fn fake_first_name(
 
 fn fake_last_name(value: &str, args: &Option<HashMap<String, String>>, id: Option<&str>) -> String {
     let deterministic = is_deterministic(args);
-
-    if deterministic && id.is_none() {
-        panic!("Deterministic FakeLastName transformer requires 'id_column' argument to be set and valid");
-    }
-
     let id_to_use = if deterministic { id } else { None };
 
     match id_to_use {
@@ -344,11 +334,6 @@ fn fake_last_name(value: &str, args: &Option<HashMap<String, String>>, id: Optio
 
 fn fake_full_name(value: &str, args: &Option<HashMap<String, String>>, id: Option<&str>) -> String {
     let deterministic = is_deterministic(args);
-
-    if deterministic && id.is_none() {
-        panic!("Deterministic FakeFullName transformer requires 'id_column' argument to be set and valid");
-    }
-
     let id_to_use = if deterministic { id } else { None };
 
     let first = fake_first_name(&format!("{}_first", value), args, id_to_use);
@@ -830,34 +815,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Deterministic FakeFirstName transformer requires 'id_column' argument to be set and valid"
-    )]
-    fn fake_first_name_deterministic_without_id_should_panic() {
-        let first_name = "John Smith";
-        let mut rng = rng::get();
-
-        let transformer = Transformer {
-            name: TransformerType::FakeFirstName,
-            args: Some(HashMap::from([(
-                "deterministic".to_string(),
-                "true".to_string(),
-            )])),
-        };
-
-        transform(
-            &mut rng,
-            first_name,
-            &Type::SingleValue {
-                sub_type: SubType::Character,
-            },
-            &transformer,
-            TABLE_NAME,
-            EMPTY_COLUMNS,
-        );
-    }
-
-    #[test]
     fn fake_full_name_random() {
         let full_name = "John Smith";
         let mut rng = rng::get();
@@ -944,34 +901,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Deterministic FakeFullName transformer requires 'id_column' argument to be set and valid"
-    )]
-    fn fake_full_name_deterministic_without_id_should_panic() {
-        let full_name = "John Smith";
-        let mut rng = rng::get();
-
-        let transformer = Transformer {
-            name: TransformerType::FakeFullName,
-            args: Some(HashMap::from([(
-                "deterministic".to_string(),
-                "true".to_string(),
-            )])),
-        };
-
-        transform(
-            &mut rng,
-            full_name,
-            &Type::SingleValue {
-                sub_type: SubType::Character,
-            },
-            &transformer,
-            TABLE_NAME,
-            EMPTY_COLUMNS,
-        );
-    }
-
-    #[test]
     fn fake_last_name_random() {
         let last_name = "any last name";
         let mut rng = rng::get();
@@ -1051,34 +980,6 @@ mod tests {
         assert_ne!(
             last_name_for_user1, last_name_for_user2,
             "Same name with different user_ids should produce different fake names"
-        );
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "Deterministic FakeLastName transformer requires 'id_column' argument to be set and valid"
-    )]
-    fn fake_last_name_deterministic_without_id_should_panic() {
-        let last_name = "Smith";
-        let mut rng = rng::get();
-
-        let transformer = Transformer {
-            name: TransformerType::FakeLastName,
-            args: Some(HashMap::from([(
-                "deterministic".to_string(),
-                "true".to_string(),
-            )])),
-        };
-
-        transform(
-            &mut rng,
-            last_name,
-            &Type::SingleValue {
-                sub_type: SubType::Character,
-            },
-            &transformer,
-            TABLE_NAME,
-            EMPTY_COLUMNS,
         );
     }
 
