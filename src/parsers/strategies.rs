@@ -27,11 +27,24 @@ impl Strategies {
     pub fn from_strategies_in_file(
         strategies_in_file: Vec<StrategyInFile>,
         transformer_overrides: &TransformerOverrides,
-    ) -> Result<Strategies, ValidationErrors> {
+    ) -> Result<Strategies, Box<ValidationErrors>> {
         let mut transformed_strategies = Strategies::new();
         let mut errors = ValidationErrors::new();
 
         for strategy in strategies_in_file {
+            // Validate deterministic settings
+            for column in &strategy.columns {
+                if let Some(args) = &column.transformer.args {
+                    if let Some(deterministic) = args.get("deterministic") {
+                        if deterministic == "true" && !args.contains_key("id_column") {
+                            errors
+                                .deterministic_without_id
+                                .push(create_simple_column(&strategy.table_name, &column.name));
+                        }
+                    }
+                }
+            }
+
             if strategy.truncate {
                 transformed_strategies.insert_truncate(strategy.table_name);
             } else {
@@ -82,7 +95,7 @@ impl Strategies {
             Ok(transformed_strategies)
         } else {
             //TODO sort/order errors somehow or maybe only do that when we log them out??
-            Err(errors)
+            Err(Box::new(errors))
         }
     }
 
@@ -627,6 +640,73 @@ mod tests {
             TransformerType::Identity
         );
         assert_eq!(pii_column_transformer.name, TransformerType::Identity);
+    }
+
+    #[test]
+    fn from_strategies_in_file_returns_errors_for_deterministic_without_id_column() {
+        let mut transformer = Transformer {
+            name: TransformerType::Scramble,
+            args: Some(HashMap::new()),
+        };
+        transformer
+            .args
+            .as_mut()
+            .unwrap()
+            .insert("deterministic".to_string(), "true".to_string());
+
+        let strategies = vec![StrategyInFile {
+            table_name: "public.person".to_string(),
+            description: "description".to_string(),
+            truncate: false,
+            columns: vec![ColumnInFile {
+                data_category: DataCategory::General,
+                description: "first_name".to_string(),
+                name: "first_name".to_string(),
+                transformer,
+            }],
+        }];
+
+        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+
+        let error = result.unwrap_err();
+        assert_eq!(
+            error.deterministic_without_id,
+            vec!(create_simple_column("public.person", "first_name"))
+        );
+    }
+
+    #[test]
+    fn from_strategies_in_file_accepts_deterministic_with_id_column() {
+        let mut transformer = Transformer {
+            name: TransformerType::Scramble,
+            args: Some(HashMap::new()),
+        };
+        transformer
+            .args
+            .as_mut()
+            .unwrap()
+            .insert("deterministic".to_string(), "true".to_string());
+        transformer
+            .args
+            .as_mut()
+            .unwrap()
+            .insert("id_column".to_string(), "user_id".to_string());
+
+        let strategies = vec![StrategyInFile {
+            table_name: "public.person".to_string(),
+            description: "description".to_string(),
+            truncate: false,
+            columns: vec![ColumnInFile {
+                data_category: DataCategory::General,
+                description: "first_name".to_string(),
+                name: "first_name".to_string(),
+                transformer,
+            }],
+        }];
+
+        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+
+        assert!(result.is_ok());
     }
 
     fn transformer_for_column(column_name: &str, strategies: &Strategies) -> Transformer {

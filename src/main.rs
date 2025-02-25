@@ -98,7 +98,7 @@ fn main() -> Result<(), std::io::Error> {
                 Err(err) => {
                     println!("{}", err);
                     println!("Ok! lets try and fix some of this!");
-                    fixer::fix(&strategy_file, err);
+                    fixer::fix(&strategy_file, *err);
                     println!("All done, you probably want to run \"check-strategies\" again to make sure");
                 }
             },
@@ -116,7 +116,7 @@ fn main() -> Result<(), std::io::Error> {
                 Ok(()) => println!("All up to date"),
                 Err(err) => {
                     if fixer::can_fix(&err) {
-                        fixer::fix(&strategy_file, err);
+                        fixer::fix(&strategy_file, *err);
                         println!("All done, you'll need to set a data_type and transformer for those fields");
                     }
                     std::process::exit(1);
@@ -151,16 +151,20 @@ fn read_strategy_file(strategy_file: &str, db_url: &str) -> Result<Vec<StrategyI
 fn strategy_differences(
     strategies: Vec<StrategyInFile>,
     db_url: String,
-) -> Result<(), StrategyFileError> {
+) -> Result<(), Box<StrategyFileError>> {
     let transformer = TransformerOverrides::none();
-    let parsed_strategies = Strategies::from_strategies_in_file(strategies, &transformer)?;
+    let parsed_strategies = Strategies::from_strategies_in_file(strategies, &transformer)
+        .map_err(|e| Box::new(StrategyFileError::ValidationError(Box::new(*e))))?;
+
     let builder = TlsConnector::builder();
     let connector =
         MakeTlsConnector::new(builder.build().expect("should be able to create builder!"));
 
     let mut client = postgres::Client::connect(&db_url, connector).expect("expected to connect!");
     let db_columns = db_schema::parse(&mut client);
-    parsed_strategies.validate_against_db(db_columns)?;
+    parsed_strategies
+        .validate_against_db(db_columns)
+        .map_err(|e| Box::new(StrategyFileError::DbMismatchError(Box::new(e))))?;
     Ok(())
 }
 
