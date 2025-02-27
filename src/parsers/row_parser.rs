@@ -119,9 +119,9 @@ fn transform_row_with_columns(
     columns: &[ColumnInfo],
     types: &Types,
 ) -> String {
-    let column_values = data_row::split(line);
+    let column_values: Vec<String> = data_row::split(line).map(|s| s.to_string()).collect();
 
-    let mut transformed = column_values.enumerate().map(|(i, value)| {
+    let mut transformed = column_values.iter().enumerate().map(|(i, value)| {
         let current_column = &columns[i];
         let column_type = types
             //TODO this lookup, we do a double hashmap lookup for every column... already know the
@@ -137,12 +137,20 @@ fn transform_row_with_columns(
                 )
             });
 
+        // Create a vector of (column_name, value) pairs
+        let column_name_values: Vec<(String, String)> = columns
+            .iter()
+            .zip(column_values.iter())
+            .map(|(col, val)| (col.name.clone(), val.clone()))
+            .collect();
+
         transformer::transform(
             rng,
             value,
             column_type,
             &current_column.transformer,
             table_name,
+            &column_name_values,
         )
     });
 

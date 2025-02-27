@@ -15,6 +15,7 @@ use fake::Fake;
 use log::trace;
 use rand::SeedableRng;
 use rand::{rngs::SmallRng, Rng};
+use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -27,12 +28,24 @@ fn get_unique() -> usize {
     UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst)
 }
 
+fn get_faker_rng(value: &str, id: Option<&str>) -> SmallRng {
+    let mut hasher = Sha256::new();
+    let combined = match id {
+        Some(id) => format!("{}{}", value, id),
+        None => value.to_string(),
+    };
+    hasher.update(combined.as_bytes());
+    let seed = u64::from_le_bytes(hasher.finalize()[..8].try_into().unwrap());
+    SmallRng::seed_from_u64(seed)
+}
+
 pub fn transform<'line>(
     rng: &mut SmallRng,
     value: &'line str,
     column_type: &Type,
     transformer: &'line Transformer,
     table_name: &str,
+    column_values: &[(String, String)],
 ) -> Cow<'line, str> {
     if ["\\N", "deleted"].contains(&value) {
         return Cow::from(value);
@@ -46,10 +59,27 @@ pub fn transform<'line>(
         sub_type: underlying_type,
     } = column_type
     {
-        return transform_array(rng, value, underlying_type, transformer, table_name);
+        return transform_array(
+            rng,
+            value,
+            underlying_type,
+            transformer,
+            table_name,
+            column_values,
+        );
     }
 
     let unique = get_unique();
+
+    // Get the id value if specified in transformer args
+    let id = transformer.args.as_ref().and_then(|args| {
+        args.get("id_column").and_then(|id_column| {
+            column_values
+                .iter()
+                .find(|(col, _)| col == id_column)
+                .map(|(_, val)| val.as_str())
+        })
+    });
 
     //TODO error if inappropriate transformer for type is used e.g. scramble for json should give
     //nice error rather than making invalid sql
@@ -62,16 +92,18 @@ pub fn transform<'line>(
         TransformerType::FakeBase16String => Cow::from(fake_base16_string()),
         TransformerType::FakeBase32String => Cow::from(fake_base32_string()),
         TransformerType::FakeCity => Cow::from(CityName().fake::<String>()),
-        TransformerType::FakeCompanyName => Cow::from(fake_company_name(&transformer.args, unique)),
-        TransformerType::FakeEmail => Cow::from(fake_email(&transformer.args, unique)),
+        TransformerType::FakeCompanyName => {
+            Cow::from(fake_company_name(value, &transformer.args, unique))
+        }
+        TransformerType::FakeEmail => Cow::from(fake_email(value, &transformer.args, unique)),
         TransformerType::FakeEmailOrPhone => {
             Cow::from(fake_email_or_phone(value, &transformer.args, unique))
         }
-        TransformerType::FakeFirstName => Cow::from(FirstName().fake::<String>()),
+        TransformerType::FakeFirstName => Cow::from(fake_first_name(value, &transformer.args, id)),
         TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
-        TransformerType::FakeFullName => Cow::from(fake_full_name()),
+        TransformerType::FakeFullName => Cow::from(fake_full_name(value, &transformer.args, id)),
         TransformerType::FakeIPv4 => Cow::from(IPv4().fake::<String>()),
-        TransformerType::FakeLastName => Cow::from(LastName().fake::<String>()),
+        TransformerType::FakeLastName => Cow::from(fake_last_name(value, &transformer.args, id)),
         TransformerType::FakeNationalIdentityNumber => Cow::from(fake_national_identity_number()),
         TransformerType::FakePostCode => Cow::from(fake_postcode(value)),
         TransformerType::FakePhoneNumber => Cow::from(fake_phone_number(value)),
@@ -94,6 +126,7 @@ fn transform_array<'value>(
     underlying_type: &SubType,
     transformer: &Transformer,
     table_name: &str,
+    column_values: &[(String, String)],
 ) -> Cow<'value, str> {
     let quoted_types = [SubType::Character, SubType::Json];
     let requires_quotes = quoted_types.contains(underlying_type);
@@ -103,12 +136,28 @@ fn transform_array<'value>(
     };
 
     let transformed_array = if requires_quotes {
-        transform_quoted_array(rng, value, &sub_type, transformer, table_name)
+        transform_quoted_array(
+            rng,
+            value,
+            &sub_type,
+            transformer,
+            table_name,
+            column_values,
+        )
     } else {
         let unsplit_array = &value[1..value.len() - 1];
         unsplit_array
             .split(", ")
-            .map(|list_item| transform(rng, list_item, &sub_type, transformer, table_name))
+            .map(|list_item| {
+                transform(
+                    rng,
+                    list_item,
+                    &sub_type,
+                    transformer,
+                    table_name,
+                    column_values,
+                )
+            })
             .collect::<Vec<Cow<str>>>()
             .join(",")
     };
@@ -121,6 +170,7 @@ fn transform_quoted_array(
     sub_type: &Type,
     transformer: &Transformer,
     table_name: &str,
+    column_values: &[(String, String)],
 ) -> String {
     let mut inside_word = false;
     let mut word_is_quoted = false;
@@ -145,7 +195,14 @@ fn transform_quoted_array(
         {
             inside_word = false;
             word_is_quoted = false;
-            let transformed = transform(rng, &current_word, sub_type, transformer, table_name);
+            let transformed = transform(
+                rng,
+                &current_word,
+                sub_type,
+                transformer,
+                table_name,
+                column_values,
+            );
             write!(word_acc, "\"{}\",", &transformed)
                 .expect("Should be able to apppend to word_acc");
             current_word = "".to_string();
@@ -169,6 +226,12 @@ fn transform_quoted_array(
     //Remove the trailing comma from line: 145!
     word_acc.pop();
     word_acc
+}
+
+fn is_deterministic(args: &Option<HashMap<String, String>>) -> bool {
+    args.as_ref()
+        .and_then(|args| args.get("deterministic"))
+        .map_or(false, |val| val == "true")
 }
 
 fn prepend_unique_if_present(
@@ -202,14 +265,16 @@ fn fake_base32_string() -> String {
     base32::encode(Alphabet::Rfc4648 { padding: true }, &random_bytes)
 }
 
-fn fake_company_name(args: &Option<HashMap<String, String>>, unique: usize) -> String {
-    let new_company_name = CompanyName().fake();
+fn fake_company_name(value: &str, args: &Option<HashMap<String, String>>, unique: usize) -> String {
+    let mut seeded_rng = get_faker_rng(value, None);
+    let new_company_name = CompanyName().fake_with_rng::<String, _>(&mut seeded_rng);
     prepend_unique_if_present(new_company_name, args, unique)
 }
 
-fn fake_email(optional_args: &Option<HashMap<String, String>>, unique: usize) -> String {
-    let new_email = FreeEmail().fake();
-    prepend_unique_if_present(new_email, optional_args, unique)
+fn fake_email(value: &str, args: &Option<HashMap<String, String>>, unique: usize) -> String {
+    let mut seeded_rng = get_faker_rng(value, None);
+    let new_email = FreeEmail().fake_with_rng::<String, _>(&mut seeded_rng);
+    prepend_unique_if_present(new_email, args, unique)
 }
 
 fn fake_email_or_phone(
@@ -220,7 +285,7 @@ fn fake_email_or_phone(
     if current_value.starts_with('+') && !current_value.contains('@') {
         fake_phone_number(current_value)
     } else {
-        fake_email(optional_args, unique)
+        fake_email(current_value, optional_args, unique)
     }
 }
 
@@ -237,9 +302,42 @@ fn fake_full_address() -> String {
     format!("{}, {}, {}", line_1, city_name, state)
 }
 
-fn fake_full_name() -> String {
-    let first: String = FirstName().fake();
-    let last: String = LastName().fake();
+fn fake_first_name(
+    value: &str,
+    args: &Option<HashMap<String, String>>,
+    id: Option<&str>,
+) -> String {
+    let deterministic = is_deterministic(args);
+    let id_to_use = if deterministic { id } else { None };
+
+    match id_to_use {
+        Some(id) => {
+            let mut seeded_rng = get_faker_rng(value, Some(id));
+            FirstName().fake_with_rng::<String, _>(&mut seeded_rng)
+        }
+        None => FirstName().fake::<String>(),
+    }
+}
+
+fn fake_last_name(value: &str, args: &Option<HashMap<String, String>>, id: Option<&str>) -> String {
+    let deterministic = is_deterministic(args);
+    let id_to_use = if deterministic { id } else { None };
+
+    match id_to_use {
+        Some(id) => {
+            let mut seeded_rng = get_faker_rng(value, Some(id));
+            LastName().fake_with_rng::<String, _>(&mut seeded_rng)
+        }
+        None => LastName().fake::<String>(),
+    }
+}
+
+fn fake_full_name(value: &str, args: &Option<HashMap<String, String>>, id: Option<&str>) -> String {
+    let deterministic = is_deterministic(args);
+    let id_to_use = if deterministic { id } else { None };
+
+    let first = fake_first_name(&format!("{}_first", value), args, id_to_use);
+    let last = fake_last_name(&format!("{}_last", value), args, id_to_use);
     format!("{} {}", first, last)
 }
 
@@ -364,6 +462,8 @@ mod tests {
     use regex::Regex;
 
     const TABLE_NAME: &str = "gert_lush_table";
+    const EMPTY_COLUMNS: &[(String, String)] = &[];
+
     #[test]
     fn null_is_not_transformed() {
         let null = "\\N";
@@ -379,6 +479,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert_eq!(new_null, null);
     }
@@ -398,6 +499,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert_eq!(new_deleted, deleted);
     }
@@ -417,6 +519,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_first_name == first_name);
     }
@@ -436,6 +539,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_verification_key != verification_key);
         assert_eq!(new_verification_key.len(), 32);
@@ -456,6 +560,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_verification_key != verification_key);
         assert_eq!(new_verification_key.len(), 32);
@@ -465,20 +570,53 @@ mod tests {
     fn fake_company_name() {
         let company_name = "any company name";
         let mut rng = rng::get();
+        let transformer = Transformer {
+            name: TransformerType::FakeCompanyName,
+            args: None,
+        };
         let new_company_name = transform(
             &mut rng,
             company_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &Transformer {
-                name: TransformerType::FakeCompanyName,
-                args: None,
-            },
+            &transformer,
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_company_name != company_name);
+
+        let repeat_company_name = transform(
+            &mut rng,
+            company_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+        );
+        assert_eq!(
+            new_company_name, repeat_company_name,
+            "Same input should produce same fake company name"
+        );
+
+        let different_company_name = transform(
+            &mut rng,
+            "different company name",
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+        );
+        assert_ne!(
+            new_company_name, different_company_name,
+            "Different inputs should produce different fake company names"
+        );
     }
+
     #[test]
     fn fake_company_name_with_unique_arg() {
         let company_name = "any company name";
@@ -495,25 +633,35 @@ mod tests {
             },
             transformer,
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_company_name != company_name);
+        let re = Regex::new(r"^[0-9]+-.*").unwrap();
+        assert!(
+            re.is_match(&new_company_name),
+            "Company name {:?} does not have the expected unique prefix format",
+            new_company_name
+        );
     }
 
     #[test]
     fn fake_email() {
         let email = "any email";
         let mut rng = rng::get();
+        let transformer = Transformer {
+            name: TransformerType::FakeEmail,
+            args: None,
+        };
+
         let new_email = transform(
             &mut rng,
             email,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &Transformer {
-                name: TransformerType::FakeEmail,
-                args: None,
-            },
+            &transformer,
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_email != email);
 
@@ -522,6 +670,36 @@ mod tests {
             !re.is_match(&new_email),
             "Email {:?} should not have the unique prefix",
             new_email
+        );
+
+        let repeat_email = transform(
+            &mut rng,
+            email,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+        );
+        assert_eq!(
+            new_email, repeat_email,
+            "Same input should produce same fake email"
+        );
+
+        let different_email = transform(
+            &mut rng,
+            "different email",
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+        );
+        assert_ne!(
+            new_email, different_email,
+            "Different inputs should produce different fake emails"
         );
     }
 
@@ -541,6 +719,7 @@ mod tests {
             },
             transformer,
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_email != email);
         let re = Regex::new(r"^[0-9]+-.*@.*\..*").unwrap();
@@ -552,7 +731,7 @@ mod tests {
     }
 
     #[test]
-    fn fake_first_name() {
+    fn fake_first_name_random() {
         let first_name = "any first name";
         let mut rng = rng::get();
         let new_first_name = transform(
@@ -566,31 +745,163 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
-        assert!(new_first_name != first_name);
+
+        assert_ne!(new_first_name, first_name);
     }
 
     #[test]
-    fn fake_full_name() {
-        let full_name = "any full name";
+    fn fake_first_name_deterministic() {
+        let first_name = "John Smith";
         let mut rng = rng::get();
+
+        // Create transformer with deterministic args
+        let transformer = Transformer {
+            name: TransformerType::FakeFirstName,
+            args: Some(HashMap::from([
+                ("deterministic".to_string(), "true".to_string()),
+                ("id_column".to_string(), "user_id".to_string()),
+            ])),
+        };
+
+        let column_values = vec![("user_id".to_string(), "123".to_string())];
+
+        let first_name_for_user1 = transform(
+            &mut rng,
+            first_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values,
+        );
+
+        let repeat_first_name_for_user1 = transform(
+            &mut rng,
+            first_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values,
+        );
+
+        assert_eq!(
+            first_name_for_user1, repeat_first_name_for_user1,
+            "Same input with same user_id should produce same fake name"
+        );
+
+        // Test with different user_id
+        let column_values_user2 = vec![("user_id".to_string(), "456".to_string())];
+
+        let first_name_for_user2 = transform(
+            &mut rng,
+            first_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values_user2,
+        );
+
+        assert_ne!(
+            first_name_for_user1, first_name_for_user2,
+            "Same name with different user_ids should produce different fake names"
+        );
+    }
+
+    #[test]
+    fn fake_full_name_random() {
+        let full_name = "John Smith";
+        let mut rng = rng::get();
+
+        let transformer = Transformer {
+            name: TransformerType::FakeFullName,
+            args: None,
+        };
+
         let new_full_name = transform(
             &mut rng,
             full_name,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            &Transformer {
-                name: TransformerType::FakeFullName,
-                args: None,
-            },
+            &transformer,
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
-        assert!(new_full_name != full_name);
+
+        assert_ne!(new_full_name, full_name);
     }
 
     #[test]
-    fn fake_last_name() {
+    fn fake_full_name_deterministic() {
+        let full_name = "John Smith";
+        let mut rng = rng::get();
+
+        let transformer = Transformer {
+            name: TransformerType::FakeFullName,
+            args: Some(HashMap::from([
+                ("deterministic".to_string(), "true".to_string()),
+                ("id_column".to_string(), "user_id".to_string()),
+            ])),
+        };
+
+        let column_values = vec![("user_id".to_string(), "123".to_string())];
+
+        let full_name_for_user1 = transform(
+            &mut rng,
+            full_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values,
+        );
+
+        let repeat_full_name_for_user1 = transform(
+            &mut rng,
+            full_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values,
+        );
+
+        assert_eq!(
+            full_name_for_user1, repeat_full_name_for_user1,
+            "Same input with same user_id should produce same fake name"
+        );
+
+        // Test with different user_id
+        let column_values_user2 = vec![("user_id".to_string(), "456".to_string())];
+
+        let full_name_for_user2 = transform(
+            &mut rng,
+            full_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values_user2,
+        );
+
+        assert_ne!(
+            full_name_for_user1, full_name_for_user2,
+            "Same name with different user_ids should produce different fake names"
+        );
+    }
+
+    #[test]
+    fn fake_last_name_random() {
         let last_name = "any last name";
         let mut rng = rng::get();
         let new_last_name = transform(
@@ -604,8 +915,72 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
-        assert!(new_last_name != last_name);
+
+        assert_ne!(new_last_name, last_name);
+    }
+
+    #[test]
+    fn fake_last_name_deterministic() {
+        let last_name = "Smith";
+        let mut rng = rng::get();
+
+        let transformer = Transformer {
+            name: TransformerType::FakeLastName,
+            args: Some(HashMap::from([
+                ("deterministic".to_string(), "true".to_string()),
+                ("id_column".to_string(), "user_id".to_string()),
+            ])),
+        };
+
+        let column_values = vec![("user_id".to_string(), "123".to_string())];
+
+        let last_name_for_user1 = transform(
+            &mut rng,
+            last_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values,
+        );
+
+        let repeat_last_name_for_user1 = transform(
+            &mut rng,
+            last_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values,
+        );
+
+        assert_eq!(
+            last_name_for_user1, repeat_last_name_for_user1,
+            "Same input with same user_id should produce same fake name"
+        );
+
+        // Test with different user_id
+        let column_values_user2 = vec![("user_id".to_string(), "456".to_string())];
+
+        let last_name_for_user2 = transform(
+            &mut rng,
+            last_name,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            &column_values_user2,
+        );
+
+        assert_ne!(
+            last_name_for_user1, last_name_for_user2,
+            "Same name with different user_ids should produce different fake names"
+        );
     }
 
     #[test]
@@ -623,6 +998,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_street_address != street_address);
     }
@@ -642,6 +1018,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_national_identity_number != national_identity_number);
         assert!(national_insurance_number::NATIONAL_INSURANCE_NUMBERS
@@ -663,6 +1040,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_phone_number != phone_number);
         assert!(new_phone_number.starts_with("+4477009"));
@@ -683,6 +1061,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_email != email);
         assert!(new_email.contains('@'));
@@ -703,6 +1082,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_phone_number != phone_number);
         assert!(new_phone_number.starts_with("+4477009"));
@@ -724,6 +1104,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_phone_number != phone_number);
         assert!(new_phone_number.starts_with("+1"));
@@ -745,6 +1126,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert_eq!(new_postcode, "NW5");
     }
@@ -764,6 +1146,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_user_name != user_name);
     }
@@ -784,6 +1167,7 @@ mod tests {
             },
             transformer,
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
 
         assert!(new_user_name != user_name);
@@ -815,6 +1199,7 @@ mod tests {
             },
             transformer,
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert_eq!(new_url, fixed_url);
     }
@@ -834,6 +1219,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
     }
 
@@ -854,6 +1240,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert_eq!(obfuscated_date, "2020-12-01");
     }
@@ -878,6 +1265,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
     }
 
@@ -898,6 +1286,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert_eq!(result, "0001-08-01 BC");
     }
@@ -919,6 +1308,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_value != initial_value);
         assert_eq!(new_value.chars().count(), initial_value.chars().count());
@@ -944,6 +1334,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         let re = Regex::new(r"^[a-z][a-z]\\.\\?").unwrap();
         assert!(
@@ -969,6 +1360,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         let re = Regex::new(r"^[a-z]{2} [0-9]{2} [a-z][0-9][a-z][0-9]").unwrap();
         assert!(
@@ -981,7 +1373,6 @@ mod tests {
     #[test]
     fn scramble_calculates_unicode_length_correctly() {
         let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
-
         let mut rng = rng::get();
         let new_value = transform(
             &mut rng,
@@ -994,6 +1385,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_value != initial_value);
         assert_eq!(new_value.chars().count(), initial_value.chars().count());
@@ -1015,6 +1407,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_value != initial_value);
         //TODO finish this test
@@ -1036,6 +1429,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_value != initial_value);
         assert!(!new_value.contains("Second line"));
@@ -1058,6 +1452,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_value != initial_value);
         let re = Regex::new(r"^[0-9]{9}$").unwrap();
@@ -1083,6 +1478,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_value != initial_value);
         let re = Regex::new(r#"^\{"[a-z]","[a-z]","[a-z] [a-z]{2} [a-z]"\}$"#).unwrap();
@@ -1108,6 +1504,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_value != initial_value);
         let re = Regex::new(r#"^\{"[a-z]{2} [a-z]{2} [a-z]","[a-z]"\}$"#).unwrap();
@@ -1134,6 +1531,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert_eq!(new_value, initial_value);
     }
@@ -1153,6 +1551,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert!(new_value != initial_value);
         let re = Regex::new(r#"^\{[0-9],[0-9]{2},[0-9]{3},[0-9]{4}\}$"#).unwrap();
@@ -1179,6 +1578,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
 
         assert!(new_value == "______ ____");
@@ -1200,6 +1600,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
 
         assert!(new_value == r#"___\n___\n_____"#);
@@ -1220,6 +1621,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert_eq!(new_json, "{\"{}\",\"{}\"}");
     }
@@ -1241,6 +1643,7 @@ mod tests {
                 args: None,
             },
             TABLE_NAME,
+            EMPTY_COLUMNS,
         );
         assert_eq!(new_json, "{}");
     }
