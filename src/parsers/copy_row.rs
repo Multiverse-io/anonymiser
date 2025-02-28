@@ -9,6 +9,7 @@ use regex::Regex;
 pub struct CurrentTableTransforms {
     pub table_name: String,
     pub table_transformers: TableTransformers,
+    pub salt: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -48,10 +49,12 @@ fn get_current_table_information(
         .map(sanitiser::dequote_column_or_table_name_data)
         .collect();
     let table_transformers = table_strategy(strategies, &table_name, &column_name_list);
+    let salt = strategies.salt_for_table(&table_name).map(String::from);
 
     CurrentTableTransforms {
         table_name,
         table_transformers,
+        salt,
     }
 }
 
@@ -63,7 +66,7 @@ fn table_strategy(
     let strategies_for_table = strategies.for_table(table_name);
 
     match strategies_for_table {
-        Some(TableStrategy::Columns(columns_with_names)) => {
+        Some(TableStrategy::Columns(columns_with_names, _)) => {
             let column_infos = column_name_list
                 .iter()
                 .map(|column_name| match columns_with_names.get(column_name) {
@@ -120,6 +123,7 @@ mod tests {
         let expected = CurrentTableTransforms {
             table_name: "public.users".to_string(),
             table_transformers: TableTransformers::ColumnTransformer(columns),
+            salt: None,
         };
 
         assert_eq!(expected.table_name, parsed_copy_row.table_name);
@@ -127,6 +131,7 @@ mod tests {
             expected.table_transformers,
             parsed_copy_row.table_transformers
         );
+        assert_eq!(expected.salt, parsed_copy_row.salt);
     }
 
     #[test]
@@ -150,6 +155,7 @@ mod tests {
             expected_table_transformers,
             parsed_copy_row.table_transformers
         );
+        assert_eq!(None, parsed_copy_row.salt);
     }
 
     #[test]
