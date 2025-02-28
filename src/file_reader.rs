@@ -71,6 +71,7 @@ mod tests {
                 strategy_tuple("user_id"),
                 strategy_tuple("product_id"),
             ]),
+            None,
         );
         strategies.insert(
             "public.products".to_string(),
@@ -81,6 +82,7 @@ mod tests {
                 strategy_tuple("details"),
                 strategy_tuple("tags"),
             ]),
+            None,
         );
 
         strategies.insert(
@@ -97,11 +99,13 @@ mod tests {
                 strategy_tuple("deactivated"),
                 strategy_tuple("phone_number"),
             ]),
+            None,
         );
 
         strategies.insert(
             "public.extra_data".to_string(),
             HashMap::from([strategy_tuple("id"), strategy_tuple("data")]),
+            None,
         );
 
         strategies

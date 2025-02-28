@@ -96,6 +96,7 @@ mod tests {
             current_table: CurrentTableTransforms {
                 table_name: "table-mc-tableface".to_string(),
                 table_transformers: TableTransformers::ColumnTransformer(vec![]),
+                salt: None,
             },
         };
 

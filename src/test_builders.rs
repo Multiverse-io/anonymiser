@@ -85,6 +85,7 @@ pub mod builders {
                 description: self
                     .description
                     .unwrap_or_else(|| "Any description".to_string()),
+                salt: None,
                 columns: self.columns,
             }
         }

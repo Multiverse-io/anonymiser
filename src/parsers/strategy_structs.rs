@@ -51,6 +51,9 @@ pub struct StrategyInFile {
     #[serde(default)]
     pub truncate: bool,
 
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub salt: Option<String>,
+
     pub columns: Vec<ColumnInFile>,
 }
 
