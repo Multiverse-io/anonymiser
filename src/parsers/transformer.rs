@@ -96,18 +96,32 @@ pub fn transform<'line>(
         TransformerType::FakeBase16String => Cow::from(fake_base16_string()),
         TransformerType::FakeBase32String => Cow::from(fake_base32_string()),
         TransformerType::FakeCity => Cow::from(CityName().fake::<String>()),
-        TransformerType::FakeCompanyName => {
-            Cow::from(fake_company_name(value, &transformer.args, unique, global_salt))
+        TransformerType::FakeCompanyName => Cow::from(fake_company_name(
+            value,
+            &transformer.args,
+            unique,
+            global_salt,
+        )),
+        TransformerType::FakeEmail => {
+            Cow::from(fake_email(value, &transformer.args, unique, global_salt))
         }
-        TransformerType::FakeEmail => Cow::from(fake_email(value, &transformer.args, unique, global_salt)),
-        TransformerType::FakeEmailOrPhone => {
-            Cow::from(fake_email_or_phone(value, &transformer.args, unique, global_salt))
+        TransformerType::FakeEmailOrPhone => Cow::from(fake_email_or_phone(
+            value,
+            &transformer.args,
+            unique,
+            global_salt,
+        )),
+        TransformerType::FakeFirstName => {
+            Cow::from(fake_first_name(value, &transformer.args, id, global_salt))
         }
-        TransformerType::FakeFirstName => Cow::from(fake_first_name(value, &transformer.args, id, global_salt)),
         TransformerType::FakeFullAddress => Cow::from(fake_full_address()),
-        TransformerType::FakeFullName => Cow::from(fake_full_name(value, &transformer.args, id, global_salt)),
+        TransformerType::FakeFullName => {
+            Cow::from(fake_full_name(value, &transformer.args, id, global_salt))
+        }
         TransformerType::FakeIPv4 => Cow::from(IPv4().fake::<String>()),
-        TransformerType::FakeLastName => Cow::from(fake_last_name(value, &transformer.args, id, global_salt)),
+        TransformerType::FakeLastName => {
+            Cow::from(fake_last_name(value, &transformer.args, id, global_salt))
+        }
         TransformerType::FakeNationalIdentityNumber => Cow::from(fake_national_identity_number()),
         TransformerType::FakePostCode => Cow::from(fake_postcode(value)),
         TransformerType::FakePhoneNumber => Cow::from(fake_phone_number(value)),
@@ -274,13 +288,23 @@ fn fake_base32_string() -> String {
     base32::encode(Alphabet::Rfc4648 { padding: true }, &random_bytes)
 }
 
-fn fake_company_name(value: &str, args: &Option<HashMap<String, String>>, unique: usize, global_salt: Option<&str>) -> String {
+fn fake_company_name(
+    value: &str,
+    args: &Option<HashMap<String, String>>,
+    unique: usize,
+    global_salt: Option<&str>,
+) -> String {
     let mut seeded_rng = get_faker_rng(value, None, global_salt);
     let new_company_name = CompanyName().fake_with_rng::<String, _>(&mut seeded_rng);
     prepend_unique_if_present(new_company_name, args, unique)
 }
 
-fn fake_email(value: &str, args: &Option<HashMap<String, String>>, unique: usize, global_salt: Option<&str>) -> String {
+fn fake_email(
+    value: &str,
+    args: &Option<HashMap<String, String>>,
+    unique: usize,
+    global_salt: Option<&str>,
+) -> String {
     let mut seeded_rng = get_faker_rng(value, None, global_salt);
     let new_email = FreeEmail().fake_with_rng::<String, _>(&mut seeded_rng);
     prepend_unique_if_present(new_email, args, unique)

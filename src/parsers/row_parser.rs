@@ -104,16 +104,14 @@ fn transform_row(
     types: &Types,
 ) -> String {
     match current_table.table_transformers {
-        TableTransformers::ColumnTransformer(ref columns) => {
-            transform_row_with_columns(
-                rng,
-                line,
-                &current_table.table_name,
-                columns,
-                types,
-                current_table.salt.as_deref(),
-            )
-        }
+        TableTransformers::ColumnTransformer(ref columns) => transform_row_with_columns(
+            rng,
+            line,
+            &current_table.table_name,
+            columns,
+            types,
+            current_table.salt.as_deref(),
+        ),
 
         TableTransformers::Truncator => "".to_string(),
     }

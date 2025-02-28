@@ -84,7 +84,11 @@ impl Strategies {
                     }
                 }
 
-                let result = transformed_strategies.insert(strategy.table_name.clone(), columns, strategy.salt);
+                let result = transformed_strategies.insert(
+                    strategy.table_name.clone(),
+                    columns,
+                    strategy.salt,
+                );
                 if result.is_some() {
                     errors.duplicate_tables.push(strategy.table_name);
                 }
@@ -189,19 +193,21 @@ impl Strategies {
     }
 
     #[allow(dead_code)] //This is used in tests for convenience
-    pub fn new_from_with_salt(table_name: String, columns: HashMap<String, ColumnInfo>, salt: Option<String>) -> Strategies {
+    pub fn new_from_with_salt(
+        table_name: String,
+        columns: HashMap<String, ColumnInfo>,
+        salt: Option<String>,
+    ) -> Strategies {
         Strategies {
             tables: HashMap::from([(table_name, TableStrategy::Columns(columns, salt))]),
         }
     }
 
     pub fn salt_for_table<'a>(&self, table_name: &'a str) -> Option<&'a str> {
-        self.tables
-            .get(table_name)
-            .and_then(|table| match table {
-                TableStrategy::Columns(_, salt) => salt.as_deref(),
-                TableStrategy::Truncate => None,
-            })
+        self.tables.get(table_name).and_then(|table| match table {
+            TableStrategy::Columns(_, salt) => salt.as_deref(),
+            TableStrategy::Truncate => None,
+        })
     }
 }
 
@@ -806,7 +812,11 @@ mod tests {
         strategies
     }
 
-    fn create_strategy_with_salt<I>(table_name: &str, columns: I, salt: Option<String>) -> Strategies
+    fn create_strategy_with_salt<I>(
+        table_name: &str,
+        columns: I,
+        salt: Option<String>,
+    ) -> Strategies
     where
         I: Iterator<Item = (String, ColumnInfo)>,
     {
