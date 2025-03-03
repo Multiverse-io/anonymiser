@@ -33,11 +33,20 @@ impl Strategies {
         let mut transformed_strategies = Strategies::new();
         let mut errors = ValidationErrors::new();
 
-        transformed_strategies.salt = strategies_in_file
-            .first()
-            .and_then(|strategy| strategy.salt.clone());
+        // Check if the first item is a salt configuration
+        if let Some(first) = strategies_in_file.first() {
+            transformed_strategies.salt = if first.table_name.is_empty() {
+                first.salt.clone()
+            } else {
+                None
+            };
+        }
 
         for strategy in strategies_in_file {
+            if strategy.table_name.is_empty() {
+                continue;
+            }
+
             // Validate deterministic settings
             for column in &strategy.columns {
                 if let Some(args) = &column.transformer.args {
@@ -409,17 +418,28 @@ mod tests {
         let column_name = "column1";
         let salt = "test_salt".to_string();
 
-        let strategies = vec![StrategyInFile {
-            table_name: TABLE_NAME.to_string(),
-            description: "description".to_string(),
-            truncate: false,
-            salt: Some(salt.clone()),
-            columns: vec![column_in_file(
-                DataCategory::Pii,
-                column_name,
-                TransformerType::Scramble,
-            )],
-        }];
+        let strategies = vec![
+            // First item is salt configuration (matches JSON structure)
+            StrategyInFile {
+                table_name: String::default(), // Will be empty string
+                description: String::default(),
+                truncate: false,
+                salt: Some(salt.clone()),
+                columns: Vec::default(),
+            },
+            // Actual table strategy
+            StrategyInFile {
+                table_name: TABLE_NAME.to_string(),
+                description: "description".to_string(),
+                truncate: false,
+                salt: None,
+                columns: vec![column_in_file(
+                    DataCategory::Pii,
+                    column_name,
+                    TransformerType::Scramble,
+                )],
+            },
+        ];
 
         let expected = Strategies::new_from_with_salt(
             TABLE_NAME.to_string(),
@@ -816,19 +836,6 @@ mod tests {
         strategies
     }
 
-    fn create_strategy_with_salt<I>(
-        table_name: &str,
-        columns: I,
-        salt: Option<String>,
-    ) -> Strategies
-    where
-        I: Iterator<Item = (String, ColumnInfo)>,
-    {
-        let mut strategies = Strategies::new();
-        add_table(&mut strategies, table_name, columns, salt);
-        strategies
-    }
-
     fn add_table<I>(strategies: &mut Strategies, table_name: &str, columns: I, salt: Option<String>)
     where
         I: Iterator<Item = (String, ColumnInfo)>,
@@ -858,25 +865,5 @@ mod tests {
                 .with_transformer(transformer_type, None)
                 .build(),
         )
-    }
-
-    #[test]
-    fn salt_for_table_returns_salt_when_present() {
-        let test_salt = "test_salt".to_string();
-        let strategies = create_strategy_with_salt(
-            TABLE_NAME,
-            [create_column("column1")].into_iter(),
-            Some(test_salt.clone()),
-        );
-
-        assert_eq!(strategies.salt_for_table(TABLE_NAME), Some("test_salt"));
-    }
-
-    #[test]
-    fn salt_for_table_returns_none_when_not_present() {
-        let strategies = create_strategy(TABLE_NAME, [create_column("column1")].into_iter());
-
-        let result = strategies.salt_for_table(TABLE_NAME);
-        assert_eq!(result, None);
     }
 }

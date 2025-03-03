@@ -45,7 +45,10 @@ impl PartialEq for ColumnInFile {
 
 #[derive(Clone, Debug, Eq, Serialize, Deserialize)]
 pub struct StrategyInFile {
+    #[serde(default)]
     pub table_name: String,
+
+    #[serde(default)]
     pub description: String,
 
     #[serde(default)]
@@ -54,6 +57,7 @@ pub struct StrategyInFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub salt: Option<String>,
 
+    #[serde(default)]
     pub columns: Vec<ColumnInFile>,
 }
 
@@ -166,4 +170,9 @@ impl Default for TransformerOverrides {
     fn default() -> Self {
         Self::none()
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SaltConfig {
+    pub salt: String,
 }
