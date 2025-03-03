@@ -59,6 +59,7 @@ pub mod builders {
         table_name: String,
         description: Option<String>,
         columns: Vec<ColumnInFile>,
+        salt: Option<String>,
     }
 
     impl StrategyInFile {
@@ -85,7 +86,7 @@ pub mod builders {
                 description: self
                     .description
                     .unwrap_or_else(|| "Any description".to_string()),
-                salt: None,
+                salt: self.salt,
                 columns: self.columns,
             }
         }

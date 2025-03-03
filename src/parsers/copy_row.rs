@@ -68,7 +68,7 @@ fn table_strategy(
     let strategies_for_table = strategies.for_table(table_name);
 
     match strategies_for_table {
-        Some(TableStrategy::Columns(columns_with_names, _)) => {
+        Some(TableStrategy::Columns(columns_with_names)) => {
             let column_infos = column_name_list
                 .iter()
                 .map(|column_name| match columns_with_names.get(column_name) {
@@ -116,7 +116,14 @@ mod tests {
             .iter()
             .map(|column| (column.name.clone(), column.clone()))
             .collect();
-        let strategies = Strategies::new_from("public.users".to_string(), column_infos_with_name);
+
+        let test_salt = "test_table_salt".to_string();
+        let strategies = Strategies::new_from_with_salt(
+            "public.users".to_string(),
+            column_infos_with_name,
+            Some(test_salt.clone()),
+        );
+
         let parsed_copy_row = parse(
             "COPY public.users (id, first_name, last_name) FROM stdin;\n",
             &strategies,
@@ -125,7 +132,7 @@ mod tests {
         let expected = CurrentTableTransforms {
             table_name: "public.users".to_string(),
             table_transformers: TableTransformers::ColumnTransformer(columns),
-            salt: None,
+            salt: Some(test_salt),
         };
 
         assert_eq!(expected.table_name, parsed_copy_row.table_name);

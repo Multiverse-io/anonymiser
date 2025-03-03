@@ -9,11 +9,12 @@ type ColumnNamesToInfo = HashMap<String, ColumnInfo>;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Strategies {
     tables: HashMap<String, TableStrategy>,
+    salt: Option<String>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TableStrategy {
-    Columns(ColumnNamesToInfo, Option<String>),
+    Columns(ColumnNamesToInfo),
     Truncate,
 }
 
@@ -21,6 +22,7 @@ impl Strategies {
     pub fn new() -> Strategies {
         Strategies {
             tables: HashMap::new(),
+            salt: None,
         }
     }
 
@@ -30,6 +32,10 @@ impl Strategies {
     ) -> Result<Strategies, Box<ValidationErrors>> {
         let mut transformed_strategies = Strategies::new();
         let mut errors = ValidationErrors::new();
+
+        transformed_strategies.salt = strategies_in_file
+            .first()
+            .and_then(|strategy| strategy.salt.clone());
 
         for strategy in strategies_in_file {
             // Validate deterministic settings
@@ -84,11 +90,7 @@ impl Strategies {
                     }
                 }
 
-                let result = transformed_strategies.insert(
-                    strategy.table_name.clone(),
-                    columns,
-                    strategy.salt,
-                );
+                let result = transformed_strategies.insert(strategy.table_name.clone(), columns);
                 if result.is_some() {
                     errors.duplicate_tables.push(strategy.table_name);
                 }
@@ -111,10 +113,9 @@ impl Strategies {
         &mut self,
         table_name: String,
         columns: HashMap<String, ColumnInfo>,
-        salt: Option<String>,
     ) -> Option<TableStrategy> {
         self.tables
-            .insert(table_name, TableStrategy::Columns(columns, salt))
+            .insert(table_name, TableStrategy::Columns(columns))
     }
     pub fn insert_truncate(&mut self, table_name: String) -> Option<TableStrategy> {
         self.tables.insert(table_name, TableStrategy::Truncate)
@@ -129,7 +130,7 @@ impl Strategies {
             .clone()
             .into_iter()
             .partition_map(|(table, table_strategy)| match table_strategy {
-                TableStrategy::Columns(columns, _) => Either::Left((table, columns)),
+                TableStrategy::Columns(columns) => Either::Left((table, columns)),
                 TableStrategy::Truncate => Either::Right(table),
             });
 
@@ -179,7 +180,7 @@ impl Strategies {
         self.tables
             .get(table_name)
             .and_then(|table| match table {
-                TableStrategy::Columns(columns, _) => columns.get(column_name),
+                TableStrategy::Columns(columns) => columns.get(column_name),
                 TableStrategy::Truncate => None,
             })
             .map(|column| column.transformer.clone())
@@ -188,7 +189,8 @@ impl Strategies {
     #[allow(dead_code)] //This is used in tests for convenience
     pub fn new_from(table_name: String, columns: HashMap<String, ColumnInfo>) -> Strategies {
         Strategies {
-            tables: HashMap::from([(table_name, TableStrategy::Columns(columns, None))]),
+            tables: HashMap::from([(table_name, TableStrategy::Columns(columns))]),
+            salt: None,
         }
     }
 
@@ -199,15 +201,17 @@ impl Strategies {
         salt: Option<String>,
     ) -> Strategies {
         Strategies {
-            tables: HashMap::from([(table_name, TableStrategy::Columns(columns, salt))]),
+            tables: HashMap::from([(table_name, TableStrategy::Columns(columns))]),
+            salt,
         }
     }
 
-    pub fn salt_for_table<'a>(&'a self, table_name: &str) -> Option<&'a str> {
-        self.tables.get(table_name).and_then(|table| match table {
-            TableStrategy::Columns(_, salt) => salt.as_deref(),
-            TableStrategy::Truncate => None,
-        })
+    pub fn salt_for_table(&self, table_name: &str) -> Option<&str> {
+        if self.tables.contains_key(table_name) {
+            self.salt.as_deref()
+        } else {
+            None
+        }
     }
 }
 
@@ -829,7 +833,8 @@ mod tests {
     where
         I: Iterator<Item = (String, ColumnInfo)>,
     {
-        strategies.insert(table_name.to_string(), HashMap::from_iter(columns), salt);
+        strategies.insert(table_name.to_string(), HashMap::from_iter(columns));
+        strategies.salt = salt;
     }
 
     fn create_column(column_name: &str) -> (String, ColumnInfo) {
@@ -857,29 +862,19 @@ mod tests {
 
     #[test]
     fn salt_for_table_returns_salt_when_present() {
-        let salt = "test_salt".to_string();
+        let test_salt = "test_salt".to_string();
         let strategies = create_strategy_with_salt(
             TABLE_NAME,
             [create_column("column1")].into_iter(),
-            Some(salt.clone()),
+            Some(test_salt.clone()),
         );
 
-        let result = strategies.salt_for_table(TABLE_NAME);
-        assert_eq!(result, Some(salt.as_str()));
+        assert_eq!(strategies.salt_for_table(TABLE_NAME), Some("test_salt"));
     }
 
     #[test]
     fn salt_for_table_returns_none_when_not_present() {
         let strategies = create_strategy(TABLE_NAME, [create_column("column1")].into_iter());
-
-        let result = strategies.salt_for_table(TABLE_NAME);
-        assert_eq!(result, None);
-    }
-
-    #[test]
-    fn salt_for_table_returns_none_for_truncated_table() {
-        let mut strategies = Strategies::new();
-        strategies.insert_truncate(TABLE_NAME.to_string());
 
         let result = strategies.salt_for_table(TABLE_NAME);
         assert_eq!(result, None);
