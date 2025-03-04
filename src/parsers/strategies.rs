@@ -9,6 +9,7 @@ type ColumnNamesToInfo = HashMap<String, ColumnInfo>;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Strategies {
     tables: HashMap<String, TableStrategy>,
+    salt: Option<String>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -21,6 +22,7 @@ impl Strategies {
     pub fn new() -> Strategies {
         Strategies {
             tables: HashMap::new(),
+            salt: None,
         }
     }
 
@@ -31,7 +33,20 @@ impl Strategies {
         let mut transformed_strategies = Strategies::new();
         let mut errors = ValidationErrors::new();
 
+        // Check if the first item is a salt configuration
+        if let Some(first) = strategies_in_file.first() {
+            transformed_strategies.salt = if first.table_name.is_empty() {
+                first.salt.clone()
+            } else {
+                None
+            };
+        }
+
         for strategy in strategies_in_file {
+            if strategy.table_name.is_empty() {
+                continue;
+            }
+
             // Validate deterministic settings
             for column in &strategy.columns {
                 if let Some(args) = &column.transformer.args {
@@ -184,6 +199,27 @@ impl Strategies {
     pub fn new_from(table_name: String, columns: HashMap<String, ColumnInfo>) -> Strategies {
         Strategies {
             tables: HashMap::from([(table_name, TableStrategy::Columns(columns))]),
+            salt: None,
+        }
+    }
+
+    #[allow(dead_code)] //This is used in tests for convenience
+    pub fn new_from_with_salt(
+        table_name: String,
+        columns: HashMap<String, ColumnInfo>,
+        salt: Option<String>,
+    ) -> Strategies {
+        Strategies {
+            tables: HashMap::from([(table_name, TableStrategy::Columns(columns))]),
+            salt,
+        }
+    }
+
+    pub fn salt_for_table(&self, table_name: &str) -> Option<&str> {
+        if self.tables.contains_key(table_name) {
+            self.salt.as_deref()
+        } else {
+            None
         }
     }
 }
@@ -240,6 +276,7 @@ mod tests {
             &mut strategies,
             "public.location",
             [create_column("postcode")].into_iter(),
+            None,
         );
 
         let columns_from_db = HashSet::from([
@@ -281,6 +318,7 @@ mod tests {
             &mut strategies,
             "public.location",
             [create_column("postcode")].into_iter(),
+            None,
         );
 
         let columns_from_db = HashSet::from([create_simple_column("public.person", "first_name")]);
@@ -351,6 +389,7 @@ mod tests {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
             truncate: false,
+            salt: None,
             columns: vec![column_in_file(
                 DataCategory::Pii,
                 column_name,
@@ -375,6 +414,51 @@ mod tests {
     }
 
     #[test]
+    fn from_strategies_in_file_can_parse_file_contents_with_salt_into_hashmaps() {
+        let column_name = "column1";
+        let salt = "test_salt".to_string();
+
+        let strategies = vec![
+            // First item is salt configuration (matches JSON structure)
+            StrategyInFile {
+                table_name: String::default(), // Will be empty string
+                description: String::default(),
+                truncate: false,
+                salt: Some(salt.clone()),
+                columns: Vec::default(),
+            },
+            // Actual table strategy
+            StrategyInFile {
+                table_name: TABLE_NAME.to_string(),
+                description: "description".to_string(),
+                truncate: false,
+                salt: None,
+                columns: vec![column_in_file(
+                    DataCategory::Pii,
+                    column_name,
+                    TransformerType::Scramble,
+                )],
+            },
+        ];
+
+        let expected = Strategies::new_from_with_salt(
+            TABLE_NAME.to_string(),
+            HashMap::from([(
+                column_name.to_string(),
+                ColumnInfo::builder()
+                    .with_name(column_name)
+                    .with_data_category(DataCategory::Pii)
+                    .with_transformer(TransformerType::Scramble, None)
+                    .build(),
+            )]),
+            Some(salt),
+        );
+        let parsed = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none())
+            .expect("we shouldnt have duplicate columns!");
+        assert_eq!(expected, parsed);
+    }
+
+    #[test]
     fn from_strategies_in_file_returns_errors_for_duplicate_table_and_column_definitions() {
         let table2_name = "daps";
         let column_name = "column1";
@@ -386,18 +470,21 @@ mod tests {
                 table_name: TABLE_NAME.to_string(),
                 description: "description".to_string(),
                 truncate: false,
+                salt: None,
                 columns: vec![],
             },
             StrategyInFile {
                 table_name: TABLE_NAME.to_string(),
                 description: "description".to_string(),
                 truncate: false,
+                salt: None,
                 columns: vec![],
             },
             StrategyInFile {
                 table_name: table2_name.to_string(),
                 description: "description".to_string(),
                 truncate: false,
+                salt: None,
                 columns: vec![duplicated_column.clone(), duplicated_column],
             },
         ];
@@ -418,6 +505,7 @@ mod tests {
             table_name: "public.person".to_string(),
             description: "description".to_string(),
             truncate: false,
+            salt: None,
             columns: vec![column_in_file(
                 DataCategory::Unknown,
                 "first_name",
@@ -440,6 +528,7 @@ mod tests {
             table_name: "public.person".to_string(),
             description: "description".to_string(),
             truncate: false,
+            salt: None,
             columns: vec![column_in_file(
                 DataCategory::General,
                 "first_name",
@@ -462,6 +551,7 @@ mod tests {
             table_name: "public.person".to_string(),
             description: "description".to_string(),
             truncate: false,
+            salt: None,
             columns: vec![
                 column_in_file(DataCategory::Pii, "first_name", TransformerType::Identity),
                 column_in_file(
@@ -491,6 +581,7 @@ mod tests {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
             truncate: false,
+            salt: None,
             columns: vec![
                 column_in_file(
                     DataCategory::PotentialPii,
@@ -534,6 +625,7 @@ mod tests {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
             truncate: false,
+            salt: None,
             columns: vec![
                 column_in_file(
                     DataCategory::PotentialPii,
@@ -578,6 +670,7 @@ mod tests {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
             truncate: false,
+            salt: None,
             columns: vec![column_in_file(
                 DataCategory::General,
                 SCRAMBLED_COLUMN_NAME,
@@ -605,6 +698,7 @@ mod tests {
             table_name: TABLE_NAME.to_string(),
             description: "description".to_string(),
             truncate: false,
+            salt: None,
             columns: vec![
                 column_in_file(
                     DataCategory::PotentialPii,
@@ -658,6 +752,7 @@ mod tests {
             table_name: "public.person".to_string(),
             description: "description".to_string(),
             truncate: false,
+            salt: None,
             columns: vec![ColumnInFile {
                 data_category: DataCategory::General,
                 description: "first_name".to_string(),
@@ -696,6 +791,7 @@ mod tests {
             table_name: "public.person".to_string(),
             description: "description".to_string(),
             truncate: false,
+            salt: None,
             columns: vec![ColumnInFile {
                 data_category: DataCategory::General,
                 description: "first_name".to_string(),
@@ -736,15 +832,16 @@ mod tests {
         I: Iterator<Item = (String, ColumnInfo)>,
     {
         let mut strategies = Strategies::new();
-        add_table(&mut strategies, table_name, columns);
+        add_table(&mut strategies, table_name, columns, None);
         strategies
     }
 
-    fn add_table<I>(strategies: &mut Strategies, table_name: &str, columns: I)
+    fn add_table<I>(strategies: &mut Strategies, table_name: &str, columns: I, salt: Option<String>)
     where
         I: Iterator<Item = (String, ColumnInfo)>,
     {
         strategies.insert(table_name.to_string(), HashMap::from_iter(columns));
+        strategies.salt = salt;
     }
 
     fn create_column(column_name: &str) -> (String, ColumnInfo) {

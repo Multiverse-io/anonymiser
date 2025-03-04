@@ -104,9 +104,14 @@ fn transform_row(
     types: &Types,
 ) -> String {
     match current_table.table_transformers {
-        TableTransformers::ColumnTransformer(ref columns) => {
-            transform_row_with_columns(rng, line, &current_table.table_name, columns, types)
-        }
+        TableTransformers::ColumnTransformer(ref columns) => transform_row_with_columns(
+            rng,
+            line,
+            &current_table.table_name,
+            columns,
+            types,
+            current_table.salt.as_deref(),
+        ),
 
         TableTransformers::Truncator => "".to_string(),
     }
@@ -118,6 +123,7 @@ fn transform_row_with_columns(
     table_name: &str,
     columns: &[ColumnInfo],
     types: &Types,
+    salt: Option<&str>,
 ) -> String {
     let column_values: Vec<String> = data_row::split(line).map(|s| s.to_string()).collect();
 
@@ -151,6 +157,7 @@ fn transform_row_with_columns(
             &current_column.transformer,
             table_name,
             &column_name_values,
+            salt,
         )
     });
 
@@ -410,6 +417,7 @@ mod tests {
                         ColumnInfo::builder().with_name("column_2").build(),
                         ColumnInfo::builder().with_name("column_3").build(),
                     ]),
+                    salt: None,
                 },
             },
             types: Types::builder()
@@ -455,6 +463,7 @@ mod tests {
                             )
                             .build(),
                     ]),
+                    salt: None,
                 },
             },
             types: Types::builder()
@@ -490,6 +499,7 @@ mod tests {
                             .with_transformer(TransformerType::Identity, None)
                             .build(),
                     ]),
+                    salt: None,
                 },
             },
             types: Types::builder()
@@ -518,6 +528,7 @@ mod tests {
                             .with_transformer(TransformerType::Scramble, None)
                             .build(),
                     ]),
+                    salt: None,
                 },
             },
             types: Types::builder()

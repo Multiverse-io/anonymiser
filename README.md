@@ -147,3 +147,24 @@ When using deterministic mode:
 - Different IDs will generate different names, even for the same input value
 
 This is useful when you need consistent fake names across multiple database dumps or when maintaining referential integrity between tables.
+
+## Global Salt
+
+The anonymiser supports using a global salt for consistent hashing across different runs. To use this feature, add a salt configuration as the first item in your strategy.json file:
+
+```json
+[
+  {
+    "salt": "your-global-salt-here"
+  },
+  {
+    "table_name": "public.users",
+    "description": "",
+    "columns": [
+      // ... columns configuration ...
+    ]
+  }
+]
+```
+
+The salt will be applied to all transformers that support salted hashing (marked with † in the transformer list). Different salt values will generate different outputs for the same input

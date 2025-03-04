@@ -39,6 +39,7 @@ fn add_missing(current: Vec<StrategyInFile>, missing: &[SimpleColumn]) -> Vec<St
                     table_name: table.clone(),
                     description: "".to_string(),
                     columns: vec![],
+                    salt: None,
                 };
                 for column in missing_columns {
                     new_table.columns.push(ColumnInFile::new(&column));
@@ -102,6 +103,7 @@ mod tests {
             description: "".to_string(),
             truncate: false,
             columns: vec![ColumnInFile::new("id"), ColumnInFile::new("first_name")],
+            salt: None,
         }];
 
         let missing = vec![
@@ -131,12 +133,14 @@ mod tests {
                     ColumnInFile::new("first_name"),
                     ColumnInFile::new("last_name"),
                 ],
+                salt: None,
             },
             StrategyInFile {
                 table_name: "public.location".to_string(),
                 description: "".to_string(),
                 truncate: false,
                 columns: vec![ColumnInFile::new("id"), ColumnInFile::new("post_code")],
+                salt: None,
             },
         ];
 
@@ -151,6 +155,7 @@ mod tests {
                 description: "".to_string(),
                 truncate: false,
                 columns: vec![ColumnInFile::new("id"), ColumnInFile::new("post_code")],
+                salt: None,
             },
             StrategyInFile {
                 table_name: "public.person".to_string(),
@@ -161,6 +166,7 @@ mod tests {
                     ColumnInFile::new("first_name"),
                     ColumnInFile::new("last_name"),
                 ],
+                salt: None,
             },
         ];
 
@@ -186,6 +192,7 @@ mod tests {
             description: "".to_string(),
             truncate: false,
             columns: vec![ColumnInFile::new("id"), ColumnInFile::new("first_name")],
+            salt: None,
         }];
 
         assert_eq!(result, expected);

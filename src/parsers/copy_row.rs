@@ -9,6 +9,7 @@ use regex::Regex;
 pub struct CurrentTableTransforms {
     pub table_name: String,
     pub table_transformers: TableTransformers,
+    pub salt: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -27,9 +28,11 @@ pub fn parse(copy_row: &str, strategies: &Strategies) -> CurrentTableTransforms 
         let some_table = capture_to_item(&cap, "table");
         match (some_table, some_columns) {
             (Some(table), Some(unsplit_columns)) => {
-                get_current_table_information(table, unsplit_columns, strategies)
+                let mut current_table =
+                    get_current_table_information(table, unsplit_columns, strategies);
+                current_table.salt = strategies.salt_for_table(table).map(String::from);
+                current_table
             }
-
             (_, _) => panic!("Invalid Copy row format: {:?}", copy_row),
         }
     } else {
@@ -48,10 +51,12 @@ fn get_current_table_information(
         .map(sanitiser::dequote_column_or_table_name_data)
         .collect();
     let table_transformers = table_strategy(strategies, &table_name, &column_name_list);
+    let salt = strategies.salt_for_table(&table_name).map(String::from);
 
     CurrentTableTransforms {
         table_name,
         table_transformers,
+        salt,
     }
 }
 
@@ -111,7 +116,14 @@ mod tests {
             .iter()
             .map(|column| (column.name.clone(), column.clone()))
             .collect();
-        let strategies = Strategies::new_from("public.users".to_string(), column_infos_with_name);
+
+        let test_salt = "test_table_salt".to_string();
+        let strategies = Strategies::new_from_with_salt(
+            "public.users".to_string(),
+            column_infos_with_name,
+            Some(test_salt.clone()),
+        );
+
         let parsed_copy_row = parse(
             "COPY public.users (id, first_name, last_name) FROM stdin;\n",
             &strategies,
@@ -120,6 +132,7 @@ mod tests {
         let expected = CurrentTableTransforms {
             table_name: "public.users".to_string(),
             table_transformers: TableTransformers::ColumnTransformer(columns),
+            salt: Some(test_salt),
         };
 
         assert_eq!(expected.table_name, parsed_copy_row.table_name);
@@ -127,6 +140,7 @@ mod tests {
             expected.table_transformers,
             parsed_copy_row.table_transformers
         );
+        assert_eq!(expected.salt, parsed_copy_row.salt);
     }
 
     #[test]
@@ -150,6 +164,7 @@ mod tests {
             expected_table_transformers,
             parsed_copy_row.table_transformers
         );
+        assert_eq!(None, parsed_copy_row.salt);
     }
 
     #[test]
