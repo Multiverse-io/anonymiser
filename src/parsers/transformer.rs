@@ -132,6 +132,17 @@ pub fn transform<'line>(
         TransformerType::ScrambleBlank => Cow::from(scramble_blank(value)),
         TransformerType::ObfuscateDay => Cow::from(obfuscate_day(value, table_name)),
         TransformerType::Fixed => fixed(&transformer.args, table_name),
+        TransformerType::ID => {
+            // Hash the ID value using SHA-256
+            let mut hasher = Sha256::new();
+            let combined = match global_salt {
+                Some(salt) => format!("{}{}", value, salt),
+                None => value.to_string(),
+            };
+            hasher.update(combined.as_bytes());
+            let result = format!("{:x}", hasher.finalize());
+            Cow::from(result)
+        }
         TransformerType::Identity => Cow::from(value),
         //TODO not tested VV
         TransformerType::FakeUUID => Cow::from(Uuid::new_v4().to_string()),
@@ -1586,7 +1597,7 @@ mod tests {
 
     #[test]
     fn scramble_calculates_unicode_length_correctly() {
-        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
+        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
         let mut rng = rng::get();
         let new_value = transform(
             &mut rng,

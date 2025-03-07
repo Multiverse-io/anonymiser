@@ -8,9 +8,10 @@ use crate::parsers::transformer;
 use crate::parsers::types;
 use crate::parsers::types::Column;
 use crate::parsers::{copy_row, data_row};
-use itertools::Itertools;
 use rand::rngs::SmallRng;
 use std::borrow::Cow;
+
+use super::strategy_structs::TransformerType;
 
 #[derive(Debug, PartialEq)]
 enum RowType {
@@ -125,43 +126,39 @@ fn transform_row_with_columns(
     types: &Types,
     salt: Option<&str>,
 ) -> String {
-    let column_values: Vec<String> = data_row::split(line).map(|s| s.to_string()).collect();
-
-    let mut transformed = column_values.iter().enumerate().map(|(i, value)| {
-        let current_column = &columns[i];
+    // Parse the raw line into individual column values
+    let mut values: Vec<String> = data_row::split(line).map(|s| s.to_string()).collect();
+    
+    // Create a vector of indices, with ID columns first
+    let mut processing_order: Vec<usize> = (0..columns.len()).collect();
+    processing_order.sort_by(|&a, &b| {
+        let a_is_id = columns[a].transformer.name == TransformerType::ID;
+        let b_is_id = columns[b].transformer.name == TransformerType::ID;
+        b_is_id.cmp(&a_is_id)
+    });
+    
+    // Process each column in the sorted order
+    for &index in &processing_order {
+        let column = &columns[index];
         let column_type = types
-            //TODO this lookup, we do a double hashmap lookup for every column... already know the
-            //table, so we shouldnt need to do both... can we cache the current tables columns
-            //hashmap?
-            .lookup(table_name, &current_column.name)
-            .unwrap_or_else(|| {
-                panic!(
-                    "No type found for {}.{}\nI did find these for the table: {:?}",
-                    table_name,
-                    current_column.name,
-                    types.for_table(table_name)
-                )
-            });
-
-        // Create a vector of (column_name, value) pairs
+            .lookup(table_name, &column.name)
+            .unwrap_or_else(|| panic!("No type found for {}.{}", table_name, column.name));
+        
+        // Create the name-value pairs using current values
         let column_name_values: Vec<(String, String)> = columns
             .iter()
-            .zip(column_values.iter())
+            .zip(values.iter())
             .map(|(col, val)| (col.name.clone(), val.clone()))
             .collect();
-
-        transformer::transform(
-            rng,
-            value,
-            column_type,
-            &current_column.transformer,
-            table_name,
-            &column_name_values,
-            salt,
-        )
-    });
-
-    let mut joined = transformed.join("\t");
+        
+        // Transform and update the value
+        values[index] = transformer::transform(
+            rng, &values[index], column_type, &column.transformer, table_name, &column_name_values, salt
+        ).into_owned();
+    }
+    
+    // Join values with tabs and add newline
+    let mut joined = values.join("\t");
     joined.push('\n');
     joined
 }

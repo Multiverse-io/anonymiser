@@ -136,6 +136,7 @@ pub enum TransformerType {
     FakeUsername,
     FakeUUID,
     Fixed,
+    ID,
     Identity,
     ObfuscateDay,
     Scramble,
