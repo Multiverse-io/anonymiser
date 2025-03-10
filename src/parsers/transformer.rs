@@ -367,7 +367,8 @@ fn fake_uuid(
 
     let mut seeded_rng = get_faker_rng(value, None, global_salt);
 
-    FirstName().fake_with_rng::<String, _>(&mut seeded_rng)
+    let random_bytes = seeded_rng.gen::<[u8; 16]>();
+    Uuid::from_bytes(random_bytes).to_string()
 }
 
 fn fake_first_name(
