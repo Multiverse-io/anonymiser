@@ -28,6 +28,7 @@ fn get_unique() -> usize {
     UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst)
 }
 
+
 fn get_faker_rng(value: &str, id: Option<&str>, salt: Option<&str>) -> SmallRng {
     let mut hasher = Sha256::new();
     let combined = match (id, salt) {
@@ -334,6 +335,20 @@ fn fake_full_address() -> String {
     let city_name: String = CityName().fake();
     let state: String = StateName().fake();
     format!("{}, {}, {}", line_1, city_name, state)
+}
+
+fn fake_uuid(
+    value: &str,
+    args: &Option<HashMap<String, String>>,
+    global_salt: Option<&str>,
+) -> String {
+    if !is_deterministic(args) {
+        return Uuid::new_v4().to_string()
+    }
+
+    let mut seeded_rng = get_faker_rng(value, None, global_salt);
+
+    FirstName().fake_with_rng::<String, _>(&mut seeded_rng)
 }
 
 fn fake_first_name(
