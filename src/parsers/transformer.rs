@@ -28,7 +28,26 @@ fn get_unique() -> usize {
     UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst)
 }
 
-
+/// Creates a deterministic random number generator from input parameters.
+/// 
+/// # Arguments
+/// 
+/// * `value` - Base value to seed the RNG
+/// * `id` - Optional identifier to ensure consistent generation for the same entity
+/// * `salt` - Optional global salt to vary generation between runs
+/// 
+/// # Returns
+/// 
+/// A deterministic `SmallRng` that will produce the same sequence of values
+/// for identical inputs.
+/// 
+/// # Example
+/// 
+/// ```
+/// let rng = get_faker_rng("John", Some("123"), Some("global_salt"));
+/// let name = FirstName().fake_with_rng::<String, _>(&mut rng.clone());
+/// // Will always produce the same name for the same inputs
+/// ```
 fn get_faker_rng(value: &str, id: Option<&str>, salt: Option<&str>) -> SmallRng {
     let mut hasher = Sha256::new();
     let combined = match (id, salt) {
