@@ -127,6 +127,13 @@ fn transform_row_with_columns(
 ) -> String {
     let column_values: Vec<String> = data_row::split(line).map(|s| s.to_string()).collect();
 
+    // Create a vector of (column_name, value) pairs
+    let column_name_values: Vec<(String, String)> = columns
+        .iter()
+        .zip(column_values.iter())
+        .map(|(col, val)| (col.name.clone(), val.clone()))
+        .collect();
+
     let mut transformed = column_values.iter().enumerate().map(|(i, value)| {
         let current_column = &columns[i];
         let column_type = types
@@ -142,13 +149,6 @@ fn transform_row_with_columns(
                     types.for_table(table_name)
                 )
             });
-
-        // Create a vector of (column_name, value) pairs
-        let column_name_values: Vec<(String, String)> = columns
-            .iter()
-            .zip(column_values.iter())
-            .map(|(col, val)| (col.name.clone(), val.clone()))
-            .collect();
 
         transformer::transform(
             rng,
