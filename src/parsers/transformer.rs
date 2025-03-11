@@ -386,8 +386,8 @@ fn fake_first_name(
     let id_to_use = if deterministic { id } else { None };
 
     match id_to_use {
-        Some(id) => {
-            let mut seeded_rng = get_faker_rng(value, Some(id), global_salt);
+        Some(id_value) => {
+            let mut seeded_rng = get_faker_rng(value, Some(id_value), global_salt);
             FirstName().fake_with_rng::<String, _>(&mut seeded_rng)
         }
         None => FirstName().fake::<String>(),
