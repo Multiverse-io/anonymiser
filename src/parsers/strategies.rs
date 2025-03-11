@@ -48,17 +48,7 @@ impl Strategies {
             }
 
             // Validate deterministic settings
-            for column in &strategy.columns {
-                if let Some(args) = &column.transformer.args {
-                    if let Some(deterministic) = args.get("deterministic") {
-                        if deterministic == "true" && !args.contains_key("id_column") {
-                            errors
-                                .deterministic_without_id
-                                .push(create_simple_column(&strategy.table_name, &column.name));
-                        }
-                    }
-                }
-            }
+            validate_deterministic_settings(&strategy, &mut errors);
 
             if strategy.truncate {
                 transformed_strategies.insert_truncate(strategy.table_name);
@@ -259,6 +249,24 @@ fn apply_transformer_overrides(
 
 fn transformer(column: ColumnInFile, overrides: &TransformerOverrides) -> Transformer {
     apply_transformer_overrides(column.data_category, overrides, column.transformer)
+}
+
+/// Validates transformers with deterministic=true have an id_column (except FakeUUID transformer).
+fn validate_deterministic_settings(strategy: &StrategyInFile, errors: &mut ValidationErrors) {
+    for column in &strategy.columns {
+        if column.transformer.name == TransformerType::FakeUUID {
+            continue;
+        }
+        if let Some(args) = &column.transformer.args {
+            if let Some(deterministic) = args.get("deterministic") {
+                if deterministic == "true" && !args.contains_key("id_column") {
+                    errors
+                        .deterministic_without_id
+                        .push(create_simple_column(&strategy.table_name, &column.name));
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -802,6 +810,38 @@ mod tests {
 
         let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
 
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn from_strategies_in_file_accepts_fake_uuid_with_deterministic_without_id_column() {
+        // Set up a FakeUUID transformer with deterministic=true but no id_column
+        let mut transformer = Transformer {
+            name: TransformerType::FakeUUID,
+            args: Some(HashMap::new()),
+        };
+        transformer
+            .args
+            .as_mut()
+            .unwrap()
+            .insert("deterministic".to_string(), "true".to_string());
+
+        let strategies = vec![StrategyInFile {
+            table_name: "public.person".to_string(),
+            description: "description".to_string(),
+            truncate: false,
+            salt: None,
+            columns: vec![ColumnInFile {
+                data_category: DataCategory::General,
+                description: "user_id".to_string(),
+                name: "user_id".to_string(),
+                transformer,
+            }],
+        }];
+
+        // This should succeed (no errors) since FakeUUID is allowed to have
+        // deterministic=true without an id_column
+        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
         assert!(result.is_ok());
     }
 
