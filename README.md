@@ -70,18 +70,18 @@ Transforming table data requires a list of all table columns with a transformer 
 - FakeCompanyName * - Random Company Name from [faker](https://github.com/cksac/fake-rs)
 - FakeEmail * - Random email address from [faker](https://github.com/cksac/fake-rs)
 - FakeEmailOrPhone * - Either a random phone number OR a random email depending on whether the existing data starts with a `+` and doesn't contain an `@` symbol or not!
-- FakeFirstName† - Random first name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id_column` argument
+- FakeFirstName†† - Random first name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id_column` argument
 - FakeFullAddress - Random address made up of segments from [faker](https://github.com/cksac/fake-rs)
-- FakeFullName† - Random first plus last name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id_column` argument
+- FakeFullName†† - Random first plus last name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id_column` argument
 - FakeIPv4 - Random IPV4 address from [faker](https://github.com/cksac/fake-rs)
-- FakeLastName†- Random last name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id_column` argument
+- FakeLastName††- Random last name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id_column` argument
 - FakeNationalIdentityNumber - Random National Insurance number from list of dummy numbers
 - FakePhoneNumber - Random phone number (looks at existing numbers country code, supports GB + US)
 - FakePostCode - Truncates postcode to the first 3 chars e.g. NW5
 - FakeState - Random US state from [faker](https://github.com/cksac/fake-rs)
 - FakeStreetAddress - Random building number + street name from [faker](https://github.com/cksac/fake-rs)
 - FakeUsername * - Random username from [faker](https://github.com/cksac/fake-rs)
-- FakeUUID - Random UUIDv4
+- FakeUUID† - Random UUIDv4
 - Fixed - Returns a fixed value (requires a `value` arg with the value to use)
 - Identity - Does not transform the original value
 - ObfuscateDay - Takes a date and sets the day to the first of the month e.g. 12-12-2000 becomes 01-12-2000
@@ -122,7 +122,7 @@ Transformers with a * support the arg `unique` which will append an incrementing
   },
 ```
 
-Transformers with a † support deterministic generation by setting `deterministic: true` and providing an `id_column` argument. This ensures the same input and ID always generate the same fake data.
+Transformers with a † or †† support deterministic generation by setting `deterministic: true`. Transformers with a †† also require an `id_column` argument. This ensures the same input and ID always generate the same fake data.
 
 Example of deterministic name generation:
 ```json
