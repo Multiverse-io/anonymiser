@@ -253,20 +253,24 @@ fn transformer(column: ColumnInFile, overrides: &TransformerOverrides) -> Transf
 
 /// Validates transformers with deterministic=true have an id_column (except FakeUUID transformer).
 fn validate_deterministic_settings(strategy: &StrategyInFile, errors: &mut ValidationErrors) {
-    for column in &strategy.columns {
-        if column.transformer.name == TransformerType::FakeUUID {
-            continue;
-        }
-        if let Some(args) = &column.transformer.args {
-            if let Some(deterministic) = args.get("deterministic") {
-                if deterministic == "true" && !args.contains_key("id_column") {
-                    errors
-                        .deterministic_without_id
-                        .push(create_simple_column(&strategy.table_name, &column.name));
+    strategy
+        .columns
+        .iter()
+        .filter(|column| column.transformer.name != TransformerType::FakeUUID)
+        .filter_map(|column| {
+            column.transformer.args.as_ref().and_then(|args| {
+                if args.get("deterministic") == Some(&"true".to_string())
+                    && !args.contains_key("id_column")
+                {
+                    Some(create_simple_column(&strategy.table_name, &column.name))
+                } else {
+                    None
                 }
-            }
-        }
-    }
+            })
+        })
+        .for_each(|simple_column| {
+            errors.deterministic_without_id.push(simple_column);
+        });
 }
 
 #[cfg(test)]
