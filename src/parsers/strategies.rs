@@ -843,8 +843,6 @@ mod tests {
             }],
         }];
 
-        // This should succeed (no errors) since FakeUUID is allowed to have
-        // deterministic=true without an id_column
         let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
         assert!(result.is_ok());
     }
