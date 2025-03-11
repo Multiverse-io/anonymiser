@@ -47,7 +47,6 @@ impl Strategies {
                 continue;
             }
 
-            // Validate deterministic settings
             validate_deterministic_settings(&strategy, &mut errors);
 
             if strategy.truncate {
