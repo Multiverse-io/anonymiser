@@ -81,7 +81,7 @@ Transforming table data requires a list of all table columns with a transformer 
 - FakeState - Random US state from [faker](https://github.com/cksac/fake-rs)
 - FakeStreetAddress - Random building number + street name from [faker](https://github.com/cksac/fake-rs)
 - FakeUsername * - Random username from [faker](https://github.com/cksac/fake-rs)
-- FakeUUID† - Random UUIDv4
+- FakeUUID† - Random UUIDv4, Supports deterministic generation by setting `deterministic: true`
 - Fixed - Returns a fixed value (requires a `value` arg with the value to use)
 - Identity - Does not transform the original value
 - ObfuscateDay - Takes a date and sets the day to the first of the month e.g. 12-12-2000 becomes 01-12-2000
