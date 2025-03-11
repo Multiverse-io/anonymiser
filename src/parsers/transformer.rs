@@ -41,12 +41,17 @@ fn get_unique() -> usize {
 /// A deterministic `SmallRng` that will produce the same sequence of values
 /// for identical inputs.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
-/// let rng = get_faker_rng("John", Some("123"), Some("global_salt"));
-/// let name = FirstName().fake_with_rng::<String, _>(&mut rng.clone());
-/// // Will always produce the same name for the same inputs
+/// // Basic usage with just a value
+/// let rng1 = get_faker_rng("test", None, None);
+///
+/// // With an ID for entity-level consistency
+/// let rng2 = get_faker_rng("test", Some("user_123"), None);
+///
+/// // With both ID and salt for run-level consistency
+/// let rng3 = get_faker_rng("test", Some("user_123"), Some("global_salt_2024"));
 /// ```
 fn get_faker_rng(value: &str, id: Option<&str>, salt: Option<&str>) -> SmallRng {
     let mut hasher = Sha256::new();
