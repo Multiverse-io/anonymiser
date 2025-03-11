@@ -366,14 +366,7 @@ fn fake_uuid(
 
     let mut seeded_rng = get_faker_rng(value, None, global_salt);
 
-    // Generate 16 random bytes for the UUID
-    let mut bytes = seeded_rng.gen::<[u8; 16]>();
-
-    // Set the version (v4) and variant bits according to RFC4122
-    bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
-    bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 1
-
-    Uuid::from_bytes(bytes).to_string()
+    Uuid::from_bytes(seeded_rng.gen()).to_string()
 }
 
 fn fake_first_name(
