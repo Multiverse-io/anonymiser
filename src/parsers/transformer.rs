@@ -28,6 +28,31 @@ fn get_unique() -> usize {
     UNIQUE_INTEGER.fetch_add(1, Ordering::SeqCst)
 }
 
+/// Creates a deterministic random number generator from input parameters.
+///
+/// # Arguments
+///
+/// * `value` - Base value to seed the RNG
+/// * `id` - Optional identifier to ensure consistent generation for the same entity
+/// * `salt` - Optional global salt to vary generation between runs
+///
+/// # Returns
+///
+/// A deterministic `SmallRng` that will produce the same sequence of values
+/// for identical inputs.
+///
+/// # Examples
+///
+/// ```
+/// // Basic usage with just a value
+/// let rng1 = get_faker_rng("test", None, None);
+///
+/// // With an ID for entity-level consistency
+/// let rng2 = get_faker_rng("test", Some("user_123"), None);
+///
+/// // With both ID and salt for run-level consistency
+/// let rng3 = get_faker_rng("test", Some("user_123"), Some("global_salt_2024"));
+/// ```
 fn get_faker_rng(value: &str, id: Option<&str>, salt: Option<&str>) -> SmallRng {
     let mut hasher = Sha256::new();
     let combined = match (id, salt) {
@@ -133,8 +158,7 @@ pub fn transform<'line>(
         TransformerType::ObfuscateDay => Cow::from(obfuscate_day(value, table_name)),
         TransformerType::Fixed => fixed(&transformer.args, table_name),
         TransformerType::Identity => Cow::from(value),
-        //TODO not tested VV
-        TransformerType::FakeUUID => Cow::from(Uuid::new_v4().to_string()),
+        TransformerType::FakeUUID => Cow::from(fake_uuid(value, &transformer.args, global_salt)),
     }
 }
 
@@ -334,6 +358,20 @@ fn fake_full_address() -> String {
     let city_name: String = CityName().fake();
     let state: String = StateName().fake();
     format!("{}, {}, {}", line_1, city_name, state)
+}
+
+fn fake_uuid(
+    value: &str,
+    args: &Option<HashMap<String, String>>,
+    global_salt: Option<&str>,
+) -> String {
+    if !is_deterministic(args) {
+        return Uuid::new_v4().to_string();
+    }
+
+    let mut seeded_rng = get_faker_rng(value, None, global_salt);
+
+    Uuid::from_bytes(seeded_rng.gen()).to_string()
 }
 
 fn fake_first_name(
@@ -614,6 +652,220 @@ mod tests {
         );
         assert!(new_verification_key != verification_key);
         assert_eq!(new_verification_key.len(), 32);
+    }
+
+    #[test]
+    fn fake_uuid_random() {
+        let value = "some-value";
+        let mut rng = rng::get();
+
+        let transformer = Transformer {
+            name: TransformerType::FakeUUID,
+            args: None,
+        };
+
+        let uuid = transform(
+            &mut rng,
+            value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+
+        // Verify it's a valid UUID
+        assert!(
+            Uuid::parse_str(&uuid).is_ok(),
+            "Should generate a valid UUID"
+        );
+
+        // Verify it's different when called again
+        let uuid2 = transform(
+            &mut rng,
+            value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+
+        assert_ne!(uuid, uuid2, "Random UUIDs should be different");
+    }
+
+    #[test]
+    fn fake_uuid_deterministic() {
+        let value1 = "some-value-1";
+        let value2 = "some-value-2";
+        let mut rng = rng::get();
+
+        // Create transformer with deterministic args
+        let transformer = Transformer {
+            name: TransformerType::FakeUUID,
+            args: Some(HashMap::from([(
+                "deterministic".to_string(),
+                "true".to_string(),
+            )])),
+        };
+
+        // Same value should produce same UUID
+        let uuid1_first_call = transform(
+            &mut rng,
+            value1,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+
+        let uuid1_second_call = transform(
+            &mut rng,
+            value1,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+
+        assert_eq!(
+            uuid1_first_call, uuid1_second_call,
+            "Same input should produce same UUID"
+        );
+
+        // Different values should produce different UUIDs
+        let uuid2 = transform(
+            &mut rng,
+            value2,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+
+        assert_ne!(
+            uuid1_first_call, uuid2,
+            "Different values should produce different UUIDs"
+        );
+
+        // Verify the outputs are valid UUIDs
+        assert!(
+            Uuid::parse_str(&uuid1_first_call).is_ok(),
+            "Should generate a valid UUID"
+        );
+        assert!(
+            Uuid::parse_str(&uuid2).is_ok(),
+            "Should generate a valid UUID"
+        );
+    }
+
+    #[test]
+    fn fake_uuid_with_salt() {
+        let value = "some-value";
+        let mut rng = rng::get();
+
+        // Create transformer with deterministic args
+        let transformer = Transformer {
+            name: TransformerType::FakeUUID,
+            args: Some(HashMap::from([(
+                "deterministic".to_string(),
+                "true".to_string(),
+            )])),
+        };
+
+        // Test with salt
+        let uuid_with_salt = transform(
+            &mut rng,
+            value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            Some("test_salt"),
+        );
+
+        // Test without salt
+        let uuid_without_salt = transform(
+            &mut rng,
+            value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+
+        assert_ne!(
+            uuid_with_salt, uuid_without_salt,
+            "Same input with and without salt should produce different UUIDs"
+        );
+
+        // Test with different salt
+        let uuid_with_different_salt = transform(
+            &mut rng,
+            value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            Some("different_salt"),
+        );
+
+        assert_ne!(
+            uuid_with_salt, uuid_with_different_salt,
+            "Same input with different salts should produce different UUIDs"
+        );
+
+        // Verify the outputs are valid UUIDs
+        assert!(
+            Uuid::parse_str(&uuid_with_salt).is_ok(),
+            "Should generate a valid UUID"
+        );
+        assert!(
+            Uuid::parse_str(&uuid_without_salt).is_ok(),
+            "Should generate a valid UUID"
+        );
+        assert!(
+            Uuid::parse_str(&uuid_with_different_salt).is_ok(),
+            "Should generate a valid UUID"
+        );
+
+        // Verify consistency with same salt
+        let uuid_with_salt_repeat = transform(
+            &mut rng,
+            value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            Some("test_salt"),
+        );
+
+        assert_eq!(
+            uuid_with_salt, uuid_with_salt_repeat,
+            "Same input with same salt should produce same UUID"
+        );
     }
 
     #[test]
