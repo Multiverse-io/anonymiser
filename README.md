@@ -68,7 +68,7 @@ Transforming table data requires a list of all table columns with a transformer 
 - FakeBase32String - Random Base32 string
 - FakeCity - Random city from [faker](https://github.com/cksac/fake-rs)
 - FakeCompanyName * - Random Company Name from [faker](https://github.com/cksac/fake-rs)
-- FakeEmail * - Random email address from [faker](https://github.com/cksac/fake-rs)
+- FakeEmail - Generates deterministic fake email addresses using a hash-based prefix. The output format is `<hash-prefix>-<random-email>` where the hash-prefix is derived from the original email and the random email is generated using [faker](https://github.com/cksac/fake-rs), ensuring consistent anonymisation across runs.
 - FakeEmailOrPhone * - Either a random phone number OR a random email depending on whether the existing data starts with a `+` and doesn't contain an `@` symbol or not!
 - FakeFirstName† - Random first name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id_column` argument
 - FakeFullAddress - Random address made up of segments from [faker](https://github.com/cksac/fake-rs)

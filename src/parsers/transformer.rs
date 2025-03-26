@@ -127,15 +127,8 @@ pub fn transform<'line>(
             unique,
             global_salt,
         )),
-        TransformerType::FakeEmail => {
-            Cow::from(fake_email(value, &transformer.args, unique, global_salt))
-        }
-        TransformerType::FakeEmailOrPhone => Cow::from(fake_email_or_phone(
-            value,
-            &transformer.args,
-            unique,
-            global_salt,
-        )),
+        TransformerType::FakeEmail => Cow::from(fake_email(value, global_salt)),
+        TransformerType::FakeEmailOrPhone => Cow::from(fake_email_or_phone(value, global_salt)),
         TransformerType::FakeFirstName => {
             Cow::from(fake_first_name(value, &transformer.args, id, global_salt))
         }
@@ -323,27 +316,23 @@ fn fake_company_name(
     prepend_unique_if_present(new_company_name, args, unique)
 }
 
-fn fake_email(
-    value: &str,
-    args: &Option<HashMap<String, String>>,
-    unique: usize,
-    global_salt: Option<&str>,
-) -> String {
+fn fake_email(value: &str, global_salt: Option<&str>) -> String {
     let mut seeded_rng = get_faker_rng(value, None, global_salt);
     let new_email = FreeEmail().fake_with_rng::<String, _>(&mut seeded_rng);
-    prepend_unique_if_present(new_email, args, unique)
+
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    let hash = hasher.finalize();
+    let prefix = base16::encode_lower(&hash[..6]);
+
+    format!("{}-{}", prefix, new_email)
 }
 
-fn fake_email_or_phone(
-    current_value: &str,
-    optional_args: &Option<HashMap<String, String>>,
-    unique: usize,
-    global_salt: Option<&str>,
-) -> String {
+fn fake_email_or_phone(current_value: &str, global_salt: Option<&str>) -> String {
     if current_value.starts_with('+') && !current_value.contains('@') {
         fake_phone_number(current_value)
     } else {
-        fake_email(current_value, optional_args, unique, global_salt)
+        fake_email(current_value, global_salt)
     }
 }
 
@@ -1012,15 +1001,15 @@ mod tests {
     }
 
     #[test]
-    fn fake_email() {
-        let email = "any email";
+    fn fake_email_generates_consistent_output() {
+        let email = "test@example.com";
         let mut rng = rng::get();
         let transformer = Transformer {
             name: TransformerType::FakeEmail,
             args: None,
         };
 
-        let new_email = transform(
+        let first_result = transform(
             &mut rng,
             email,
             &Type::SingleValue {
@@ -1031,16 +1020,8 @@ mod tests {
             EMPTY_COLUMNS,
             None,
         );
-        assert!(new_email != email);
 
-        let re = Regex::new(r"^[0-9]+-.*@.*\..*").unwrap();
-        assert!(
-            !re.is_match(&new_email),
-            "Email {:?} should not have the unique prefix",
-            new_email
-        );
-
-        let repeat_email = transform(
+        let second_result = transform(
             &mut rng,
             email,
             &Type::SingleValue {
@@ -1051,53 +1032,77 @@ mod tests {
             EMPTY_COLUMNS,
             None,
         );
+
         assert_eq!(
-            new_email, repeat_email,
+            first_result, second_result,
             "Same input should produce same fake email"
-        );
-
-        let different_email = transform(
-            &mut rng,
-            "different email",
-            &Type::SingleValue {
-                sub_type: SubType::Character,
-            },
-            &transformer,
-            TABLE_NAME,
-            EMPTY_COLUMNS,
-            None,
-        );
-        assert_ne!(
-            new_email, different_email,
-            "Different inputs should produce different fake emails"
         );
     }
 
     #[test]
-    fn fake_email_with_unique_arg() {
-        let email = "rupert@example.com";
+    fn fake_email_format_is_correct() {
+        let email = "test@example.com";
         let mut rng = rng::get();
-        let transformer = &Transformer {
+        let transformer = Transformer {
             name: TransformerType::FakeEmail,
-            args: Some(HashMap::from([("unique".to_string(), "true".to_string())])),
+            args: None,
         };
-        let new_email = transform(
+
+        let result = transform(
             &mut rng,
             email,
             &Type::SingleValue {
                 sub_type: SubType::Character,
             },
-            transformer,
+            &transformer,
             TABLE_NAME,
             EMPTY_COLUMNS,
             None,
         );
-        assert!(new_email != email);
-        let re = Regex::new(r"^[0-9]+-.*@.*\..*").unwrap();
-        assert!(
-            re.is_match(&new_email),
-            "Email {:?} does not have the unique prefix",
-            new_email
+
+        // Should match format: <6-char-hex>-<generated_email>
+        let re = Regex::new(r"^[0-9a-f]{12}-[^@]+@[^@]+\.[^@]+$").unwrap();
+        assert!(re.is_match(&result), "Email format incorrect: {}", result);
+    }
+
+    #[test]
+    fn fake_email_different_inputs_produce_different_outputs() {
+        let mut rng = rng::get();
+        let transformer = Transformer {
+            name: TransformerType::FakeEmail,
+            args: None,
+        };
+
+        let email1 = "test1@example.com";
+        let email2 = "test2@example.com";
+
+        let result1 = transform(
+            &mut rng,
+            email1,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+
+        let result2 = transform(
+            &mut rng,
+            email2,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &transformer,
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+
+        assert_ne!(
+            result1, result2,
+            "Different inputs should produce different fake emails"
         );
     }
 
