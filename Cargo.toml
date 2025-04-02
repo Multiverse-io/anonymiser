@@ -12,7 +12,7 @@ base32 = "0.5.1"
 chrono = "0.4"
 itertools = "0.14.0"
 fake = "2.4"
-flate2 = { version = "1.0.30", features = ["zlib-ng"], default-features = false }
+flate2 = { version = "1.1.1", features = ["zlib-ng"], default-features = false }
 lazy_static = "1.5.0"
 native-tls = "0.2.12"
 postgres = "0.19.9"
