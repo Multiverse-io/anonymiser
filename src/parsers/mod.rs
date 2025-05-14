@@ -1,5 +1,6 @@
 pub mod copy_row;
 pub mod create_row;
+pub mod custom_classifications;
 pub mod data_row;
 pub mod db_schema;
 pub mod national_insurance_number;

@@ -467,21 +467,19 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
             let new_date = date.with_day(1).unwrap();
             new_date.to_string()
         }
-        Err(err) => {
-            return value
-                .strip_suffix(" BC")
-                .and_then(|trimmed| {
-                    NaiveDate::parse_from_str(trimmed, "%Y-%m-%d")
-                        .ok()
-                        .map(|re_parsed| format!("{} BC", re_parsed.with_day(1).unwrap()))
-                })
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Invalid date found: \"{}\" in table: \"{}\". Error: \"{}\"",
-                        value, table_name, err
-                    )
-                })
-        }
+        Err(err) => value
+            .strip_suffix(" BC")
+            .and_then(|trimmed| {
+                NaiveDate::parse_from_str(trimmed, "%Y-%m-%d")
+                    .ok()
+                    .map(|re_parsed| format!("{} BC", re_parsed.with_day(1).unwrap()))
+            })
+            .unwrap_or_else(|| {
+                panic!(
+                    "Invalid date found: \"{}\" in table: \"{}\". Error: \"{}\"",
+                    value, table_name, err
+                )
+            }),
     }
 }
 

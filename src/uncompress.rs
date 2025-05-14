@@ -28,6 +28,7 @@ mod tests {
             "test_files/strategy.json".to_string(),
             None,
             TransformerOverrides::none(),
+            crate::parsers::custom_classifications::ClassificationConfig::default(),
         )
         .unwrap();
 
@@ -37,6 +38,7 @@ mod tests {
             "test_files/strategy.json".to_string(),
             Some(None),
             TransformerOverrides::none(),
+            crate::parsers::custom_classifications::ClassificationConfig::default(),
         )
         .unwrap();
 

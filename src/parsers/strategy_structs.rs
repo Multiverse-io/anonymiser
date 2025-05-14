@@ -103,7 +103,8 @@ pub struct ColumnInfo {
     pub transformer: Transformer,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(from = "String", into = "String")]
 pub enum DataCategory {
     CommerciallySensitive,
     General,
@@ -111,6 +112,35 @@ pub enum DataCategory {
     Pii,
     Security,
     Unknown,
+    Custom(String),
+}
+
+impl From<String> for DataCategory {
+    fn from(s: String) -> Self {
+        match s.as_str() {
+            "CommerciallySensitive" => DataCategory::CommerciallySensitive,
+            "General" => DataCategory::General,
+            "PotentialPii" => DataCategory::PotentialPii,
+            "Pii" => DataCategory::Pii,
+            "Security" => DataCategory::Security,
+            "Unknown" => DataCategory::Unknown,
+            other => DataCategory::Custom(other.to_string()),
+        }
+    }
+}
+
+impl From<DataCategory> for String {
+    fn from(val: DataCategory) -> Self {
+        match val {
+            DataCategory::CommerciallySensitive => "CommerciallySensitive".to_string(),
+            DataCategory::General => "General".to_string(),
+            DataCategory::PotentialPii => "PotentialPii".to_string(),
+            DataCategory::Pii => "Pii".to_string(),
+            DataCategory::Security => "Security".to_string(),
+            DataCategory::Unknown => "Unknown".to_string(),
+            DataCategory::Custom(s) => s,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

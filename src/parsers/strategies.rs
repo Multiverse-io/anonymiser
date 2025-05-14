@@ -1,3 +1,4 @@
+use crate::parsers::custom_classifications::ClassificationConfig;
 use crate::parsers::strategy_errors::{DbErrors, ValidationErrors};
 use crate::parsers::strategy_structs::*;
 use itertools::{Either, Itertools};
@@ -29,6 +30,7 @@ impl Strategies {
     pub fn from_strategies_in_file(
         strategies_in_file: Vec<StrategyInFile>,
         transformer_overrides: &TransformerOverrides,
+        custom_classifications: &ClassificationConfig,
     ) -> Result<Strategies, Box<ValidationErrors>> {
         let mut transformed_strategies = Strategies::new();
         let mut errors = ValidationErrors::new();
@@ -54,6 +56,16 @@ impl Strategies {
             } else {
                 let mut columns = HashMap::<String, ColumnInfo>::new();
                 for column in strategy.columns {
+                    // Validate custom classifications
+                    if let DataCategory::Custom(category_name) = &column.data_category {
+                        if !custom_classifications.is_valid_classification(category_name) {
+                            errors
+                                .invalid_custom_classifications
+                                .push(create_simple_column(&strategy.table_name, &column.name));
+                        }
+                    }
+                    // Built-in categories don't need custom validation against the file.
+
                     if (column.data_category == DataCategory::PotentialPii
                         || column.data_category == DataCategory::Pii)
                         && column.transformer.name == TransformerType::Identity
@@ -419,8 +431,12 @@ mod tests {
                     .build(),
             )]),
         );
-        let parsed = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none())
-            .expect("we shouldnt have duplicate columns!");
+        let parsed = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides::none(),
+            &ClassificationConfig::default(),
+        )
+        .expect("we shouldnt have duplicate columns!");
         assert_eq!(expected, parsed);
     }
 
@@ -464,8 +480,12 @@ mod tests {
             )]),
             Some(salt),
         );
-        let parsed = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none())
-            .expect("we shouldnt have duplicate columns!");
+        let parsed = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides::none(),
+            &ClassificationConfig::default(),
+        )
+        .expect("we shouldnt have duplicate columns!");
         assert_eq!(expected, parsed);
     }
 
@@ -500,8 +520,12 @@ mod tests {
             },
         ];
 
-        let error = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none())
-            .expect_err("We should have a duplicate table error");
+        let error = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides::none(),
+            &ClassificationConfig::default(),
+        )
+        .expect_err("We should have a duplicate table error");
 
         assert_eq!(error.duplicate_tables, vec![TABLE_NAME.to_string()]);
         assert_eq!(
@@ -524,7 +548,11 @@ mod tests {
             )],
         }];
 
-        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+        let result = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides::none(),
+            &ClassificationConfig::default(),
+        );
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -547,7 +575,11 @@ mod tests {
             )],
         }];
 
-        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+        let result = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides::none(),
+            &ClassificationConfig::default(),
+        );
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -573,7 +605,11 @@ mod tests {
             ],
         }];
 
-        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+        let result = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides::none(),
+            &ClassificationConfig::default(),
+        );
 
         let error = result.unwrap_err();
 
@@ -614,6 +650,7 @@ mod tests {
                 allow_commercially_sensitive: false,
                 ..Default::default()
             },
+            &ClassificationConfig::default(),
         )
         .expect("we shouldnt have duplicate columns!");
         let pii_column_transformer = transformer_for_column(PII_COLUMN_NAME, &parsed);
@@ -658,6 +695,7 @@ mod tests {
                 allow_commercially_sensitive: true,
                 ..Default::default()
             },
+            &ClassificationConfig::default(),
         )
         .expect("we shouldnt have duplicate columns!");
 
@@ -695,6 +733,7 @@ mod tests {
                 scramble_blank: true,
                 ..Default::default()
             },
+            &ClassificationConfig::default(),
         )
         .expect("we shouldnt have duplicate columns!");
 
@@ -731,6 +770,7 @@ mod tests {
                 allow_commercially_sensitive: true,
                 scramble_blank: true,
             },
+            &ClassificationConfig::default(),
         )
         .expect("we shouldnt have duplicate columns!");
 
@@ -772,7 +812,11 @@ mod tests {
             }],
         }];
 
-        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+        let result = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides::none(),
+            &ClassificationConfig::default(),
+        );
 
         let error = result.unwrap_err();
         assert_eq!(
@@ -811,7 +855,11 @@ mod tests {
             }],
         }];
 
-        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+        let result = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides::none(),
+            &ClassificationConfig::default(),
+        );
 
         assert!(result.is_ok());
     }
@@ -842,7 +890,11 @@ mod tests {
             }],
         }];
 
-        let result = Strategies::from_strategies_in_file(strategies, &TransformerOverrides::none());
+        let result = Strategies::from_strategies_in_file(
+            strategies,
+            &TransformerOverrides::none(),
+            &ClassificationConfig::default(),
+        );
         assert!(result.is_ok());
     }
 

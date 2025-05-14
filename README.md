@@ -44,6 +44,39 @@ The following data categories are supported
 - Security - Related to the security of the system (e.g password hashes, magic links etc)
 - Unknown - Unclassified, If any fields have this anonymisation will fail until it is replaced with a valid type
 
+### Custom Classifications
+
+You can use custom classifications by providing a local file path to a JSON file containing the classifications. The format of the file should be:
+
+```json
+{
+  "classifications": [
+    "InternalUseOnly",
+    "Confidential",
+    "Restricted",
+    "Public"
+  ]
+}
+```
+
+To use custom classifications, add the `--classifications-file` flag to any command:
+
+```
+anonymiser anonymise -i clear_text_dump.sql -o anonymised.sql -s strategy.json --classifications-file ./path/to/classifications.json
+```
+
+In your strategy.json file, you can use custom classifications like this:
+
+```json
+{
+  "data_category": "InternalUseOnly",
+  "description": "Internal documentation",
+  "name": "internal_notes",
+  "transformer": {
+    "name": "Scramble"
+  }
+}
+```
 
 ## Data transformation
 

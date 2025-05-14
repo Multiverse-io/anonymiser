@@ -33,6 +33,9 @@ pub enum Anonymiser {
         /// Modifies the "Scramble" transformer to use an underscore for all replaced non-whitespace characters
         #[structopt(long)]
         scramble_blank: bool,
+        /// Path to a local file with custom classifications (format: path/to/file.json)
+        #[structopt(long)]
+        classifications_file: Option<String>,
     },
 
     /// Creates a CSV file of PII or PotentialPII fields
@@ -43,6 +46,9 @@ pub enum Anonymiser {
         /// Path to the strategy.json file
         #[structopt(short, long, default_value = "./strategy.json")]
         strategy_file: String,
+        /// Path to a local file with custom classifications (format: path/to/file.json)
+        #[structopt(long)]
+        classifications_file: Option<String>,
     },
 
     /// Checks the provided strategy file against a database to check that all fields are covered
@@ -53,6 +59,10 @@ pub enum Anonymiser {
 
         #[structopt(short, long, env = "DATABASE_URL")]
         db_url: String,
+
+        /// Path to a local file with custom classifications (format: path/to/file.json)
+        #[structopt(long)]
+        classifications_file: Option<String>,
     },
 
     /// Fixes errors in the strategy file
@@ -62,6 +72,10 @@ pub enum Anonymiser {
 
         #[structopt(short, long, env = "DATABASE_URL")]
         db_url: String,
+
+        /// Path to a local file with custom classifications (format: path/to/file.json)
+        #[structopt(long)]
+        classifications_file: Option<String>,
     },
 
     /// Generates a new skeleton strategy file from a db connection
@@ -71,6 +85,10 @@ pub enum Anonymiser {
 
         #[structopt(short, long, env = "DATABASE_URL")]
         db_url: String,
+
+        /// Path to a local file with custom classifications (format: path/to/file.json)
+        #[structopt(long)]
+        classifications_file: Option<String>,
     },
 
     /// Uncompress a zstd sql dump to a file, or stdout if no file specified
