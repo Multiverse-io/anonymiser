@@ -55,30 +55,30 @@ pub fn to_csv(
         .flat_map(|strategy| {
             strategy.columns.iter().filter_map(|column| {
                 // We want to output rows that are not 'General' or if they are custom and invalid.
-                let mut include_in_csv = false;
-                let mut validity_info = String::new();
-
-                match &column.data_category {
-                    DataCategory::General => {
-                        // Generally, don't include General unless it's an invalid custom one (edge case, see below)
-                    }
+                let (include_in_csv, validity_info) = match &column.data_category {
+                    // Generally, don't include General unless it's an invalid custom one (edge case, see below)
+                    DataCategory::General => (false, String::new()),
                     DataCategory::Custom(category_name) => {
                         if !custom_classifications.is_valid_classification(category_name) {
-                            include_in_csv = true; // Include invalid custom categories
-                            validity_info =
-                                format!(", [INVALID CUSTOM CLASSIFICATION: {}]", category_name);
+                            // Include invalid custom categories
+                            (
+                                true,
+                                format!(", [INVALID CUSTOM CLASSIFICATION: {}]", category_name),
+                            )
                         } else {
-                            include_in_csv = true; // Include valid custom, non-General categories
-                            validity_info =
-                                format!(", [VALID CUSTOM CLASSIFICATION: {}]", category_name);
+                            // Include valid custom, non-General categories
+                            (
+                                true,
+                                format!(", [VALID CUSTOM CLASSIFICATION: {}]", category_name),
+                            )
                         }
                     }
                     // For other built-in, non-General categories (Pii, Unknown, etc.)
                     _ => {
-                        include_in_csv = true;
                         // No specific validity_info needed for these built-ins in the CSV as they aren't custom
+                        (true, String::new())
                     }
-                }
+                };
 
                 // Special case: if a category is literally named "General" but is defined in custom_classifications.json
                 // and is somehow marked invalid (though is_valid_classification implies it exists in the file if true).

@@ -898,6 +898,97 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    #[test]
+    fn from_strategies_in_file_returns_errors_for_invalid_custom_classification() {
+        let strategies_in_file = vec![StrategyInFile {
+            table_name: "public.table_with_custom".to_string(),
+            description: "description".to_string(),
+            truncate: false,
+            salt: None,
+            columns: vec![column_in_file(
+                DataCategory::Custom("InvalidCustomType".to_string()),
+                "custom_column",
+                TransformerType::Identity,
+            )],
+        }];
+
+        let custom_classifications = ClassificationConfig {
+            classifications: vec!["ValidCustomType".to_string()],
+        };
+
+        let result = Strategies::from_strategies_in_file(
+            strategies_in_file,
+            &TransformerOverrides::none(),
+            &custom_classifications,
+        );
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_eq!(error.invalid_custom_classifications.len(), 1);
+        assert_eq!(
+            error.invalid_custom_classifications[0],
+            create_simple_column("public.table_with_custom", "custom_column")
+        );
+        // Ensure other error fields are empty
+        assert!(error.unknown_data_categories.is_empty());
+        assert!(error.error_transformer_types.is_empty());
+        assert!(error.unanonymised_pii.is_empty());
+        assert!(error.duplicate_columns.is_empty());
+        assert!(error.duplicate_tables.is_empty());
+        assert!(error.deterministic_without_id.is_empty());
+    }
+
+    #[test]
+    fn from_strategies_in_file_accepts_valid_custom_classifications() {
+        let custom_type = "ValidCustomType";
+
+        let strategies_in_file = vec![StrategyInFile {
+            table_name: "public.table_with_custom".to_string(),
+            description: "description".to_string(),
+            truncate: false,
+            salt: None,
+            columns: vec![column_in_file(
+                DataCategory::Custom(custom_type.to_string()),
+                "custom_column",
+                TransformerType::Identity,
+            )],
+        }];
+
+        let custom_classifications = ClassificationConfig {
+            classifications: vec![custom_type.to_string()],
+        };
+
+        let result = Strategies::from_strategies_in_file(
+            strategies_in_file,
+            &TransformerOverrides::none(),
+            &custom_classifications,
+        );
+
+        assert!(result.is_ok());
+
+        // Verify the parsed strategy contains the custom classification
+        let strategies = result.unwrap();
+        if let Some(TableStrategy::Columns(columns)) =
+            strategies.for_table("public.table_with_custom")
+        {
+            if let Some(column_info) = columns.get("custom_column") {
+                match &column_info.data_category {
+                    DataCategory::Custom(name) => {
+                        assert_eq!(name, custom_type);
+                    }
+                    _ => panic!(
+                        "Expected Custom data category, found {:?}",
+                        column_info.data_category
+                    ),
+                }
+            } else {
+                panic!("Column not found in parsed strategy");
+            }
+        } else {
+            panic!("Table not found in parsed strategy");
+        }
+    }
+
     fn transformer_for_column(column_name: &str, strategies: &Strategies) -> Transformer {
         strategies
             .transformer_for_column(TABLE_NAME, column_name)

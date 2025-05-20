@@ -106,11 +106,7 @@ fn main() -> Result<(), std::io::Error> {
             let custom_classifications = load_custom_classifications(classifications_file);
             match read_strategy_file(&strategy_file, &db_url) {
                 Ok(strategies) => {
-                    match strategy_differences(
-                        strategies,
-                        db_url.clone(),
-                        custom_classifications.clone(),
-                    ) {
+                    match strategy_differences(strategies, db_url, custom_classifications.clone()) {
                         Ok(()) => match fixer::just_sort(&strategy_file) {
                             SortResult::Sorted => {
                                 println!("Ok, we've updated that for you, check your diff!")

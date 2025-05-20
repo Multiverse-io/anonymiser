@@ -78,6 +78,21 @@ In your strategy.json file, you can use custom classifications like this:
 }
 ```
 
+**Behaviour with Invalid Custom Classifications:**
+
+If your strategy file (`strategy.json`) references a custom classification in the `data_category` field for a column, but that classification is *not* defined in your custom classifications JSON file (or if no custom classifications file is provided), it will be treated as an invalid custom classification.
+
+When `check-strategies` is run:
+- A warning message will be displayed, highlighting the tables and columns that use these invalid custom classifications.
+- The process will exit with an error code.
+
+When `to-csv` is run:
+- Columns with invalid custom classifications will still be included in the CSV output.
+- The `data_category` field in the CSV will show the custom name (e.g., `Custom("MyInvalidType")`).
+- An additional field/note `[INVALID CUSTOM CLASSIFICATION: MyInvalidType]` will be appended to the data category in the CSV to clearly mark it as invalid.
+
+It is recommended to define all custom classifications you intend to use in the classifications file to ensure correct validation and behavior.
+
 ## Data transformation
 
 Table data can be transformed in one of two ways,
