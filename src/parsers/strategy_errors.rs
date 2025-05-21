@@ -66,7 +66,7 @@ impl fmt::Display for DbErrors {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct ValidationErrors {
     pub unknown_data_categories: Vec<SimpleColumn>,
     pub error_transformer_types: Vec<SimpleColumn>,
@@ -74,6 +74,7 @@ pub struct ValidationErrors {
     pub duplicate_columns: Vec<SimpleColumn>,
     pub duplicate_tables: Vec<String>,
     pub deterministic_without_id: Vec<SimpleColumn>,
+    pub invalid_custom_classifications: Vec<SimpleColumn>,
 }
 
 impl fmt::Display for ValidationErrors {
@@ -121,15 +122,25 @@ impl fmt::Display for ValidationErrors {
             .unwrap()
         }
 
+        if !self.invalid_custom_classifications.is_empty() {
+            let missing_list = column_to_message(&self.invalid_custom_classifications);
+            write!(
+                message,
+                "Invalid custom classifications found in strategy file\n\t{}\n\n",
+                missing_list
+            )
+            .unwrap()
+        }
+
         write!(f, "{}", message)
     }
 }
 fn column_to_message(column: &[SimpleColumn]) -> String {
-    return column
+    column
         .iter()
         .map(|c| format!("{} => {}", &c.table_name, &c.column_name))
         .sorted()
-        .join("\n\t");
+        .join("\n\t")
 }
 
 impl ValidationErrors {
@@ -141,6 +152,7 @@ impl ValidationErrors {
             duplicate_columns: Vec::new(),
             duplicate_tables: Vec::new(),
             deterministic_without_id: Vec::new(),
+            invalid_custom_classifications: Vec::new(),
         }
     }
     pub fn is_empty(to_check: &ValidationErrors) -> bool {
@@ -150,5 +162,6 @@ impl ValidationErrors {
             && to_check.duplicate_columns.is_empty()
             && to_check.duplicate_tables.is_empty()
             && to_check.deterministic_without_id.is_empty()
+            && to_check.invalid_custom_classifications.is_empty()
     }
 }

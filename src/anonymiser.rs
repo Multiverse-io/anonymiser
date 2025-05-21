@@ -1,5 +1,6 @@
 use crate::compression_type::CompressionType;
 use crate::file_reader;
+use crate::parsers::custom_classifications::ClassificationConfig;
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_file;
 use crate::parsers::strategy_structs::TransformerOverrides;
@@ -10,10 +11,15 @@ pub fn anonymise(
     strategy_file: String,
     compress_output: Option<Option<CompressionType>>,
     transformer_overrides: TransformerOverrides,
+    custom_classifications: ClassificationConfig,
 ) -> Result<(), std::io::Error> {
     match strategy_file::read(&strategy_file) {
         Ok(strategies) => {
-            match Strategies::from_strategies_in_file(strategies, &transformer_overrides) {
+            match Strategies::from_strategies_in_file(
+                strategies,
+                &transformer_overrides,
+                &custom_classifications,
+            ) {
                 Ok(parsed_strategies) => {
                     file_reader::read(
                         input_file,
@@ -51,6 +57,7 @@ mod tests {
             "non_existing_strategy_file.json".to_string(),
             None,
             TransformerOverrides::none(),
+            ClassificationConfig::default(),
         )
         .is_ok());
     }
@@ -64,6 +71,7 @@ mod tests {
             "test_files/strategy.json".to_string(),
             None,
             TransformerOverrides::none(),
+            ClassificationConfig::default(),
         )
         .is_ok());
     }
@@ -77,6 +85,7 @@ mod tests {
             "test_files/strategy.json".to_string(),
             None,
             TransformerOverrides::none(),
+            ClassificationConfig::default(),
         )
         .is_ok());
 
@@ -113,6 +122,7 @@ mod tests {
             "test_files/strategy.json".to_string(),
             None,
             TransformerOverrides::none(),
+            ClassificationConfig::default(),
         )
         .is_ok());
 

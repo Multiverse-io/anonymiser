@@ -1,4 +1,5 @@
 use crate::fixers::{db_mismatch, validation};
+use crate::parsers::custom_classifications::ClassificationConfig;
 use crate::parsers::strategy_errors::StrategyFileError;
 use crate::parsers::strategy_file;
 
@@ -31,11 +32,22 @@ pub fn just_sort(strategy_file: &str) -> SortResult {
     }
 }
 
-pub fn fix(strategy_file: &str, error: StrategyFileError) {
+pub fn fix(
+    strategy_file: &str,
+    error: StrategyFileError,
+    custom_classifications: ClassificationConfig,
+) {
     let current_file_contents = strategy_file::read(strategy_file).unwrap_or_else(|_| Vec::new());
     match error {
         StrategyFileError::ValidationError(validation_error) => {
             let new_file_contents = validation::fix(current_file_contents, *validation_error);
+
+            if !custom_classifications.classifications.is_empty() {
+                println!(
+                    "Using {} custom classifications for validation",
+                    custom_classifications.classifications.len()
+                );
+            }
 
             strategy_file::write(strategy_file, new_file_contents)
                 .expect("Unable to write to file :(");
@@ -119,6 +131,7 @@ mod tests {
                 duplicate_columns: Vec::new(),
                 duplicate_tables: Vec::new(),
                 deterministic_without_id: Vec::new(),
+                invalid_custom_classifications: Vec::new(),
             }
         ))));
     }
@@ -137,6 +150,7 @@ mod tests {
                 duplicate_columns: Vec::new(),
                 duplicate_tables: Vec::new(),
                 deterministic_without_id: Vec::new(),
+                invalid_custom_classifications: Vec::new(),
             }
         ))));
     }
@@ -155,6 +169,7 @@ mod tests {
                 duplicate_columns: error,
                 duplicate_tables: Vec::new(),
                 deterministic_without_id: Vec::new(),
+                invalid_custom_classifications: Vec::new(),
             }
         ))));
     }
@@ -170,6 +185,7 @@ mod tests {
                 duplicate_columns: Vec::new(),
                 duplicate_tables: error,
                 deterministic_without_id: Vec::new(),
+                invalid_custom_classifications: Vec::new(),
             }
         ))));
     }

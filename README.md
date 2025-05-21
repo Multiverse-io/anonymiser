@@ -44,6 +44,54 @@ The following data categories are supported
 - Security - Related to the security of the system (e.g password hashes, magic links etc)
 - Unknown - Unclassified, If any fields have this anonymisation will fail until it is replaced with a valid type
 
+### Custom Classifications
+
+You can use custom classifications by providing a local file path to a JSON file containing the classifications. The format of the file should be:
+
+```json
+{
+  "classifications": [
+    "InternalUseOnly",
+    "Confidential",
+    "Restricted",
+    "Public"
+  ]
+}
+```
+
+To use custom classifications, add the `--classifications-file` flag to any command:
+
+```
+anonymiser anonymise -i clear_text_dump.sql -o anonymised.sql -s strategy.json --classifications-file ./path/to/classifications.json
+```
+
+In your strategy.json file, you can use custom classifications like this:
+
+```json
+{
+  "data_category": "InternalUseOnly",
+  "description": "Internal documentation",
+  "name": "internal_notes",
+  "transformer": {
+    "name": "Scramble"
+  }
+}
+```
+
+**Behaviour with Invalid Custom Classifications:**
+
+If your strategy file (`strategy.json`) references a custom classification in the `data_category` field for a column, but that classification is *not* defined in your custom classifications JSON file (or if no custom classifications file is provided), it will be treated as an invalid custom classification.
+
+When `check-strategies` is run:
+- A warning message will be displayed, highlighting the tables and columns that use these invalid custom classifications.
+- The process will exit with an error code.
+
+When `to-csv` is run:
+- Columns with invalid custom classifications will still be included in the CSV output.
+- The `data_category` field in the CSV will show the custom name (e.g., `Custom("MyInvalidType")`).
+- An additional field/note `[INVALID CUSTOM CLASSIFICATION: MyInvalidType]` will be appended to the data category in the CSV to clearly mark it as invalid.
+
+It is recommended to define all custom classifications you intend to use in the classifications file to ensure correct validation and behavior.
 
 ## Data transformation
 
