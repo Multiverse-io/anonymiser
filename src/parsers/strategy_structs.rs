@@ -168,6 +168,7 @@ pub enum TransformerType {
     Fixed,
     Identity,
     ObfuscateDay,
+    ObfuscateDateTime,
     Scramble,
     ScrambleBlank,
 }

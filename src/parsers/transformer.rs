@@ -152,6 +152,7 @@ pub fn transform<'line>(
         TransformerType::Fixed => fixed(&transformer.args, table_name),
         TransformerType::Identity => Cow::from(value),
         TransformerType::FakeUUID => Cow::from(fake_uuid(value, &transformer.args, global_salt)),
+        TransformerType::ObfuscateDateTime => Cow::from(obfuscate_datetime(value, table_name)),
     }
 }
 
@@ -480,6 +481,43 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
                     value, table_name, err
                 )
             }),
+    }
+}
+
+fn obfuscate_datetime(datetime_str: &str, table_name: &str) -> String {
+    let (dt, is_bc) = if datetime_str.ends_with(" BC") {
+        let without_bc = datetime_str.trim_end_matches(" BC");
+        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(without_bc) {
+            (dt.naive_local(), true)
+        } else if let Ok(dt) =
+            chrono::NaiveDateTime::parse_from_str(without_bc, "%Y-%m-%d %H:%M:%S")
+        {
+            (dt, true)
+        } else {
+            panic!(
+                "Invalid datetime found: \"{}\" in table: \"{}\".",
+                datetime_str, table_name
+            );
+        }
+    } else if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(datetime_str) {
+        (dt.naive_local(), false)
+    } else if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(datetime_str, "%Y-%m-%d %H:%M:%S")
+    {
+        (dt, false)
+    } else {
+        panic!(
+            "Invalid datetime found: \"{}\" in table: \"{}\".",
+            datetime_str, table_name
+        );
+    };
+
+    let new_date = dt.date().with_day(1).unwrap();
+    let new_datetime =
+        chrono::NaiveDateTime::new(new_date, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+    if is_bc {
+        format!("{} BC", new_datetime.format("%Y-%m-%d %H:%M:%S"))
+    } else {
+        new_datetime.format("%Y-%m-%d %H:%M:%S").to_string()
     }
 }
 
@@ -2188,5 +2226,152 @@ mod tests {
             new_email_with_salt, new_email_with_different_salt,
             "Same input with different salts should produce different fake emails"
         );
+    }
+
+    #[test]
+    fn obfuscate_datetime_transforms_regular_datetime() {
+        let datetime = "2024-03-15 14:30:45";
+        let mut rng = rng::get();
+        let new_datetime = transform(
+            &mut rng,
+            datetime,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::ObfuscateDateTime,
+                args: None,
+            },
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+        assert_eq!(new_datetime, "2024-03-01 00:00:00");
+    }
+
+    #[test]
+    fn obfuscate_datetime_transforms_bc_datetime() {
+        let datetime = "0001-08-15 23:59:59 BC";
+        let mut rng = rng::get();
+        let new_datetime = transform(
+            &mut rng,
+            datetime,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::ObfuscateDateTime,
+                args: None,
+            },
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+        assert_eq!(new_datetime, "0001-08-01 00:00:00 BC");
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid datetime found")]
+    fn obfuscate_datetime_handles_invalid_datetime() {
+        let datetime = "invalid-datetime";
+        let mut rng = rng::get();
+        transform(
+            &mut rng,
+            datetime,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::ObfuscateDateTime,
+                args: None,
+            },
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+    }
+
+    #[test]
+    fn obfuscate_datetime_transforms_utc_datetime() {
+        let datetime = "2024-03-15 14:30:45+00:00";
+        let mut rng = rng::get();
+        let new_datetime = transform(
+            &mut rng,
+            datetime,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::ObfuscateDateTime,
+                args: None,
+            },
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+        assert_eq!(new_datetime, "2024-03-01 00:00:00");
+    }
+
+    #[test]
+    fn obfuscate_datetime_transforms_datetime_with_positive_offset() {
+        let datetime = "2024-03-15 14:30:45+05:30";
+        let mut rng = rng::get();
+        let new_datetime = transform(
+            &mut rng,
+            datetime,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::ObfuscateDateTime,
+                args: None,
+            },
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+        assert_eq!(new_datetime, "2024-03-01 00:00:00");
+    }
+
+    #[test]
+    fn obfuscate_datetime_transforms_datetime_with_negative_offset() {
+        let datetime = "2024-03-15 14:30:45-08:00";
+        let mut rng = rng::get();
+        let new_datetime = transform(
+            &mut rng,
+            datetime,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::ObfuscateDateTime,
+                args: None,
+            },
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+        assert_eq!(new_datetime, "2024-03-01 00:00:00");
+    }
+
+    #[test]
+    fn obfuscate_datetime_transforms_bc_datetime_with_timezone() {
+        let datetime = "0001-08-15 23:59:59+00:00 BC";
+        let mut rng = rng::get();
+        let new_datetime = transform(
+            &mut rng,
+            datetime,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::ObfuscateDateTime,
+                args: None,
+            },
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+        assert_eq!(new_datetime, "0001-08-01 00:00:00 BC");
     }
 }
