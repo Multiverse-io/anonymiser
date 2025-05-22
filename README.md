@@ -133,6 +133,7 @@ Transforming table data requires a list of all table columns with a transformer 
 - Fixed - Returns a fixed value (requires a `value` arg with the value to use)
 - Identity - Does not transform the original value
 - ObfuscateDay - Takes a date and sets the day to the first of the month e.g. 12-12-2000 becomes 01-12-2000
+- ObfuscateDateTime - Takes a datetime and sets both the day to the first of the month and time to midnight (00:00:00) e.g. 2024-03-15 14:30:45 becomes 2024-03-01 00:00:00
 - Scramble - Replaces text with random alphanumeric characters of the same length. Preserves spaces so word count is unchanged
 
 
