@@ -492,9 +492,19 @@ fn obfuscate_datetime(datetime_str: &str, table_name: &str) -> String {
     let (dt, is_bc) = if datetime_str.ends_with(" BC") {
         let without_bc = datetime_str.trim_end_matches(" BC");
         if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(without_bc) {
-            let dt = dt.with_day(1).unwrap().with_hour(0).unwrap().with_minute(0).unwrap().with_second(0).unwrap();
+            let dt = dt
+                .with_day(1)
+                .unwrap()
+                .with_hour(0)
+                .unwrap()
+                .with_minute(0)
+                .unwrap()
+                .with_second(0)
+                .unwrap();
             (DT::Offset(dt.with_timezone(dt.offset())), true)
-        } else if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(without_bc, "%Y-%m-%d %H:%M:%S") {
+        } else if let Ok(dt) =
+            chrono::NaiveDateTime::parse_from_str(without_bc, "%Y-%m-%d %H:%M:%S")
+        {
             let new_dt = dt.date().with_day(1).unwrap().and_hms_opt(0, 0, 0).unwrap();
             (DT::Naive(new_dt), true)
         } else {
@@ -504,9 +514,18 @@ fn obfuscate_datetime(datetime_str: &str, table_name: &str) -> String {
             );
         }
     } else if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(datetime_str) {
-        let dt = dt.with_day(1).unwrap().with_hour(0).unwrap().with_minute(0).unwrap().with_second(0).unwrap();
+        let dt = dt
+            .with_day(1)
+            .unwrap()
+            .with_hour(0)
+            .unwrap()
+            .with_minute(0)
+            .unwrap()
+            .with_second(0)
+            .unwrap();
         (DT::Offset(dt.with_timezone(dt.offset())), false)
-    } else if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(datetime_str, "%Y-%m-%d %H:%M:%S") {
+    } else if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(datetime_str, "%Y-%m-%d %H:%M:%S")
+    {
         let new_dt = dt.date().with_day(1).unwrap().and_hms_opt(0, 0, 0).unwrap();
         (DT::Naive(new_dt), false)
     } else {
