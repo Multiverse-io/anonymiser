@@ -485,14 +485,14 @@ fn obfuscate_day(value: &str, table_name: &str) -> String {
 }
 
 fn obfuscate_datetime(datetime_str: &str, table_name: &str) -> String {
-    let (dt, is_bc) = if datetime_str.ends_with(" BC") {
+    let (dt, is_bc, timezone) = if datetime_str.ends_with(" BC") {
         let without_bc = datetime_str.trim_end_matches(" BC");
         if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(without_bc) {
-            (dt.naive_local(), true)
+            (dt.naive_local(), true, Some(dt.offset().to_string()))
         } else if let Ok(dt) =
             chrono::NaiveDateTime::parse_from_str(without_bc, "%Y-%m-%d %H:%M:%S")
         {
-            (dt, true)
+            (dt, true, None)
         } else {
             panic!(
                 "Invalid datetime found: \"{}\" in table: \"{}\".",
@@ -500,10 +500,10 @@ fn obfuscate_datetime(datetime_str: &str, table_name: &str) -> String {
             );
         }
     } else if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(datetime_str) {
-        (dt.naive_local(), false)
+        (dt.naive_local(), false, Some(dt.offset().to_string()))
     } else if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(datetime_str, "%Y-%m-%d %H:%M:%S")
     {
-        (dt, false)
+        (dt, false, None)
     } else {
         panic!(
             "Invalid datetime found: \"{}\" in table: \"{}\".",
@@ -514,10 +514,14 @@ fn obfuscate_datetime(datetime_str: &str, table_name: &str) -> String {
     let new_date = dt.date().with_day(1).unwrap();
     let new_datetime =
         chrono::NaiveDateTime::new(new_date, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
-    if is_bc {
-        format!("{} BC", new_datetime.format("%Y-%m-%d %H:%M:%S"))
-    } else {
-        new_datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+
+    let base_output = new_datetime.format("%Y-%m-%d %H:%M:%S").to_string();
+
+    match (timezone, is_bc) {
+        (Some(tz), true) => format!("{}{} BC", base_output, tz),
+        (Some(tz), false) => format!("{}{}", base_output, tz),
+        (None, true) => format!("{} BC", base_output),
+        (None, false) => base_output,
     }
 }
 
@@ -2309,7 +2313,7 @@ mod tests {
             EMPTY_COLUMNS,
             None,
         );
-        assert_eq!(new_datetime, "2024-03-01 00:00:00");
+        assert_eq!(new_datetime, "2024-03-01 00:00:00+00:00");
     }
 
     #[test]
@@ -2330,7 +2334,7 @@ mod tests {
             EMPTY_COLUMNS,
             None,
         );
-        assert_eq!(new_datetime, "2024-03-01 00:00:00");
+        assert_eq!(new_datetime, "2024-03-01 00:00:00+05:30");
     }
 
     #[test]
@@ -2351,7 +2355,7 @@ mod tests {
             EMPTY_COLUMNS,
             None,
         );
-        assert_eq!(new_datetime, "2024-03-01 00:00:00");
+        assert_eq!(new_datetime, "2024-03-01 00:00:00-08:00");
     }
 
     #[test]
@@ -2372,6 +2376,6 @@ mod tests {
             EMPTY_COLUMNS,
             None,
         );
-        assert_eq!(new_datetime, "0001-08-01 00:00:00 BC");
+        assert_eq!(new_datetime, "0001-08-01 00:00:00+00:00 BC");
     }
 }
