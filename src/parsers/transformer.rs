@@ -503,7 +503,7 @@ fn obfuscate_datetime(datetime_str: &str, table_name: &str) -> String {
                 .unwrap();
             (DT::Offset(dt.with_timezone(dt.offset())), true)
         } else if let Ok(dt) =
-            chrono::NaiveDateTime::parse_from_str(without_bc, "%Y-%m-%d %H:%M:%S")
+            chrono::NaiveDateTime::parse_from_str(without_bc, "%Y-%m-%d %H:%M:%S%.f")
         {
             let new_dt = dt.date().with_day(1).unwrap().and_hms_opt(0, 0, 0).unwrap();
             (DT::Naive(new_dt), true)
@@ -524,7 +524,8 @@ fn obfuscate_datetime(datetime_str: &str, table_name: &str) -> String {
             .with_second(0)
             .unwrap();
         (DT::Offset(dt.with_timezone(dt.offset())), false)
-    } else if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(datetime_str, "%Y-%m-%d %H:%M:%S")
+    } else if let Ok(dt) =
+        chrono::NaiveDateTime::parse_from_str(datetime_str, "%Y-%m-%d %H:%M:%S%.f")
     {
         let new_dt = dt.date().with_day(1).unwrap().and_hms_opt(0, 0, 0).unwrap();
         (DT::Naive(new_dt), false)
@@ -1905,7 +1906,7 @@ mod tests {
 
     #[test]
     fn scramble_calculates_unicode_length_correctly() {
-        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
+        let initial_value = "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한";
         let mut rng = rng::get();
         let new_value = transform(
             &mut rng,
@@ -2399,5 +2400,26 @@ mod tests {
             None,
         );
         assert_eq!(new_datetime, "0001-08-01 00:00:00+00:00 BC");
+    }
+
+    #[test]
+    fn obfuscate_datetime_transforms_datetime_with_milliseconds() {
+        let datetime = "2025-02-28 10:20:30.074";
+        let mut rng = rng::get();
+        let new_datetime = transform(
+            &mut rng,
+            datetime,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::ObfuscateDateTime,
+                args: None,
+            },
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        );
+        assert_eq!(new_datetime, "2025-02-01 00:00:00");
     }
 }
