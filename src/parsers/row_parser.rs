@@ -355,7 +355,8 @@ mod tests {
 
     #[test]
     fn row_type_handles_text_columns_starting_with_copy() {
-        let not_a_copy_row = "COPY CELLS WITH FORMULA AND PASTE\t9b8d3a9b-e84a-4f84-8fb2-0b1e862506d1\t\\N";
+        let not_a_copy_row =
+            "COPY CELLS WITH FORMULA AND PASTE\t9b8d3a9b-e84a-4f84-8fb2-0b1e862506d1\t\\N";
         let state = State {
             position: Position::Normal,
             types: Types::new(HashMap::default()),
