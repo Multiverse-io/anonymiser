@@ -26,7 +26,7 @@ enum RowType {
 fn row_type(line: &str, state: &Position) -> RowType {
     if create_row::is_create_row(line) {
         RowType::CreateTableStart
-    } else if line.starts_with("COPY ") && !line.contains("\t") {
+    } else if line.starts_with("COPY ") && !line.contains('\t') {
         RowType::CopyBlockStart
     } else if line.starts_with("\\.") {
         RowType::CopyBlockEnd
