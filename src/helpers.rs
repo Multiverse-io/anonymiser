@@ -5,6 +5,9 @@ use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use std::collections::HashMap;
 
+
+const HELPER_TABLE_NAME: &str = "anonymiser_helper";
+
 /// Anonymise an email address using the FakeEmail transformer
 pub fn anonymise_email(email: &str, global_salt: Option<&str>) -> Result<String, String> {
     // Create a transformer struct
@@ -27,7 +30,7 @@ pub fn anonymise_email(email: &str, global_salt: Option<&str>) -> Result<String,
         email,
         &column_type,
         &transformer,
-        "helper_table", // dummy table name
+        HELPER_TABLE_NAME,
         &[],
         global_salt,
     );
@@ -62,7 +65,7 @@ pub fn anonymise_id(
         id,
         &column_type,
         &transformer,
-        "helper_table", // dummy table name
+        HELPER_TABLE_NAME,
         &[],
         global_salt,
     );
