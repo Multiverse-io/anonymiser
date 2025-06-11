@@ -5,7 +5,6 @@ use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use std::collections::HashMap;
 
-
 const HELPER_TABLE_NAME: &str = "anonymiser_helper";
 
 /// Anonymise an email address using the FakeEmail transformer
