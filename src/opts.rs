@@ -102,4 +102,30 @@ pub enum Anonymiser {
         #[structopt(short, long)]
         output_file: Option<PathBuf>,
     },
+
+    /// Get anonymised email for a given email address
+    AnonymiseEmail {
+        /// Original email address to anonymise
+        #[structopt(long)]
+        email: String,
+        /// Optional global salt for deterministic generation
+        #[structopt(long)]
+        salt: Option<String>,
+    },
+
+    /// Get anonymised ID for a given ID value
+    AnonymiseId {
+        /// Original ID value to anonymise
+        #[structopt(long)]
+        id: String,
+        /// Transformer type (e.g., "FakeUUID", "Scramble")
+        #[structopt(long)]
+        transformer: String,
+        /// Optional transformer arguments in JSON format (e.g., '{"deterministic": "true"}')
+        #[structopt(long)]
+        args: Option<String>,
+        /// Optional global salt for deterministic generation
+        #[structopt(long)]
+        salt: Option<String>,
+    },
 }

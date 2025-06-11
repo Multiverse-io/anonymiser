@@ -2,6 +2,7 @@ mod anonymiser;
 mod compression_type;
 mod file_reader;
 mod fixers;
+mod helpers;
 mod opts;
 mod parsers;
 mod uncompress;
@@ -12,7 +13,7 @@ use crate::opts::{Anonymiser, Opts};
 use crate::parsers::custom_classifications::ClassificationConfig;
 use crate::parsers::strategies::Strategies;
 use crate::parsers::strategy_errors::StrategyFileError;
-use crate::parsers::strategy_structs::{StrategyInFile, TransformerOverrides};
+use crate::parsers::strategy_structs::{StrategyInFile, TransformerOverrides, TransformerType};
 use colored::Colorize;
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
@@ -151,8 +152,58 @@ fn main() -> Result<(), std::io::Error> {
             input_file,
             output_file,
         } => uncompress::uncompress(input_file, output_file).expect("failed to uncompress"),
+
+        Anonymiser::AnonymiseEmail { email, salt } => {
+            match crate::helpers::anonymise_email(&email, salt.as_deref()) {
+                Ok(result) => println!("{}", result),
+                Err(err) => {
+                    eprintln!("Error: {}", err);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        Anonymiser::AnonymiseId {
+            id,
+            transformer,
+            args,
+            salt,
+        } => match handle_anonymise_id(id, transformer, args, salt) {
+            Ok(result) => println!("{}", result),
+            Err(err) => {
+                eprintln!("Error: {}", err);
+                std::process::exit(1);
+            }
+        },
     }
     Ok(())
+}
+
+/// Handle the anonymise-id command
+fn handle_anonymise_id(
+    id: String,
+    transformer: String,
+    args: Option<String>,
+    salt: Option<String>,
+) -> Result<String, String> {
+    // Parse transformer type using serde
+    let transformer_type: TransformerType =
+        serde_json::from_str(&format!("\"{}\"", transformer))
+            .map_err(|_| format!("Unknown transformer type: {}", transformer))?;
+
+    // Parse args if provided
+    let parsed_args = match args {
+        Some(args_str) => {
+            match serde_json::from_str::<std::collections::HashMap<String, String>>(&args_str) {
+                Ok(args_map) => Some(args_map),
+                Err(err) => return Err(format!("Invalid JSON args: {}", err)),
+            }
+        }
+        None => None,
+    };
+
+    // Call the helper function
+    crate::helpers::anonymise_id(&id, transformer_type, parsed_args, salt.as_deref())
 }
 
 /// Loads custom classifications from the provided file or returns an empty config if none provided
