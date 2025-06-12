@@ -217,3 +217,65 @@ The anonymiser supports using a global salt for consistent hashing across differ
 ```
 
 The salt will be applied to all transformers that support salted hashing (marked with † in the transformer list). Different salt values will generate different outputs for the same input
+
+## Helper Functions for Local Debugging
+
+The anonymiser provides helper functions that can be used to get anonymised values for specific inputs. This is particularly useful for local debugging scenarios where you need to match production user IDs or emails to their anonymised counterparts.
+
+### Anonymise Email
+
+Get an anonymised email address for a given email:
+
+```bash
+anonymiser anonymise-email --email "user@example.com"
+# Output: b4c9a289323b-cordia_iusto@hotmail.com
+
+# With salt for different outputs
+anonymiser anonymise-email --email "user@example.com" --salt "mysalt123"
+# Output: b4c9a289323b-justus_ut@yahoo.com
+```
+
+### Anonymise ID
+
+Get an anonymised ID for a given ID value:
+
+```bash
+# Using FakeUUID transformer with deterministic generation
+anonymiser anonymise-id --id "user123" --transformer "FakeUUID" --args '{"deterministic": "true"}'
+# Output: e4d6655a-4a20-1c4a-6740-d647ba4bf06e
+
+# Using Scramble transformer
+anonymiser anonymise-id --id "user456" --transformer "Scramble"
+# Output: llzm895
+
+# With salt for different outputs
+anonymiser anonymise-id --id "user123" --transformer "FakeUUID" --args '{"deterministic": "true"}' --salt "mysalt123"
+```
+
+
+
+### Use Case: Local Debugging
+
+When teams update their strategy.json files to anonymise user IDs and emails, they can use these helper functions to:
+
+1. **Match Production Users**: Take a production user ID or email and get its anonymised equivalent
+2. **Consistent Debugging**: Use the same salt and transformer settings as your strategy.json to ensure consistent results
+3. **Quick Testing**: Test different transformer configurations before updating your strategy file
+
+#### Example Workflow:
+
+1. You have a production user with email `john.smith@company.com` and ID `12345`
+2. Your strategy.json anonymises emails with `FakeEmail` and IDs with `FakeUUID` (deterministic)
+3. Get the anonymised values:
+
+```bash
+# Get anonymised email
+anonymiser anonymise-email --email "john.smith@company.com"
+
+# Get anonymised ID (matching your strategy.json configuration)
+anonymiser anonymise-id --id "12345" --transformer "FakeUUID" --args '{"deterministic": "true"}'
+```
+
+4. Use these anonymised values to identify the same user in your local anonymised database
+
+This allows you to maintain the debugging workflow while keeping data properly anonymised and following security best practices.
