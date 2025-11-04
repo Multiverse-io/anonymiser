@@ -21,6 +21,9 @@
         overlays = [rust-overlay.overlays.default];
         pkgs = import nixpkgs {inherit overlays system;};
 
+        # Use pkgsMusl for musl libc instead of glibc
+        pkgsMusl = pkgs.pkgsMusl;
+
         rust = pkgs.rust-bin.stable.latest.default.override {extensions = ["rust-src"];};
         rustPlatform = pkgs.makeRustPlatform {
           cargo = rust;
@@ -33,7 +36,7 @@
           targets = ["x86_64-unknown-linux-musl"];
         };
 
-        rustPlatformMusl = pkgs.makeRustPlatform {
+        rustPlatformMusl = pkgsMusl.makeRustPlatform {
           cargo = rustWithMusl;
           rustc = rustWithMusl;
         };
@@ -94,9 +97,13 @@
 
             # Target musl for static linking
             CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
-            CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+            CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static -C link-arg=-static";
 
-            # Compile-time dependencies.
+            # Ensure OpenSSL is built statically via vendored feature
+            OPENSSL_STATIC = "1";
+            OPENSSL_NO_VENDOR = "0";
+
+            # Compile-time dependencies (use host pkgs for build tools)
             nativeBuildInputs = with pkgs; [
               pkg-config
               cmake
