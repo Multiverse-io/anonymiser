@@ -147,9 +147,9 @@ impl Strategies {
         let columns_from_strategy_file: HashSet<SimpleColumn> = columns_by_table
             .iter()
             .flat_map(|(table_name, columns)| {
-                columns.iter().map(|(column_name, _column_info)| {
-                    create_simple_column(table_name, column_name)
-                })
+                columns
+                    .keys()
+                    .map(|column_name| create_simple_column(table_name, column_name))
             })
             .collect();
 

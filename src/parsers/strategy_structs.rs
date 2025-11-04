@@ -202,8 +202,3 @@ impl Default for TransformerOverrides {
         Self::none()
     }
 }
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct SaltConfig {
-    pub salt: String,
-}
