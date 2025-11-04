@@ -82,6 +82,11 @@ jobs:
           nix build .#anonymiser-musl
           cp result/bin/anonymiser anonymiser-x86_64-unknown-linux-musl
 
+      - name: Inspect binary
+        run: |
+          file anonymiser-x86_64-unknown-linux-musl
+          ldd anonymiser-x86_64-unknown-linux-musl || true
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -115,6 +120,12 @@ jobs:
       - name: Make binary executable
         run: chmod +x anonymiser-x86_64-unknown-linux-musl
 
+      - name: Debug binary
+        run: |
+          apk add --no-cache file
+          file anonymiser-x86_64-unknown-linux-musl
+          ldd anonymiser-x86_64-unknown-linux-musl || echo "ldd failed or binary is static"
+
       - name: Test binary on Alpine
         run: |
           ./anonymiser-x86_64-unknown-linux-musl generate-strategies --db-url postgresql://postgres:postgres@postgres
@@ -147,6 +158,12 @@ jobs:
 
       - name: Make binary executable
         run: chmod +x anonymiser-x86_64-unknown-linux-musl
+
+      - name: Debug binary
+        run: |
+          yum install -y file
+          file anonymiser-x86_64-unknown-linux-musl
+          ldd anonymiser-x86_64-unknown-linux-musl || echo "ldd failed or binary is static"
 
       - name: Test binary on Amazon Linux
         run: |
