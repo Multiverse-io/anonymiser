@@ -49,6 +49,10 @@ pub fn read(
         file_writer.write_all(transformed_row.as_bytes())?;
         line.clear();
     }
+
+    // Flush to ensure all data is written before auto_finish() on drop
+    file_writer.flush()?;
+
     Ok(())
 }
 
