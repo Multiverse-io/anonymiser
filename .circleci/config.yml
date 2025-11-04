@@ -41,7 +41,7 @@ jobs:
 
   build_release_linux_universal:
     docker:
-      - image: clux/muslrust:1.91.0-stable
+      - image: clux/muslrust:1.90.0-stable-2025-09-27
     environment:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
