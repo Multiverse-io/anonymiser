@@ -27,6 +27,17 @@
           rustc = rust;
         };
 
+        # Rust with musl target for static builds on Linux
+        rustWithMusl = pkgs.rust-bin.stable.latest.default.override {
+          extensions = ["rust-src"];
+          targets = ["x86_64-unknown-linux-musl"];
+        };
+
+        rustPlatformMusl = pkgs.makeRustPlatform {
+          cargo = rustWithMusl;
+          rustc = rustWithMusl;
+        };
+
         manifest = (pkgs.lib.importTOML ./Cargo.toml).package;
       in {
         # `nix develop`.
@@ -75,7 +86,7 @@
           };
 
           # Static musl build for Linux distribution
-          anonymiser-musl = rustPlatform.buildRustPackage {
+          anonymiser-musl = rustPlatformMusl.buildRustPackage {
             pname = "${manifest.name}-musl";
             version = manifest.version;
             src = pkgs.nix-gitignore.gitignoreSource [] ./.;
@@ -92,7 +103,7 @@
               perl # Required for vendored OpenSSL build
             ];
 
-            # With vendored OpenSSL, we don't need runtime dependencies
+            # With vendored OpenSSL and static linking, we don't need runtime dependencies
             buildInputs = [];
 
             checkFlags = [
