@@ -16,59 +16,66 @@
     flake-utils,
     rust-overlay,
   }:
-    flake-utils.lib.eachDefaultSystem (system: let
-      overlays = [rust-overlay.overlays.default];
-      pkgs = import nixpkgs {inherit overlays system;};
+    flake-utils.lib.eachDefaultSystem (
+      system: let
+        overlays = [rust-overlay.overlays.default];
+        pkgs = import nixpkgs {inherit overlays system;};
 
-      rust = pkgs.rust-bin.stable.latest.default.override {extensions = ["rust-src"];};
-      rustPlatform = pkgs.makeRustPlatform {
-        cargo = rust;
-        rustc = rust;
-      };
-
-      manifest = (pkgs.lib.importTOML ./Cargo.toml).package;
-    in {
-      # `nix develop`.
-      devShells = {
-        default = pkgs.mkShell {
-          inputsFrom = [self.packages.${system}.anonymiser];
-          buildInputs = with pkgs; [rust-analyzer];
+        rust = pkgs.rust-bin.stable.latest.default.override {extensions = ["rust-src"];};
+        rustPlatform = pkgs.makeRustPlatform {
+          cargo = rust;
+          rustc = rust;
         };
-      };
 
-      # `nix fmt`.
-      formatter = pkgs.alejandra;
-
-      # `nix build`.
-      packages = {
-        anonymiser = rustPlatform.buildRustPackage {
-          pname = manifest.name;
-          version = manifest.version;
-          src = pkgs.nix-gitignore.gitignoreSource [] ./.;
-          cargoLock.lockFile = ./Cargo.lock;
-
-          # Compile-time dependencies.
-          nativeBuildInputs = with pkgs; [
-            pkg-config
-            cmake
-          ];
-          # Run-time dependencies.
-          buildInputs = with pkgs;
-            [
-              openssl
-            ]
-            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
-              Security
-              SystemConfiguration
-            ]);
-
-          checkFlags = [
-            # Skip tests which require acces to a PostgreSQL server.
-            "--skip=anonymiser::tests::successfully_transforms"
-            "--skip=parsers::db_schema::tests::can_read_db_columns"
-          ];
+        manifest = (pkgs.lib.importTOML ./Cargo.toml).package;
+      in {
+        # `nix develop`.
+        devShells = {
+          default = pkgs.mkShell {
+            inputsFrom = [self.packages.${system}.anonymiser];
+            buildInputs = with pkgs; [rust-analyzer];
+          };
         };
-        default = self.packages.${system}.anonymiser;
-      };
-    });
+
+        # `nix fmt`.
+        formatter = pkgs.alejandra;
+
+        # `nix build`.
+        packages = {
+          anonymiser = rustPlatform.buildRustPackage {
+            pname = manifest.name;
+            version = manifest.version;
+            src = pkgs.nix-gitignore.gitignoreSource [] ./.;
+            cargoLock.lockFile = ./Cargo.lock;
+
+            # Compile-time dependencies.
+            nativeBuildInputs = with pkgs; [
+              pkg-config
+              cmake
+              perl # Required for vendored OpenSSL build
+            ];
+            # Run-time dependencies.
+            buildInputs = with pkgs;
+              [
+                openssl
+              ]
+              ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (
+                with pkgs.darwin.apple_sdk.frameworks; [
+                  Security
+                  SystemConfiguration
+                ]
+              );
+
+            checkFlags = [
+              # Skip tests which require access to a PostgreSQL server.
+              "--skip=anonymiser::tests::successfully_transforms"
+              "--skip=anonymiser::tests::successfully_truncates"
+              "--skip=parsers::db_schema::tests::can_read_db_columns"
+            ];
+          };
+
+          default = self.packages.${system}.anonymiser;
+        };
+      }
+    );
 }

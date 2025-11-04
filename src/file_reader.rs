@@ -17,26 +17,41 @@ pub fn read(
     compress_output: Option<Option<CompressionType>>,
 ) -> Result<(), std::io::Error> {
     let output_file = File::create(output_file_path)?;
-    let mut file_writer: Box<dyn Write> = match compress_output {
-        Some(Some(CompressionType::Zstd)) => {
-            Box::new(zstd::Encoder::new(output_file, 1)?.auto_finish())
+
+    match compress_output {
+        Some(Some(CompressionType::Zstd)) | Some(None) => {
+            let mut encoder = zstd::Encoder::new(output_file, 1)?;
+            write_data(&input_file_path, &mut encoder, strategies)?;
+            let file = encoder.finish()?;
+            file.sync_all()?;
         }
         Some(Some(CompressionType::Gzip)) => {
-            Box::new(GzEncoder::new(output_file, Compression::best()))
+            let mut encoder = GzEncoder::new(output_file, Compression::best());
+            write_data(&input_file_path, &mut encoder, strategies)?;
+            let file = encoder.finish()?;
+            file.sync_all()?;
         }
-        Some(None) => Box::new(zstd::Encoder::new(output_file, 1)?.auto_finish()),
+        None => {
+            let mut writer = BufWriter::new(output_file);
+            write_data(&input_file_path, &mut writer, strategies)?;
+            writer.flush()?;
+        }
+    }
 
-        None => Box::new(BufWriter::new(output_file)),
-    };
+    Ok(())
+}
 
-    let file_reader = File::open(&input_file_path)
+fn write_data(
+    input_file_path: &str,
+    writer: &mut dyn Write,
+    strategies: &Strategies,
+) -> Result<(), std::io::Error> {
+    let file_reader = File::open(input_file_path)
         .unwrap_or_else(|_| panic!("Input file '{}' does not exist", input_file_path));
 
     let mut reader = BufReader::new(file_reader);
     let mut line = String::new();
-
     let mut row_parser_state = State::new();
-
     let mut rng = rng::get();
 
     loop {
@@ -46,9 +61,10 @@ pub fn read(
         }
 
         let transformed_row = row_parser::parse(&mut rng, &line, &mut row_parser_state, strategies);
-        file_writer.write_all(transformed_row.as_bytes())?;
+        writer.write_all(transformed_row.as_bytes())?;
         line.clear();
     }
+
     Ok(())
 }
 
