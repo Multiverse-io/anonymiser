@@ -172,17 +172,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@postgres
 
   build-macos:
-    strategy:
-      matrix:
-        include:
-          - runner: macos-13
-            target: x86_64-apple-darwin
-            name: Intel Mac
-          - runner: macos-14
-            target: aarch64-apple-darwin
-            name: Apple silicon mac
-
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-14
     needs: test
 
     steps:
@@ -202,19 +192,19 @@ jobs:
           shared-key: "rust-deps"
           cache-on-failure: true
 
-      - name: Build macOS binary
+      - name: Build macOS binary (Apple Silicon)
         run: |
           nix build .#anonymiser
-          cp result/bin/anonymiser anonymiser-${{ matrix.target }}
+          cp result/bin/anonymiser anonymiser-aarch64-apple-darwin
 
       - name: Test binary
-        run: ./anonymiser-${{ matrix.target }} --help
+        run: ./anonymiser-aarch64-apple-darwin --help
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: anonymiser-${{ matrix.target }}
-          path: anonymiser-${{ matrix.target }}
+          name: anonymiser-aarch64-apple-darwin
+          path: anonymiser-aarch64-apple-darwin
 
   release:
     runs-on: ubuntu-latest
@@ -231,11 +221,6 @@ jobs:
         with:
           name: anonymiser-linux
 
-      - name: Download macOS x86_64 binary
-        uses: actions/download-artifact@v4
-        with:
-          name: anonymiser-x86_64-apple-darwin
-
       - name: Download macOS ARM64 binary
         uses: actions/download-artifact@v4
         with:
@@ -247,5 +232,4 @@ jobs:
         run: |
           gh release create --draft --generate-notes "${{ github.ref_name }}" \
             './anonymiser-x86_64-unknown-linux-musl#Linux' \
-            './anonymiser-x86_64-apple-darwin#Intel Mac' \
-            './anonymiser-aarch64-apple-darwin#Apple silicon mac'
+            './anonymiser-aarch64-apple-darwin#macOS (Apple Silicon)'
