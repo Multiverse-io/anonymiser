@@ -56,11 +56,7 @@
           buildInputs = with pkgs;
             [
               openssl
-            ]
-            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
-              Security
-              SystemConfiguration
-            ]);
+            ];
 
           checkFlags = [
             # Skip tests which require acces to a PostgreSQL server.
