@@ -49,6 +49,8 @@
 
           # Compile-time dependencies.
           nativeBuildInputs = with pkgs; [
+            openssl.dev
+            perl
             pkg-config
             cmake
           ];
