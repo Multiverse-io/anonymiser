@@ -62,6 +62,7 @@
           checkFlags = [
             # Skip tests which require acces to a PostgreSQL server.
             "--skip=anonymiser::tests::successfully_transforms"
+            "--skip=anonymiser::tests::successfully_truncates"
             "--skip=parsers::db_schema::tests::can_read_db_columns"
           ];
         };
