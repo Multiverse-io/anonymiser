@@ -51,11 +51,12 @@
           nativeBuildInputs = with pkgs; [
             pkg-config
             cmake
+            openssl
+            perl
           ];
           # Run-time dependencies.
           buildInputs = with pkgs;
             [
-              openssl
             ];
 
           checkFlags = [
