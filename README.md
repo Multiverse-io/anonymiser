@@ -135,7 +135,7 @@ Transforming table data requires a list of all table columns with a transformer 
 - Identity - Does not transform the original value
 - ObfuscateDay - Takes a date and sets the day to the first of the month e.g. 12-12-2000 becomes 01-12-2000
 - ObfuscateDateTime - Takes a datetime and sets both the day to the first of the month and time to midnight (00:00:00) e.g. 2024-03-15 14:30:45 becomes 2024-03-01 00:00:00
-- RebaseUrl - Rebases a URL onto a different origin, keeping the path and query (useful when path segments are identity-preserved ids that must keep resolving). Requires a `base` arg (e.g. `http://localhost:3335`); values with no recognisable origin become `base` alone. Optional `template` arg rebuilds the value from scratch, interpolating `{base}` and `{column_name}` from the same row, e.g. `{base}/survey/skills-scan/{external_id}`
+- RebaseUrl - Rebases a URL onto a different origin, keeping the path and query (useful when path segments are identity-preserved ids that must keep resolving). Requires a `base` arg (e.g. `http://localhost:3335`); values with no recognisable origin become `base` alone. Optional `only_hosts` arg (comma-separated host list): only URLs on those hosts are rebased, anything else (third-party links) passes through unchanged. Optional `template` arg rebuilds the value from scratch, interpolating `{base}` and `{column_name}` from the same row, e.g. `{base}/survey/skills-scan/{external_id}`
 - Scramble - Replaces text with random alphanumeric characters of the same length. Preserves spaces so word count is unchanged
 
 

@@ -480,9 +480,12 @@ fn copy_escape(value: &str) -> String {
 /// - `base` (required): replacement scheme+host(+port), e.g. "http://localhost:3335"
 /// - `template` (optional): rebuild the value from scratch, interpolating
 ///   `{base}` and `{column_name}` from the current row's columns.
+/// - `only_hosts` (optional): comma-separated host list; only URLs on one of
+///   these hosts are rebased, anything else (third-party links, non-URLs)
+///   passes through unchanged.
 ///
-/// Values with no recognisable origin produce `base` alone — a prod host never
-/// survives.
+/// Without `only_hosts`, values with no recognisable origin produce `base`
+/// alone — a prod host never survives.
 fn rebase_url(
     value: &str,
     args: &Option<HashMap<String, String>>,
@@ -504,15 +507,41 @@ fn rebase_url(
         return interpolate_url_template(template, base, column_values, table_name);
     }
 
+    let only_hosts: Option<Vec<String>> =
+        args.as_ref()
+            .and_then(|a| a.get("only_hosts"))
+            .map(|hosts| {
+                hosts
+                    .split(',')
+                    .map(|host| host.trim().to_lowercase())
+                    .collect()
+            });
+
     match value.find("://") {
         Some(scheme_end) => {
             let after_scheme = &value[scheme_end + 3..];
-            match after_scheme.find('/') {
-                Some(path_start) => format!("{}{}", base, &after_scheme[path_start..]),
-                None => base.to_string(),
+            let authority_end = after_scheme
+                .find(['/', '?', '#'])
+                .unwrap_or(after_scheme.len());
+            if let Some(hosts) = &only_hosts {
+                let authority = after_scheme[..authority_end].to_lowercase();
+                if !hosts.contains(&authority) {
+                    return value.to_string();
+                }
+            }
+            if authority_end == after_scheme.len() {
+                base.to_string()
+            } else {
+                format!("{}{}", base, &after_scheme[authority_end..])
             }
         }
-        None => base.to_string(),
+        None => {
+            if only_hosts.is_some() {
+                value.to_string()
+            } else {
+                base.to_string()
+            }
+        }
     }
 }
 
@@ -2807,6 +2836,39 @@ mod tests {
             rebase_url_transform("scrambled garbage", args),
             "http://localhost:3335/survey/skills-scan/0076905c-c5b6-4c9b-b49f-52cac32f644f"
         );
+    }
+
+    #[test]
+    fn rebase_url_only_hosts_rebases_listed_hosts_and_keeps_others() {
+        let args = HashMap::from([
+            ("base".to_string(), "http://localhost:4000".to_string()),
+            (
+                "only_hosts".to_string(),
+                "my.multiverse.io, platform.multiverse.io".to_string(),
+            ),
+        ]);
+        assert_eq!(
+            rebase_url_transform(
+                "https://my.multiverse.io/projects/learner/abc/submission",
+                args.clone()
+            ),
+            "http://localhost:4000/projects/learner/abc/submission"
+        );
+        assert_eq!(
+            rebase_url_transform(
+                "https://PLATFORM.multiverse.io/upskiller/home",
+                args.clone()
+            ),
+            "http://localhost:4000/upskiller/home"
+        );
+        assert_eq!(
+            rebase_url_transform(
+                "https://multiverse.qualtrics.com/jfe/form/SV_x",
+                args.clone()
+            ),
+            "https://multiverse.qualtrics.com/jfe/form/SV_x"
+        );
+        assert_eq!(rebase_url_transform("not a url", args), "not a url");
     }
 
     #[test]
