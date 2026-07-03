@@ -122,6 +122,7 @@ Transforming table data requires a list of all table columns with a transformer 
 - FakeFullAddress - Random address made up of segments from [faker](https://github.com/cksac/fake-rs)
 - FakeFullName† - Random first plus last name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id_column` argument
 - FakeIPv4 - Random IPV4 address from [faker](https://github.com/cksac/fake-rs)
+- FakeJson - Fakes a JSON value while preserving its shape: object keys, array lengths and value types are kept; string values are replaced with fake words of similar length; numbers, booleans and null pass through. Anything that does not parse as JSON becomes `{}`. Optional `preserve_string_max_len` arg: string values of at most that many characters are kept as-is (for enum-like option values consumers compare against)
 - FakeLastName†- Random last name from [faker](https://github.com/cksac/fake-rs). Supports deterministic generation by setting `deterministic: true` and providing an `id_column` argument
 - FakeNationalIdentityNumber - Random National Insurance number from list of dummy numbers
 - FakePhoneNumber - Random phone number (looks at existing numbers country code, supports GB + US)
@@ -134,6 +135,7 @@ Transforming table data requires a list of all table columns with a transformer 
 - Identity - Does not transform the original value
 - ObfuscateDay - Takes a date and sets the day to the first of the month e.g. 12-12-2000 becomes 01-12-2000
 - ObfuscateDateTime - Takes a datetime and sets both the day to the first of the month and time to midnight (00:00:00) e.g. 2024-03-15 14:30:45 becomes 2024-03-01 00:00:00
+- RebaseUrl - Rebases a URL onto a different origin, keeping the path and query (useful when path segments are identity-preserved ids that must keep resolving). Requires a `base` arg (e.g. `http://localhost:3335`); values with no recognisable origin become `base` alone. Optional `template` arg rebuilds the value from scratch, interpolating `{base}` and `{column_name}` from the same row, e.g. `{base}/survey/skills-scan/{external_id}`
 - Scramble - Replaces text with random alphanumeric characters of the same length. Preserves spaces so word count is unchanged
 
 

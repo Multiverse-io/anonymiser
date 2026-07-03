@@ -10,6 +10,7 @@ use core::ops::Range;
 use fake::faker::address::en::*;
 use fake::faker::company::en::*;
 use fake::faker::internet::en::*;
+use fake::faker::lorem::en::Word;
 use fake::faker::name::en::*;
 use fake::Fake;
 use log::trace;
@@ -137,6 +138,7 @@ pub fn transform<'line>(
             Cow::from(fake_full_name(value, &transformer.args, id, global_salt))
         }
         TransformerType::FakeIPv4 => Cow::from(IPv4().fake::<String>()),
+        TransformerType::FakeJson => Cow::from(fake_json(rng, value, &transformer.args)),
         TransformerType::FakeLastName => {
             Cow::from(fake_last_name(value, &transformer.args, id, global_salt))
         }
@@ -153,6 +155,12 @@ pub fn transform<'line>(
         TransformerType::Identity => Cow::from(value),
         TransformerType::FakeUUID => Cow::from(fake_uuid(value, &transformer.args, global_salt)),
         TransformerType::ObfuscateDateTime => Cow::from(obfuscate_datetime(value, table_name)),
+        TransformerType::RebaseUrl => Cow::from(rebase_url(
+            value,
+            &transformer.args,
+            table_name,
+            column_values,
+        )),
     }
 }
 
@@ -362,6 +370,189 @@ fn fake_uuid(
     let mut seeded_rng = get_faker_rng(value, None, global_salt);
 
     Uuid::from_bytes(seeded_rng.gen()).to_string()
+}
+
+/// Fakes a JSON value while preserving its shape: object keys, array lengths and
+/// value types survive; string leaves are replaced with fake words of similar
+/// length; numbers, booleans and null pass through. Values that do not parse as
+/// JSON collapse to `{}` (the EmptyJson behaviour) so nothing fails open.
+///
+/// Optional arg `preserve_string_max_len`: string leaves of at most that many
+/// characters pass through unfaked (for enum-like option answers such as
+/// "Yes"/"No" that downstream code compares against).
+fn fake_json(rng: &mut SmallRng, value: &str, args: &Option<HashMap<String, String>>) -> String {
+    let preserve_string_max_len = args
+        .as_ref()
+        .and_then(|a| a.get("preserve_string_max_len"))
+        .and_then(|v| v.parse::<usize>().ok());
+
+    match serde_json::from_str::<serde_json::Value>(&copy_unescape(value)) {
+        Ok(mut json) => {
+            fake_json_value(rng, &mut json, preserve_string_max_len);
+            copy_escape(&json.to_string())
+        }
+        Err(_) => "{}".to_string(),
+    }
+}
+
+fn fake_json_value(
+    rng: &mut SmallRng,
+    json: &mut serde_json::Value,
+    preserve_string_max_len: Option<usize>,
+) {
+    match json {
+        serde_json::Value::String(s) => {
+            let len = s.chars().count();
+            let preserve = preserve_string_max_len.is_some_and(|max| len <= max);
+            if !preserve {
+                *s = fake_words_of_similar_length(rng, len);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                fake_json_value(rng, item, preserve_string_max_len);
+            }
+        }
+        serde_json::Value::Object(map) => {
+            for (_key, val) in map.iter_mut() {
+                fake_json_value(rng, val, preserve_string_max_len);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn fake_words_of_similar_length(rng: &mut SmallRng, target_len: usize) -> String {
+    if target_len == 0 {
+        return String::new();
+    }
+    let mut out: String = Word().fake_with_rng(rng);
+    while out.chars().count() < target_len {
+        out.push(' ');
+        let word: String = Word().fake_with_rng(rng);
+        out.push_str(&word);
+    }
+    out
+}
+
+/// Postgres COPY text-format escapes: a cell holding a literal backslash,
+/// newline, tab or carriage return carries it as `\\`, `\n`, `\t`, `\r`.
+/// JSON columns need these undone before parsing and redone after.
+fn copy_unescape(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    let mut chars = value.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('\\') => out.push('\\'),
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('r') => out.push('\r'),
+                Some(other) => {
+                    out.push('\\');
+                    out.push(other);
+                }
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+fn copy_escape(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for c in value.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\t' => out.push_str("\\t"),
+            '\r' => out.push_str("\\r"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// Rebases a URL onto a different origin, keeping the (identity-preserved) path
+/// and query so deep links keep resolving. Args:
+/// - `base` (required): replacement scheme+host(+port), e.g. "http://localhost:3335"
+/// - `template` (optional): rebuild the value from scratch, interpolating
+///   `{base}` and `{column_name}` from the current row's columns.
+///
+/// Values with no recognisable origin produce `base` alone — a prod host never
+/// survives.
+fn rebase_url(
+    value: &str,
+    args: &Option<HashMap<String, String>>,
+    table_name: &str,
+    column_values: &[(String, String)],
+) -> String {
+    let base = args
+        .as_ref()
+        .and_then(|a| a.get("base"))
+        .unwrap_or_else(|| {
+            panic!(
+                "'base' must be present in args for a RebaseUrl transformer in table: '{}'\ngot: '{:?}'",
+                table_name, args,
+            )
+        });
+    let base = base.trim_end_matches('/');
+
+    if let Some(template) = args.as_ref().and_then(|a| a.get("template")) {
+        return interpolate_url_template(template, base, column_values, table_name);
+    }
+
+    match value.find("://") {
+        Some(scheme_end) => {
+            let after_scheme = &value[scheme_end + 3..];
+            match after_scheme.find('/') {
+                Some(path_start) => format!("{}{}", base, &after_scheme[path_start..]),
+                None => base.to_string(),
+            }
+        }
+        None => base.to_string(),
+    }
+}
+
+fn interpolate_url_template(
+    template: &str,
+    base: &str,
+    column_values: &[(String, String)],
+    table_name: &str,
+) -> String {
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(start) = rest.find('{') {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 1..];
+        let end = after.find('}').unwrap_or_else(|| {
+            panic!(
+                "Unclosed '{{' in RebaseUrl template '{}' for table: '{}'",
+                template, table_name,
+            )
+        });
+        let token = &after[..end];
+        if token == "base" {
+            out.push_str(base);
+        } else {
+            let column_value = column_values
+                .iter()
+                .find(|(col, _)| col == token)
+                .map(|(_, val)| val.as_str())
+                .unwrap_or_else(|| {
+                    panic!(
+                        "RebaseUrl template references column '{}' which is not in the row for table: '{}'",
+                        token, table_name,
+                    )
+                });
+            out.push_str(column_value);
+        }
+        rest = &after[end + 1..];
+    }
+    out.push_str(rest);
+    out
 }
 
 fn fake_first_name(
@@ -2421,5 +2612,222 @@ mod tests {
             None,
         );
         assert_eq!(new_datetime, "2025-02-01 00:00:00");
+    }
+
+    fn fake_json_transform(value: &str, args: Option<HashMap<String, String>>) -> String {
+        let mut rng = rng::get();
+        transform(
+            &mut rng,
+            value,
+            &Type::SingleValue {
+                sub_type: SubType::Unknown {
+                    underlying_type: "jsonb".to_string(),
+                },
+            },
+            &Transformer {
+                name: TransformerType::FakeJson,
+                args,
+            },
+            TABLE_NAME,
+            EMPTY_COLUMNS,
+            None,
+        )
+        .to_string()
+    }
+
+    #[test]
+    fn fake_json_preserves_shape_and_fakes_string_values() {
+        let json = r#"{"answerText": "I built a data pipeline at my last job"}"#;
+        let new_json = fake_json_transform(json, None);
+
+        let parsed: serde_json::Value = serde_json::from_str(&new_json).unwrap();
+        let answer_text = parsed
+            .as_object()
+            .unwrap()
+            .get("answerText")
+            .unwrap()
+            .as_str()
+            .unwrap();
+        assert!(!answer_text.is_empty());
+        assert_ne!(answer_text, "I built a data pipeline at my last job");
+    }
+
+    #[test]
+    fn fake_json_keeps_numbers_booleans_and_null() {
+        let json = r#"{"answerText": 7, "flag": true, "missing": null}"#;
+        let new_json = fake_json_transform(json, None);
+
+        let parsed: serde_json::Value = serde_json::from_str(&new_json).unwrap();
+        let object = parsed.as_object().unwrap();
+        assert_eq!(object.get("answerText").unwrap().as_i64(), Some(7));
+        assert_eq!(object.get("flag").unwrap().as_bool(), Some(true));
+        assert!(object.get("missing").unwrap().is_null());
+    }
+
+    #[test]
+    fn fake_json_preserves_array_lengths_and_element_types() {
+        let json = r#"{"answerText": ["Communication", "Teamwork", 3]}"#;
+        let new_json = fake_json_transform(json, None);
+
+        let parsed: serde_json::Value = serde_json::from_str(&new_json).unwrap();
+        let items = parsed
+            .as_object()
+            .unwrap()
+            .get("answerText")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert_eq!(items.len(), 3);
+        assert!(items[0].is_string());
+        assert!(items[1].is_string());
+        assert_eq!(items[2].as_i64(), Some(3));
+        assert_ne!(items[0].as_str(), Some("Communication"));
+    }
+
+    #[test]
+    fn fake_json_fakes_nested_objects_keeping_keys() {
+        let json = r#"{"blocks": [{"text": "my whole life story", "type": "unstyled"}]}"#;
+        let new_json = fake_json_transform(json, None);
+
+        let parsed: serde_json::Value = serde_json::from_str(&new_json).unwrap();
+        let block = parsed
+            .as_object()
+            .unwrap()
+            .get("blocks")
+            .unwrap()
+            .as_array()
+            .unwrap()[0]
+            .as_object()
+            .unwrap();
+        assert!(block.contains_key("text"));
+        assert!(block.contains_key("type"));
+        assert_ne!(
+            block.get("text").unwrap().as_str(),
+            Some("my whole life story")
+        );
+    }
+
+    #[test]
+    fn fake_json_preserve_string_max_len_keeps_short_strings() {
+        let json =
+            r#"{"answerText": "Yes", "essay": "a very long answer full of personal details"}"#;
+        let args = HashMap::from([("preserve_string_max_len".to_string(), "10".to_string())]);
+        let new_json = fake_json_transform(json, Some(args));
+
+        let parsed: serde_json::Value = serde_json::from_str(&new_json).unwrap();
+        let object = parsed.as_object().unwrap();
+        assert_eq!(object.get("answerText").unwrap().as_str(), Some("Yes"));
+        assert_ne!(
+            object.get("essay").unwrap().as_str(),
+            Some("a very long answer full of personal details")
+        );
+    }
+
+    #[test]
+    fn fake_json_unparseable_input_becomes_empty_json() {
+        assert_eq!(fake_json_transform("not json at all", None), "{}");
+    }
+
+    #[test]
+    fn fake_json_round_trips_copy_escapes() {
+        // A COPY cell carries a JSON-encoded newline as `\\n`; the output must
+        // stay COPY-escaped (no raw backslash-n sequences un-doubled).
+        let json = r#"{"answerText": "line one\\nline two"}"#;
+        let new_json = fake_json_transform(json, None);
+        let parsed: serde_json::Value = serde_json::from_str(&copy_unescape(&new_json)).unwrap();
+        assert!(parsed.as_object().unwrap().contains_key("answerText"));
+    }
+
+    #[test]
+    fn fake_json_null_is_not_transformed() {
+        assert_eq!(fake_json_transform("\\N", None), "\\N");
+    }
+
+    fn rebase_url_transform(value: &str, args: HashMap<String, String>) -> String {
+        let mut rng = rng::get();
+        transform(
+            &mut rng,
+            value,
+            &Type::SingleValue {
+                sub_type: SubType::Character,
+            },
+            &Transformer {
+                name: TransformerType::RebaseUrl,
+                args: Some(args),
+            },
+            TABLE_NAME,
+            &[
+                ("id".to_string(), "123".to_string()),
+                (
+                    "external_id".to_string(),
+                    "0076905c-c5b6-4c9b-b49f-52cac32f644f".to_string(),
+                ),
+            ],
+            None,
+        )
+        .to_string()
+    }
+
+    #[test]
+    fn rebase_url_swaps_origin_and_keeps_path_and_query() {
+        let args = HashMap::from([("base".to_string(), "http://localhost:3335".to_string())]);
+        let new_url = rebase_url_transform(
+            "https://my.multiverse.io/survey/skills-scan/abc-123?step=2",
+            args,
+        );
+        assert_eq!(
+            new_url,
+            "http://localhost:3335/survey/skills-scan/abc-123?step=2"
+        );
+    }
+
+    #[test]
+    fn rebase_url_with_no_path_or_unparseable_value_returns_base() {
+        let args = HashMap::from([("base".to_string(), "http://localhost:3000".to_string())]);
+        assert_eq!(
+            rebase_url_transform("https://my.multiverse.io", args.clone()),
+            "http://localhost:3000"
+        );
+        assert_eq!(
+            rebase_url_transform("mfmxucjjkh not a url", args),
+            "http://localhost:3000"
+        );
+    }
+
+    #[test]
+    fn rebase_url_template_interpolates_base_and_sibling_columns() {
+        let args = HashMap::from([
+            ("base".to_string(), "http://localhost:3335".to_string()),
+            (
+                "template".to_string(),
+                "{base}/survey/skills-scan/{external_id}".to_string(),
+            ),
+        ]);
+        assert_eq!(
+            rebase_url_transform("scrambled garbage", args),
+            "http://localhost:3335/survey/skills-scan/0076905c-c5b6-4c9b-b49f-52cac32f644f"
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "'base' must be present in args")]
+    fn rebase_url_without_base_panics() {
+        rebase_url_transform("https://my.multiverse.io/x", HashMap::new());
+    }
+
+    #[test]
+    #[should_panic(expected = "not in the row")]
+    fn rebase_url_template_with_unknown_column_panics() {
+        let args = HashMap::from([
+            ("base".to_string(), "http://localhost:3335".to_string()),
+            ("template".to_string(), "{base}/x/{nope}".to_string()),
+        ]);
+        rebase_url_transform("anything", args);
+    }
+
+    #[test]
+    fn rebase_url_null_is_not_transformed() {
+        let args = HashMap::from([("base".to_string(), "http://localhost:3335".to_string())]);
+        assert_eq!(rebase_url_transform("\\N", args), "\\N");
     }
 }
