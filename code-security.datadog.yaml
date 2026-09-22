@@ -1,0 +1,40 @@
+# Datadog Code Security configuration for this repository. Each ignore-paths
+# entry below names the code fact its suppression rests on, for the next
+# person who edits this file or the code it points at.
+schema-version: v1.4
+sast:
+  use-default-rulesets: true
+  ruleset-configs:
+    rust-security:
+      rule-configs:
+        insecure-random:
+          # These files construct, seed or receive a SmallRng, but none of them
+          # let the RNG's algorithm affect what a reader can learn about the
+          # original field value. The scramble transformer draws an
+          # independent replacement digit or letter for every character and
+          # never reads the original character back, so a predictable RNG
+          # cannot recover it. The deterministic fakers (email, names,
+          # company, UUID) seed SmallRng from a hash of the field value plus
+          # an optional global salt from the strategy file, so their output
+          # is already fixed by that hash before the RNG runs; swapping the
+          # RNG algorithm here cannot add or remove predictability. The phone
+          # faker reads the original value only to pick a prefix branch; the
+          # digits it emits are independent of that value. row_parser.rs
+          # constructs an RNG only in its own test module, through the shared
+          # helper; its production code paths only thread an existing
+          # generator through.
+          # NOT covered here: the shared helper in rng.rs, because that file
+          # guarantees nothing on its own about how its output is used, and
+          # its construction stays visible for that reason.
+          # NOT covered here: whether a strategy file actually sets a global
+          # salt is a deployment decision made outside this repository's
+          # code, and this exemption does not depend on one being set.
+          # Worth knowing when editing this file: this reasoning holds only
+          # because no transformer currently reads both the original value
+          # and an RNG draw together. A new transformer that combines the two
+          # needs its own review before relying on this exemption, and adding
+          # a new generator to transformer.rs will not be reported while this
+          # entry stands.
+          ignore-paths:
+            - "src/parsers/transformer.rs"
+            - "src/parsers/row_parser.rs"
