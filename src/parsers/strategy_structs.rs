@@ -157,6 +157,7 @@ pub enum TransformerType {
     FakeFullAddress,
     FakeFullName,
     FakeIPv4,
+    FakeJson,
     FakeLastName,
     FakeNationalIdentityNumber,
     FakePhoneNumber,
@@ -169,6 +170,7 @@ pub enum TransformerType {
     Identity,
     ObfuscateDay,
     ObfuscateDateTime,
+    RebaseUrl,
     Scramble,
     ScrambleBlank,
 }
