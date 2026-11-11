@@ -1,0 +1,17 @@
+# Datadog Software Catalog entity for this repository.
+# componentOf joins it to its estate's system, which datadog-tenant defines
+# from the estate registry. Do not define a system here.
+apiVersion: v3
+kind: repository
+metadata:
+  name: "anonymiser"
+  description: "A command line Postgresql database anonymisation tool written in rust"
+  owner: "trust-engineering"
+  links:
+    - name: Source code
+      type: repo
+      provider: Github
+      url: https://github.com/Multiverse-io/anonymiser
+spec:
+  componentOf:
+    - system:trust
